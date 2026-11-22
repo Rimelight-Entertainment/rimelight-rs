@@ -1,0 +1,5 @@
+// Connection state (OQ26, owner answer 2026-11-12; SA.9, owner decision 2026-11-15). The enum the shell reads. While the
+// connection is lost the app shell draws one full-window overlay that blocks the app (see app-shell.slint). There is no
+// banner and no connection word in the status bar.
+
+export enum ConnectionState { connected, reconnecting, offline }

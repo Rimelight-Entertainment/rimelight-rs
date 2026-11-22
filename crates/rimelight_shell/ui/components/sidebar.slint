@@ -1,0 +1,952 @@
+// Sidebar (S9.1, SF.4, option A). The navy contextual sidebar beside the rail (PLAN 6.1). It has two parts:
+//
+// Header. The area title on the left (13px semibold, with the area icon at the gutter when it has one). On the phone drawer
+// a close button (panel-left) sits at the right end of the row (`show-collapse`); desktop hides it, because its collapse
+// button is in the tab row above the top bar. The button only reports the click (`collapse-clicked`).
+//
+// List. The headings, sub-rows and rows of the area in one scrolling list. Drawn from the Tokens global (sidebar colours)
+// and from the one set of sizes in SidebarSize. The Rust side fills `items` (src/slint_ui/shell.rs for the areas,
+// src/slint_ui/chat_sidebar.rs for Chat).
+//
+// Hierarchy (option A, PLAN.md section 6.6 "Sidebar hierarchy rule"). Three levels, told apart by size, colour and marks,
+// not by guide lines:
+//   - Heading: 12px uppercase, muted, with a chevron at the right end. Padding 12px top, 4px bottom.
+//   - Sub-row (Pinned, each Group): 14px, a lighter muted colour than the heading, a 16px icon (pin or folder) and a chevron
+//     at the right end. Collapsed, it shows its rolled-up unread count left of the chevron.
+//   - Row (page or conversation): 15px, a 17px icon, channel tile, chat avatar or room icon at the gutter, then the label. A
+//     row inside Pinned or a Group is pushed right by one fixed step (SidebarSize.child-indent). A row directly under a
+//     heading has none.
+// Every heading, sub-row and row is SidebarSize.row-height (32px) tall, so the rail is uniform.
+//
+// A header click calls `toggled(index)`; the Rust side flips the state and rebuilds. A row click sets `selected` and calls
+// `activated(index)`. The selected row has the selected background and a 3px indicator.
+//
+// Scroll. The list is a ScrollView, so it scrolls when the rows overflow the height. The header stays fixed. The view is
+// clipped to the sidebar width.
+//
+// Elision. Every label is one line (no-wrap) and elides, so a long label ends in an ellipsis and never widens the sidebar.
+import { ScrollView } from "std-widgets.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ButtonSize, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { Input } from "@rimelight_ui/components/input.slint";
+
+// What a row is. A heading is a collapsible section title (the top level of an area or a Chat section). A pinned or group
+// row is a collapsible sub-row inside a Chat section. A page is a route row (selected, activated). A conversation is a
+// route row inside the Chat tree. The three collapsible kinds are drawn by HeaderRow.
+export enum SidebarKind { heading, page, pinned, group, conversation }
+
+// The status of a live record row (OQ12): drawn as a dot with its word, left of the count. The four words are the
+// ones of rimelight_nav `Status` (OK, Attention, Failed, Idle). `none` draws nothing.
+export enum SidebarStatus { none, ok, attention, failed, idle }
+
+// The visual at the left of a conversation row. None for headings, groups, pinned rows and rooms (a room keeps the gutter
+// it draws its door-open icon there, so every label lines up with the others). A channel is a tile (its image, or its first
+// letter), with a lock when private. A chat is a round avatar (its image, or initials).
+export enum SidebarLeading { none, tile, avatar }
+
+// One project of the project switcher (tail C3): its key, its name and its picture (`has-image` false when it has none).
+export struct ProjectChoice {
+    key: string,
+    name: string,
+    image: image,
+    has-image: bool,
+    // The initials drawn when the project has no picture.
+    initials: string,
+}
+
+export struct SidebarItem {
+    label: string,
+    // true for a section heading, which is drawn muted and is collapsible. Same as kind == heading.
+    header: bool,
+    // The Lucide icon of the row (set by the Rust builders), or no image for a heading.
+    icon: image,
+    kind: SidebarKind,
+    // Collapsible rows (heading, pinned, group): true when their children show. Drawn as chevron-down, else chevron-right.
+    expanded: bool,
+    // Unread count. Above zero it draws a badge; a collapsed collapsible row shows its rolled-up count.
+    count: int,
+    // Status of a live record (a dot and its word, OQ12). `none` for every row that is not a live record.
+    status: SidebarStatus,
+    // Bold label (unread conversations). Drawn at medium weight and a brighter colour.
+    bold: bool,
+    // The conversation's left visual (see SidebarLeading) and its picture (empty when none: the initials or first letter show).
+    leading: SidebarLeading,
+    image: image,
+    initials: string,
+    // true for a private channel (the lock marker on its tile).
+    private: bool,
+    // Member count shown on a room row (0 hides it).
+    people: int,
+    // true for a row inside a Pinned or Group sub-row: it is drawn one fixed step to the right (SidebarSize.child-indent).
+    indented: bool,
+}
+
+// The one set of sizes for every heading, sub-row and row. Geometry is fixed in px at the 15px row base. Text sizes pass
+// through Type.scaled, so the text-scale setting still applies to the words.
+export global SidebarSize {
+    out property <length> header-height: 36px * Tokens.zoom-factor;
+    // Every heading, sub-row and row. A heading is 12px + 16px line + 4px, so it fills the same height.
+    out property <length> row-height: 32px * Tokens.zoom-factor;
+    out property <length> pad-x: 10px * Tokens.zoom-factor;
+    out property <length> gap: 9px * Tokens.zoom-factor;
+    out property <length> icon: 17px * Tokens.zoom-factor;
+    out property <length> sub-icon: 16px * Tokens.zoom-factor;
+    out property <length> sub-gap: 7px * Tokens.zoom-factor;
+    // The one fixed step for rows inside Pinned or a Group: the icon-gutter width (icon plus 2px).
+    out property <length> child-indent: 19px * Tokens.zoom-factor;
+    out property <length> chevron: 15px * Tokens.zoom-factor;
+    out property <length> heading-top: 12px * Tokens.zoom-factor;
+    out property <length> heading-line: 16px * Tokens.zoom-factor;
+    out property <length> heading-font: 12px * Tokens.zoom-factor;
+    out property <length> heading-tracking: 0.72px * Tokens.zoom-factor;
+    out property <length> sub-font: 14px * Tokens.zoom-factor;
+    out property <length> row-font: 15px * Tokens.zoom-factor;
+    out property <length> count-font: 12px * Tokens.zoom-factor;
+    out property <length> count-height: 19px * Tokens.zoom-factor;
+    out property <length> count-pad-x: 6px * Tokens.zoom-factor;
+    out property <length> count-gap: 6px * Tokens.zoom-factor;
+    out property <length> status-dot: 8px * Tokens.zoom-factor;
+    out property <length> status-gap: 4px * Tokens.zoom-factor;
+    out property <length> tile: 17px * Tokens.zoom-factor;
+    out property <length> avatar: 18px * Tokens.zoom-factor;
+    out property <length> lock: 11px * Tokens.zoom-factor;
+    out property <length> people-icon: 12px * Tokens.zoom-factor;
+    out property <length> people-gap: 3px * Tokens.zoom-factor;
+    out property <length> indicator: 3px * Tokens.zoom-factor;
+}
+
+// The rolled-up or unread count: a pill (12px text, 19px tall, 6px side padding, fully rounded), accent-filled.
+component SidebarCount inherits Rectangle {
+    in property <int> count;
+    height: SidebarSize.count-height;
+    width: Math.max(SidebarSize.count-height, label.preferred-width + SidebarSize.count-pad-x * 2);
+    border-radius: Tokens.radius-pill;
+    background: Tokens.accent-fill;
+
+    label := Text {
+        width: parent.width;
+        height: parent.height;
+        text: "\{root.count}";
+        color: Tokens.text-on-accent;
+        font-family: Type.caption.family;
+        font-size: Type.scaled(SidebarSize.count-font);
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// A heading, a Pinned sub-row or a Group sub-row. A heading is 12px uppercase (the caller uppercases the text) with its 12px
+// top pad. A sub-row is 14px, a lighter muted colour and an optional 16px icon at the gutter. Both have a chevron at the
+// right end (down when expanded, right when collapsed). A collapsed row shows its rolled-up count left of the chevron.
+component HeaderRow inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> expanded;
+    in property <int> count;
+    // true for a section heading; false for a Pinned or Group sub-row.
+    in property <bool> heading;
+    callback clicked();
+
+    // The heading is muted. A sub-row is halfway to the brighter sidebar text, so it reads as lighter than the heading.
+    property <color> ink: root.heading ? Tokens.sidebar-text-muted : Tokens.sidebar-text-muted.mix(Tokens.sidebar-text, 0.5);
+    property <length> text-x: root.icon.width > 0 ? SidebarSize.pad-x + SidebarSize.sub-icon + SidebarSize.sub-gap : SidebarSize.pad-x;
+    // The width the rolled-up count takes (0 when hidden), with its gap.
+    property <length> count-slot: count-pill.visible ? count-pill.width + SidebarSize.count-gap : 0px;
+
+    background: ta.has-hover ? Tokens.sidebar-hover-bg : transparent;
+    border-radius: Tokens.radius-r6;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.clicked(); }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    if root.icon.width > 0 : Image {
+        x: SidebarSize.pad-x;
+        y: (parent.height - self.height) / 2;
+        width: SidebarSize.sub-icon;
+        height: SidebarSize.sub-icon;
+        source: root.icon;
+        colorize: root.ink;
+    }
+
+    Text {
+        x: root.text-x;
+        y: root.heading ? SidebarSize.heading-top : 0px;
+        width: parent.width - root.text-x - SidebarSize.pad-x - SidebarSize.chevron - SidebarSize.gap - root.count-slot;
+        height: root.heading ? SidebarSize.heading-line : parent.height;
+        text: root.text;
+        color: root.ink;
+        font-family: Type.caption.family;
+        font-size: Type.scaled(root.heading ? SidebarSize.heading-font : SidebarSize.sub-font);
+        font-weight: root.heading ? 600 : 500;
+        letter-spacing: root.heading ? SidebarSize.heading-tracking : 0px;
+        wrap: no-wrap;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+
+    count-pill := SidebarCount {
+        x: parent.width - SidebarSize.pad-x - SidebarSize.chevron - SidebarSize.count-gap - self.width;
+        // A heading's label sits in its own band below the top pad, so the count centres on that band, not the whole row.
+        y: root.heading ? SidebarSize.heading-top + (SidebarSize.heading-line - self.height) / 2 : (parent.height - self.height) / 2;
+        count: root.count;
+        visible: root.count > 0 && !root.expanded;
+    }
+
+    Image {
+        x: parent.width - SidebarSize.pad-x - self.width;
+        // The chevron centres on the label line (see the count above), so it lines up with a heading's text.
+        y: root.heading ? SidebarSize.heading-top + (SidebarSize.heading-line - self.height) / 2 : (parent.height - self.height) / 2;
+        width: SidebarSize.chevron;
+        height: SidebarSize.chevron;
+        source: root.expanded ? Icons.chevron-down : Icons.chevron-right;
+        colorize: root.ink;
+    }
+}
+
+// A page or conversation row: a route button (selected, activated). The gutter holds the icon (a page, a room), the channel
+// tile or the chat avatar, all at the same left edge. The label follows it at 15px. At the right end sit the people count (rooms)
+// and the unread badge. A row inside a sub-row is pushed right by SidebarSize.child-indent.
+component SidebarRow inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <SidebarLeading> leading;
+    in property <image> image;
+    in property <string> initials;
+    in property <bool> private;
+    in property <bool> bold;
+    in property <bool> selected;
+    in property <bool> indented;
+    in property <int> count;
+    in property <SidebarStatus> status;
+    in property <int> people;
+    callback clicked();
+    // A middle-button release, or a left click with Ctrl (Cmd on macOS) held, asks for the row in a new tab (IA section 9).
+    callback new-tab-clicked();
+    // Set on a press: true when the press should open the row in a new tab (read by the click, which comes after it).
+    property <bool> new-tab-pending: false;
+
+    property <length> icon-x: (root.indented ? SidebarSize.child-indent : 0px) + SidebarSize.pad-x;
+    property <length> text-x: root.icon-x + SidebarSize.icon + SidebarSize.gap;
+    property <color> ink: (root.selected || root.bold) ? Tokens.sidebar-selected-text : Tokens.sidebar-text;
+    // The right side, from the right edge inwards: the unread badge, then the people count (rooms) before it.
+    // The status (dot and word) sits left of the badge. Both take room from the label, so the label elides first.
+    property <bool> has-status: root.status != SidebarStatus.none;
+    property <color> status-colour: root.status == SidebarStatus.ok ? Tokens.status-success
+        : (root.status == SidebarStatus.attention ? Tokens.status-warning
+        : (root.status == SidebarStatus.failed ? Tokens.status-danger : Tokens.sidebar-text-muted));
+    property <string> status-word: root.status == SidebarStatus.ok ? "OK"
+        : (root.status == SidebarStatus.attention ? "Attention"
+        : (root.status == SidebarStatus.failed ? "Failed" : (root.status == SidebarStatus.idle ? "Idle" : "")));
+    property <length> count-part: count-pill.visible ? count-pill.width + SidebarSize.count-gap : 0px;
+    property <length> status-width: root.has-status ? SidebarSize.status-dot + SidebarSize.status-gap + status-text.preferred-width + SidebarSize.count-gap : 0px;
+    property <length> count-slot: root.count-part + root.status-width;
+    property <length> people-end: root.width - SidebarSize.pad-x - root.count-slot;
+    property <length> left-tail: people-text.visible ? people-icon.x : root.people-end;
+
+    background: root.selected ? Tokens.sidebar-selected-bg : (ta.has-hover ? Tokens.sidebar-hover-bg : transparent);
+    border-radius: Tokens.radius-r6;
+    border-width: fs.has-focus ? 2px : 0px;
+    border-color: Tokens.focus-ring;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+
+    // `clicked` comes from the left button only, after the press. The press records the modifier state, so a Ctrl or Cmd click
+    // is told apart from a plain one. A middle-button release opens a new tab on its own (Slint sends no `clicked` for it).
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                root.new-tab-pending = event.button == PointerEventButton.left && (event.modifiers.control || event.modifiers.meta);
+            } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.middle) {
+                root.new-tab-clicked();
+            }
+        }
+        clicked => {
+            if (root.new-tab-pending) {
+                root.new-tab-clicked();
+            } else {
+                root.clicked();
+            }
+        }
+    }
+
+    // focus-on-click is false (as on Button): a pointer press must reach `ta`, not be taken here. Otherwise the first press
+    // gives this scope focus and is accepted here, so `ta` never sees it and the row is not activated.
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // The selected indicator, on the left edge.
+    if root.selected : Rectangle {
+        x: 0px;
+        width: SidebarSize.indicator;
+        height: parent.height;
+        background: Tokens.sidebar-selected-indicator;
+    }
+
+    // A page's Lucide icon.
+    if root.icon.width > 0 : Image {
+        x: root.icon-x;
+        y: (parent.height - self.height) / 2;
+        width: SidebarSize.icon;
+        height: SidebarSize.icon;
+        source: root.icon;
+        colorize: root.selected ? Tokens.sidebar-selected-text : Tokens.sidebar-icon;
+    }
+
+    // A channel: a 17px rounded tile with its picture or first letter, and an 11px lock marker on its corner when private.
+    if root.leading == SidebarLeading.tile : Rectangle {
+        x: root.icon-x;
+        y: (parent.height - self.height) / 2;
+        width: SidebarSize.tile;
+        height: SidebarSize.tile;
+
+        Rectangle {
+            width: parent.width;
+            height: parent.height;
+            border-radius: Tokens.radius-r4;
+            background: Tokens.sidebar-hover-bg;
+            clip: true;
+
+            if root.image.width > 0 : Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.image;
+            }
+            if root.image.width <= 0 : Text {
+                width: parent.width;
+                height: parent.height;
+                text: root.initials;
+                color: Tokens.sidebar-text;
+                font-family: Type.caption.family;
+                font-size: Type.scaled(7px);
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        if root.private : Rectangle {
+            x: parent.width - SidebarSize.lock + 3px;
+            y: parent.height - SidebarSize.lock + 3px;
+            width: SidebarSize.lock;
+            height: SidebarSize.lock;
+            border-radius: SidebarSize.lock / 2;
+            background: Tokens.sidebar-bg;
+
+            Image {
+                width: 7px;
+                height: 7px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: Icons.lock;
+                colorize: Tokens.sidebar-text;
+            }
+        }
+    }
+
+    // A chat: an 18px round avatar with its picture or initials.
+    if root.leading == SidebarLeading.avatar : Rectangle {
+        x: root.icon-x;
+        y: (parent.height - self.height) / 2;
+        width: SidebarSize.avatar;
+        height: SidebarSize.avatar;
+        border-radius: SidebarSize.avatar / 2;
+        background: Tokens.sidebar-hover-bg;
+        clip: true;
+
+        if root.image.width > 0 : Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.image;
+        }
+        if root.image.width <= 0 : Text {
+            width: parent.width;
+            height: parent.height;
+            text: root.initials;
+            color: Tokens.sidebar-text;
+            font-family: Type.caption.family;
+            font-size: Type.scaled(7px);
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    label := Text {
+        x: root.text-x;
+        width: root.left-tail - root.text-x - (people-text.visible ? SidebarSize.count-gap : 0px);
+        height: parent.height;
+        text: root.text;
+        color: root.ink;
+        font-family: Type.body.family;
+        font-size: Type.scaled(SidebarSize.row-font);
+        font-weight: root.bold ? 500 : 400;
+        wrap: no-wrap;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+
+    // The room's people count, left of the badge: a 12px users icon and the number, both muted.
+    people-text := Text {
+        visible: root.people > 0;
+        x: root.people-end - self.preferred-width;
+        width: self.preferred-width;
+        height: parent.height;
+        text: "\{root.people}";
+        color: Tokens.sidebar-text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.scaled(SidebarSize.count-font);
+        font-weight: 400;
+        vertical-alignment: center;
+    }
+
+    people-icon := Image {
+        visible: root.people > 0;
+        x: people-text.x - SidebarSize.people-gap - self.width;
+        y: (parent.height - self.height) / 2;
+        width: SidebarSize.people-icon;
+        height: SidebarSize.people-icon;
+        source: Icons.users;
+        colorize: Tokens.sidebar-text-muted;
+    }
+
+    count-pill := SidebarCount {
+        x: parent.width - SidebarSize.pad-x - self.width;
+        y: (parent.height - self.height) / 2;
+        count: root.count;
+        visible: root.count > 0;
+    }
+
+    // The live status: a dot, then its word, left of the badge. Hidden for `none`.
+    status-group := Rectangle {
+        visible: root.has-status;
+        x: root.width - SidebarSize.pad-x - root.count-part - root.status-width;
+        width: root.status-width;
+        height: parent.height;
+
+        status-mark := Rectangle {
+            x: 0px;
+            y: (parent.height - self.height) / 2;
+            width: SidebarSize.status-dot;
+            height: SidebarSize.status-dot;
+            border-radius: Tokens.radius-pill;
+            background: root.status-colour;
+        }
+
+        status-text := Text {
+            x: SidebarSize.status-dot + SidebarSize.status-gap;
+            width: self.preferred-width;
+            height: parent.height;
+            text: root.status-word;
+            color: Tokens.sidebar-text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.scaled(SidebarSize.count-font);
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// The back row at the top of the phone drawer (tail C2): an arrow and "More", the way back from an area's tree to the More
+// list. Shown only when `Sidebar.back-row` is true. A click reports `back-clicked`; the shell shows the More list.
+component BackRow inherits Rectangle {
+    callback clicked();
+
+    height: SidebarSize.row-height;
+    background: ta.has-hover ? Tokens.sidebar-hover-bg : transparent;
+    border-radius: Tokens.radius-r6;
+
+    HorizontalLayout {
+        padding-left: SidebarSize.pad-x;
+        spacing: SidebarSize.gap;
+        alignment: start;
+
+        Image {
+            width: SidebarSize.icon;
+            height: SidebarSize.icon;
+            y: (parent.height - self.height) / 2;
+            source: Icons.arrow-left;
+            colorize: Tokens.sidebar-text;
+        }
+
+        Text {
+            text: "More";
+            color: Tokens.sidebar-text;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    ta := TouchArea {
+        accessible-role: button;
+        accessible-label: "Back to More";
+        clicked => { root.clicked(); }
+    }
+}
+
+// The project switcher (tail C3; IA section 3, OQ9): the Projects context header's name. The name and a chevrons-up-down
+// mark open a list of every project, with a filter field above it. Picking a project reports its key. The filter reports
+// the field's text, and the shell narrows `projects` to the matches.
+component ProjectSwitch inherits Rectangle {
+    in property <string> name;
+    in property <string> current-key;
+    in property <[ProjectChoice]> projects;
+    // The current project's picture, drawn left of its name when `current-has-image` is true.
+    in property <image> current-image;
+    in property <bool> current-has-image: false;
+    // The current project's initials, drawn in the trigger when it has no picture.
+    in property <string> current-initials;
+    // The sidebar's width: the switcher's list is as wide as the sidebar header.
+    in property <length> sidebar-width;
+    // The most rows the list shows before it scrolls.
+    property <length> list-max-height: 320px;
+    callback filter-changed(string);
+    callback picked(string);
+    // "Create New Project" in the list: opens the create dialog (the shell owns it).
+    callback create-requested();
+
+    background: transparent;
+
+    trigger := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        background: ta.has-hover ? Tokens.sidebar-hover-bg : transparent;
+        border-radius: Tokens.radius-r6;
+
+        HorizontalLayout {
+            padding-left: SidebarSize.pad-x;
+            padding-right: Tokens.space-1;
+            spacing: SidebarSize.gap;
+            alignment: stretch;
+
+            if root.current-has-image : Image {
+                width: 24px;
+                height: 24px;
+                y: (parent.height - self.height) / 2;
+                source: root.current-image;
+                image-fit: contain;
+            }
+
+            if !root.current-has-image : Rectangle {
+                width: 24px;
+                height: 24px;
+                y: (parent.height - self.height) / 2;
+                border-radius: Tokens.radius-r6;
+                background: Tokens.sidebar-divider;
+
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: root.current-initials;
+                    color: Tokens.sidebar-text-muted;
+                    font-family: Type.caption.family;
+                    font-size: Type.caption.size;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.name;
+                color: Tokens.sidebar-text;
+                font-family: Type.body-strong.family;
+                font-size: Type.scaled(SidebarSize.row-font);
+                font-weight: 600;
+                wrap: no-wrap;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+
+            Image {
+                width: SidebarSize.chevron;
+                height: SidebarSize.chevron;
+                y: (parent.height - self.height) / 2;
+                source: Icons.chevrons-up-down;
+                colorize: Tokens.sidebar-text-muted;
+            }
+        }
+
+        ta := TouchArea {
+            accessible-role: button;
+            accessible-label: "Switch project, \{root.name}";
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    pop.trigger-pressed();
+                }
+            }
+            clicked => { pop.trigger-clicked(); }
+        }
+    }
+
+    // Closes the project list when it is open (the shell's Back key, gaps D7). True when it was open.
+    public function close-menu() -> bool {
+        if (pop.is-open) {
+            pop.close();
+            return true;
+        }
+        return false;
+    }
+
+    // True while the project list is open (read by tests).
+    out property <bool> menu-open: pop.is-open;
+
+    // Test hook: a click on the switcher's name, as its touch area's clicked handler does.
+    public function test-open-menu() {
+        pop.trigger-clicked();
+    }
+
+    pop := Popover {
+        x: 0px;
+        y: 0px;
+        accessible-name: "Projects";
+        anchor-height: SidebarSize.header-height;
+        panel-width: root.sidebar-width;
+        content-padding: Tokens.space-2;
+
+        VerticalLayout {
+            spacing: Tokens.space-2;
+
+            Input {
+                placeholder: "Filter projects";
+                accessible-name: "Filter projects";
+                changed(value) => { root.filter-changed(value); }
+            }
+
+            Rectangle {
+                height: Tokens.size-menu-row-height;
+                background: create-ta.has-hover ? Tokens.button-ghost-bg-hover : transparent;
+                border-radius: Tokens.radius-r6;
+
+                HorizontalLayout {
+                    padding-left: Tokens.space-2;
+                    padding-right: Tokens.space-2;
+                    spacing: Tokens.space-2;
+
+                    Image {
+                        width: Icons.small-size;
+                        height: Icons.small-size;
+                        y: (parent.height - self.height) / 2;
+                        source: Icons.plus;
+                        colorize: Tokens.text-primary;
+                    }
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: "Create New Project";
+                        color: Tokens.text-primary;
+                        font-family: Type.body.family;
+                        font-size: Type.body.size;
+                        font-weight: Type.body.weight;
+                        overflow: elide;
+                        wrap: no-wrap;
+                        vertical-alignment: center;
+                    }
+                }
+
+                create-ta := TouchArea {
+                    accessible-role: button;
+                    accessible-label: "Create New Project";
+                    clicked => {
+                        root.create-requested();
+                        pop.close();
+                    }
+                }
+            }
+
+            // The list takes the height its rows need, up to `list-max-height`; beyond that it scrolls.
+            ScrollView {
+                height: min(root.projects.length * Tokens.size-menu-row-height, root.list-max-height);
+                horizontal-scrollbar-policy: always-off;
+                content-height: list.height;
+
+                list := VerticalLayout {
+                    width: parent.width;
+                    height: root.projects.length * Tokens.size-menu-row-height;
+
+                    for project in root.projects : Rectangle {
+                        height: Tokens.size-menu-row-height;
+                        background: row-ta.has-hover ? Tokens.button-ghost-bg-hover : transparent;
+                        border-radius: Tokens.radius-r6;
+
+                        HorizontalLayout {
+                            padding-left: Tokens.space-2;
+                            padding-right: Tokens.space-2;
+                            spacing: Tokens.space-2;
+
+                            if project.has-image : Image {
+                                width: 24px;
+                                height: 24px;
+                                y: (parent.height - self.height) / 2;
+                                source: project.image;
+                                image-fit: contain;
+                            }
+
+                            if !project.has-image : Rectangle {
+                                width: 24px;
+                                height: 24px;
+                                y: (parent.height - self.height) / 2;
+                                border-radius: Tokens.radius-r6;
+                                background: Tokens.button-ghost-bg-hover;
+
+                                Text {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    text: project.initials;
+                                    color: Tokens.text-muted;
+                                    font-family: Type.caption.family;
+                                    font-size: Type.caption.size;
+                                    font-weight: 600;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                text: project.name;
+                                color: Tokens.text-primary;
+                                font-family: Type.body.family;
+                                font-size: Type.body.size;
+                                font-weight: Type.body.weight;
+                                overflow: elide;
+                                wrap: no-wrap;
+                                vertical-alignment: center;
+                            }
+
+                            if project.key == root.current-key : Image {
+                                width: Icons.small-size;
+                                height: Icons.small-size;
+                                y: (parent.height - self.height) / 2;
+                                source: Icons.check;
+                                colorize: Tokens.text-primary;
+                            }
+                        }
+
+                        row-ta := TouchArea {
+                            accessible-role: button;
+                            accessible-label: project.name;
+                            clicked => {
+                                root.picked(project.key);
+                                pop.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    // The phone drawer shows a back row above the header when it was opened from the More list (tail C2).
+    in property <bool> back-row: false;
+    callback back-clicked();
+    // The project switcher (tail C3): on the Projects area the header's name is the switcher, over `projects` (the list the
+    // shell narrows by the filter) with `project-key` the current project.
+    in property <bool> switcher: false;
+    in property <[ProjectChoice]> projects;
+    in property <string> project-key;
+    // The current project's picture, for the switcher's trigger.
+    in property <image> project-image;
+    in property <bool> project-has-image: false;
+    in property <string> project-initials;
+    callback project-filter-changed(string);
+    callback project-picked(string);
+    callback project-create-requested();
+    in property <string> title;
+    // The area icon, drawn left of the title in the header (at the same gutter as the rows).
+    in property <image> icon;
+    in property <[SidebarItem]> items;
+    in-out property <int> selected: -1;
+    callback activated(int);
+    // A page or conversation row was asked to open in a new tab: Ctrl+click (Cmd+click on macOS) or a middle-button click.
+    callback opened-in-new-tab(int);
+    // The collapse button at the right end of the header. The phone drawer uses it to close. Desktop turns it off: its
+    // collapse button sits in the tab row above the top bar (app-shell.slint).
+    in property <bool> show-collapse: true;
+    callback collapse-clicked();
+    // Whether the collapse button is drawn.
+    out property <bool> test-has-collapse: collapse.visible;
+    // A collapsible row (heading, pinned or group) was clicked: the Rust side flips its expanded state and rebuilds the rows.
+    callback toggled(int);
+    // How far the list is scrolled (0 at the top) and how far it can scroll (0 when every row fits). The tests read them.
+    out property <length> scroll-offset: -scroll.content-y;
+    // Closes the project list of the switcher when it is open (the shell's Back key, gaps D7). True when it was open.
+    public function close-switcher() -> bool {
+        return root.switcher && project-switch.close-menu();
+    }
+    // True while the project list of the switcher is open (read by tests).
+    out property <bool> switcher-open: root.switcher && project-switch.menu-open;
+    // Test hook: opens the project list, as a click on the switcher's name does.
+    public function test-open-switcher() {
+        project-switch.test-open-menu();
+    }
+    out property <length> scroll-extent: max(0px, scroll.content-height - scroll.height);
+    // Test state: the width of a page row in the list (the list's width less its side padding). A long label row must not be
+    // wider than the sidebar.
+    out property <length> test-row-width: list.width - Tokens.space-2 * 2;
+
+    width: Tokens.size-sidebar-width;
+    background: Tokens.sidebar-bg;
+    clip: true;
+
+    VerticalLayout {
+        if root.back-row : BackRow {
+            clicked => { root.back-clicked(); }
+        }
+
+        // Header row: the title (with the area icon), then the collapse button at the right end, both centred vertically.
+        header := Rectangle {
+            height: SidebarSize.header-height;
+            background: transparent;
+
+            if root.icon.width > 0 && !root.switcher : Image {
+                x: SidebarSize.pad-x;
+                y: (parent.height - self.height) / 2;
+                width: SidebarSize.icon;
+                height: SidebarSize.icon;
+                source: root.icon;
+                colorize: Tokens.sidebar-text;
+            }
+
+            if !root.switcher : Text {
+                x: root.icon.width > 0 ? SidebarSize.pad-x + SidebarSize.icon + SidebarSize.gap : SidebarSize.pad-x;
+                y: 0px;
+                width: parent.width - self.x - (root.show-collapse ? collapse.width : 0px) - Tokens.space-2 * 2;
+                height: parent.height;
+                text: root.title;
+                color: Tokens.sidebar-text;
+                font-family: Type.body-strong.family;
+                font-size: Type.scaled(SidebarSize.row-font);
+                font-weight: 600;
+                wrap: no-wrap;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+
+            project-switch := ProjectSwitch {
+                visible: root.switcher;
+                x: 0px;
+                y: 0px;
+                width: parent.width - (root.show-collapse ? Tokens.size-control-sm + Tokens.space-2 * 3 : 0px);
+                height: parent.height;
+                name: root.title;
+                current-key: root.project-key;
+                current-image: root.project-image;
+                current-has-image: root.project-has-image;
+                current-initials: root.project-initials;
+                sidebar-width: root.width;
+                projects: root.projects;
+                filter-changed(text) => { root.project-filter-changed(text); }
+                picked(key) => { root.project-picked(key); }
+                create-requested => { root.project-create-requested(); }
+            }
+
+            collapse := IconButton {
+                visible: root.show-collapse;
+                x: parent.width - self.width - Tokens.space-2;
+                y: (parent.height - self.height) / 2;
+                width: Tokens.size-control-sm;
+                height: Tokens.size-control-sm;
+                icon: Icons.panel-left;
+                label: "Collapse sidebar";
+                tooltip: "Collapse sidebar";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                on-sidebar: true;
+                clicked => { root.collapse-clicked(); }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Tokens.sidebar-divider;
+        }
+
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            horizontal-scrollbar-policy: always-off;
+            content-height: list.height;
+
+            // Every heading, sub-row and row is the same height, so the list's height is its count times the row height. The
+            // rows sit inside a small inset on both sides, so the rounded row buttons float inside the sidebar.
+            list := VerticalLayout {
+                width: parent.width;
+                padding-left: Tokens.space-2;
+                padding-right: Tokens.space-2;
+                height: root.items.length * SidebarSize.row-height;
+                for item[index] in root.items : Rectangle {
+                    height: SidebarSize.row-height;
+                    background: transparent;
+                    clip: true;
+
+                    // A collapsible header: a section heading, a Pinned row or a Group row. Toggled, not selected.
+                    if item.kind == SidebarKind.heading || item.kind == SidebarKind.pinned || item.kind == SidebarKind.group : HeaderRow {
+                        x: 0px;
+                        y: 0px;
+                        width: parent.width;
+                        height: parent.height;
+                        text: item.label;
+                        icon: item.icon;
+                        expanded: item.expanded;
+                        count: item.count;
+                        heading: item.kind == SidebarKind.heading;
+                        clicked => { root.toggled(index); }
+                    }
+
+                    // A page or conversation row: a route (selected, activated).
+                    if item.kind == SidebarKind.page || item.kind == SidebarKind.conversation : SidebarRow {
+                        x: 0px;
+                        y: 0px;
+                        width: parent.width;
+                        height: parent.height;
+                        text: item.label;
+                        icon: item.icon;
+                        leading: item.leading;
+                        image: item.image;
+                        initials: item.initials;
+                        private: item.private;
+                        bold: item.bold;
+                        selected: index == root.selected;
+                        indented: item.indented;
+                        count: item.count;
+                        status: item.status;
+                        people: item.people;
+                        clicked => {
+                            root.selected = index;
+                            root.activated(index);
+                        }
+                        new-tab-clicked => { root.opened-in-new-tab(index); }
+                    }
+                }
+            }
+        }
+    }
+}

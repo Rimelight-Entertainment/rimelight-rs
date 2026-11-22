@@ -1,0 +1,189 @@
+// Shortcuts dialog (IA section 9, owner direction 2026-11-12). The list of keyboard shortcuts, grouped as Navigation,
+// Create and Panes. Each row is an action, its key chips (Kbd) and, for a shortcut that is not built yet, a Planned tag.
+// Opened by the status bar Shortcuts button and by "?" in AppShell; not on a phone (OQ29). Built on the Dialog, so it
+// closes on Escape and its close button, and focus returns to the opener.
+//
+// The rows are a model (`sections`), drawn by `for` loops. The model is outside the popup, so the tests read the rows from it.
+//
+// Platform keys. On macOS the Ctrl and Alt keys are shown as Cmd and Option (the shortcuts there use Cmd and Option).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Dialog, DialogSize } from "@rimelight_ui/components/dialog.slint";
+import { Kbd } from "@rimelight_ui/components/kbd.slint";
+import { Tag } from "@rimelight_ui/components/tag.slint";
+import { BadgeTone } from "@rimelight_ui/components/badge.slint";
+
+// One shortcut: what it does, its keys, and whether it is planned (not built yet). `has-other` and `other-keys` are a second
+// way to do the same action, joined by "or".
+export struct ShortcutItem {
+    label: string,
+    keys: [string],
+    planned: bool,
+    has-other: bool,
+    other-keys: [string],
+}
+
+// A group: its heading and its rows.
+export struct ShortcutSection {
+    title: string,
+    rows: [ShortcutItem],
+}
+
+// One shortcut row, drawn from a ShortcutItem.
+component ShortcutRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <[string]> keys;
+    in property <bool> planned: false;
+    // A second way to do the same action (the Back and Forward rows): its keys follow the first, joined by "or".
+    in property <bool> has-other: false;
+    in property <[string]> other-keys;
+
+    spacing: Tokens.space-3;
+    alignment: stretch;
+
+    Text {
+        horizontal-stretch: 1;
+        text: root.label;
+        color: root.planned ? Tokens.text-muted : Tokens.text-primary;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        wrap: word-wrap;
+        vertical-alignment: center;
+        accessible-role: text;
+        accessible-label: root.label;
+    }
+
+    if root.planned : Tag {
+        label: "Planned";
+        tone: BadgeTone.neutral;
+    }
+
+    Kbd {
+        keys: root.keys;
+    }
+
+    if root.has-other : Text {
+        text: "or";
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        vertical-alignment: center;
+        accessible-role: text;
+        accessible-label: "or";
+    }
+
+    if root.has-other : Kbd {
+        keys: root.other-keys;
+    }
+}
+
+// A heading and its rows.
+component ShortcutGroup inherits VerticalLayout {
+    in property <string> title;
+
+    spacing: Tokens.space-2;
+
+    Text {
+        text: root.title;
+        color: Tokens.text-muted;
+        font-family: Tokens.type-caption-family;
+        font-size: Tokens.type-caption-size;
+        font-weight: Tokens.type-caption-weight;
+        accessible-role: text;
+        accessible-label: root.title;
+    }
+
+    @children
+}
+
+export component ShortcutsDialog inherits Rectangle {
+    // True on macOS: Cmd and Option replace Ctrl and Alt in the key chips (set from the window).
+    in property <bool> mac-keys: false;
+    // Size of the window the dialog covers (see Dialog).
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    // True while the dialog is shown.
+    out property <bool> is-open: dlg.is-open;
+
+    // The key names for the platform.
+    property <string> ctrl: root.mac-keys ? "Cmd" : "Ctrl";
+    property <string> alt: root.mac-keys ? "Option" : "Alt";
+
+    // The rows, by group. Read by the tests (a popup's children cannot be read from outside the popup, so the rows live here).
+    out property <[ShortcutSection]> sections: [
+        {
+            title: "Navigation",
+            rows: [
+                { label: "Open the command palette", keys: [root.ctrl, "K"], planned: false, has-other: false, other-keys: [] },
+                { label: "Show this list", keys: ["?"], planned: false, has-other: false, other-keys: [] },
+                { label: "Switch to workspace 1 to 9", keys: [root.ctrl, root.alt, "1 to 9"], planned: false, has-other: false, other-keys: [] },
+                // No key yet: Ctrl+Alt+T is the new workspace shortcut.
+                { label: "Cycle the theme: system, light, dark", keys: [], planned: true, has-other: false, other-keys: [] },
+            ],
+        },
+        {
+            title: "Create",
+            rows: [
+                { label: "Open the quick action menu", keys: [root.ctrl, root.alt, "N"], planned: false, has-other: false, other-keys: [] },
+                { label: "New workspace", keys: [root.ctrl, root.alt, "T"], planned: false, has-other: false, other-keys: [] },
+            ],
+        },
+        {
+            title: "Panes",
+            // One row per action. Ctrl+[ (Cmd+[ on macOS) is the second way back; it is listed on macOS only, because on
+            // Windows the key arrives as Escape and does not go back (IA section 9). Forward's second way is Ctrl+].
+            rows: [
+                { label: "Back in the current page tab", keys: [root.alt, "Left"], planned: false, has-other: root.mac-keys, other-keys: ["Cmd", "["] },
+                { label: "Forward in the current page tab", keys: [root.alt, "Right"], planned: false, has-other: true, other-keys: [root.ctrl, "]"] },
+                { label: "Reopen the last closed page tab", keys: [root.ctrl, root.alt, "Shift", "T"], planned: false, has-other: false, other-keys: [] },
+                { label: "Close the active workspace", keys: [root.ctrl, root.alt, "W"], planned: false, has-other: false, other-keys: [] },
+                { label: "Reopen the last closed workspace", keys: [root.ctrl, root.alt, "Shift", "W"], planned: false, has-other: false, other-keys: [] },
+            ],
+        },
+    ];
+
+    // Shows the dialog. Focus the opener first (the caller does, as the Dialog contract asks).
+    public function open() {
+        dlg.open();
+    }
+
+    public function close() {
+        dlg.close();
+    }
+
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    dlg := Dialog {
+        title: "Keyboard shortcuts";
+        description: "Shortcuts marked Planned are not built yet.";
+        size: DialogSize.lg;
+        close-label: "Close keyboard shortcuts";
+        // "?" opens the list and closes it again (the same text match as the shell's "?" key).
+        toggle-key: "?";
+        host-width: root.host-width;
+        host-height: root.host-height;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-5;
+
+            for section in root.sections : ShortcutGroup {
+                title: section.title;
+
+                for row in section.rows : ShortcutRow {
+                    label: row.label;
+                    keys: row.keys;
+                    planned: row.planned;
+                    has-other: row.has-other;
+                    other-keys: row.other-keys;
+                }
+            }
+        }
+    }
+}

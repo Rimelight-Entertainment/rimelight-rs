@@ -1,0 +1,65 @@
+// Split pane (S9.2). Two panes side by side (`vertical: false`) or stacked (`vertical: true`), with a
+// draggable handle between them. Drawn from the Tokens global only.
+//
+// Panes. The component draws no pane contents. The caller places its two pane elements as children and sizes them from
+// `first-length` and `second-length` (the caller's child can read them through `parent`). The handle is drawn above the
+// children, at the split.
+//
+// Ratio and minimums. `ratio` is the share of the space after the handle that the first pane gets. `min-first` and
+// `min-second` are the smallest lengths of the two panes; a drag cannot go past them, and a ratio set from outside is
+// clamped the same way. The Rust side (`workspace::clamp_ratio`) uses the same rule when it saves a ratio.
+//
+// Drag. Pressing the handle and moving the pointer changes `ratio`; `resized(ratio)` reports each change, so the caller can
+// save the layout. The pointer position is read from the absolute position of the handle's TouchArea, so the handle moving
+// under the pointer does not feed back into the drag.
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export component SplitPane inherits Rectangle {
+    in property <bool> vertical: false;
+    in-out property <float> ratio: 0.5;
+    in property <length> min-first: Tokens.size-control-md * 2;
+    in property <length> min-second: Tokens.size-control-md * 2;
+    // The width of the handle's grab area along the split.
+    out property <length> grab: Tokens.space-1;
+    // The length along the split that the two panes share (the whole length less the handle).
+    out property <length> avail: (root.vertical ? root.height : root.width) - root.grab;
+    out property <length> first-length: max(root.min-first, min(root.ratio * root.avail, root.avail - root.min-second));
+    out property <length> second-length: root.avail - root.first-length;
+    callback resized(float);
+
+    // Drag state: the pointer position along the split and the first pane's length when the handle was pressed.
+    property <length> drag-origin;
+    property <length> drag-first;
+
+    background: transparent;
+    clip: true;
+
+    @children
+
+    // The handle. Declared after the children, so it draws and takes pointer input above them.
+    handle := Rectangle {
+        x: root.vertical ? 0px : root.first-length;
+        y: root.vertical ? root.first-length : 0px;
+        width: root.vertical ? parent.width : root.grab;
+        height: root.vertical ? root.grab : parent.height;
+        background: Tokens.border-subtle;
+
+        TouchArea {
+            mouse-cursor: root.vertical ? ns-resize : ew-resize;
+            accessible-role: button;
+            accessible-label: "Resize panes";
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                    root.drag-origin = root.vertical ? (self.absolute-position.y + self.mouse-y) : (self.absolute-position.x + self.mouse-x);
+                    root.drag-first = root.first-length;
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    root.ratio = max(root.min-first, min(root.drag-first + ((root.vertical ? (self.absolute-position.y + self.mouse-y) : (self.absolute-position.x + self.mouse-x)) - root.drag-origin), root.avail - root.min-second)) / root.avail;
+                    root.resized(root.ratio);
+                }
+            }
+        }
+    }
+}

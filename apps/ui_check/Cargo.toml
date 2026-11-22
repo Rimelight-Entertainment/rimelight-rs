@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-description = "Compile check for the rimelight_ui component library. Not shipped."
+description = "Compile check for the rimelight_ui component library and the rimelight_shell markup. Not shipped."
 
 # An app crate: the only crate that compiles Slint for rimelight_ui (AGENTS.md, layering 1). It is a library so the
 # headless test can reach CheckWindow.
@@ -21,6 +21,7 @@ slint.workspace = true
 [build-dependencies]
 slint-build.workspace = true
 rimelight_ui = { path = "../../crates/rimelight_ui" }
+rimelight_shell = { path = "../../crates/rimelight_shell" }
 rimelight_design.workspace = true
 
 [dev-dependencies]

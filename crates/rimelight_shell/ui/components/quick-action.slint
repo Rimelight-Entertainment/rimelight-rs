@@ -1,0 +1,203 @@
+// Quick action (SF.4 mock, IA section 4). A round primary button with a plus icon, anchored to the bottom right of the
+// window content area (above the status bar, above the phone tab bar). It opens a Popover menu of category sections.
+// The menu opens upward and leftward, clamped inside the window (Popover align-end and bounds-width).
+//
+// The model is fed from Rust: `categories` holds the sections, each with its items (id, label, icon). Picking an item
+// fires `item-picked(id)` and closes the menu. The Rust side only records the pick (mock: nothing is created yet).
+//
+// Keyboard. The button takes Tab focus. Enter and Space open the menu. Escape and an outside click close it (Popover).
+// Accessibility. The button is labelled "Quick action" and has a tooltip with the same text.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { Tooltip, TooltipPlacement, TooltipBounds, TooltipHub } from "@rimelight_ui/components/tooltip.slint";
+
+export struct QuickItem {
+    id: string,
+    label: string,
+    icon: image,
+    // false draws the item disabled; `hint` is its tooltip then (why it cannot be picked).
+    enabled: bool,
+    hint: string,
+}
+
+export struct QuickCategory {
+    title: string,
+    items: [QuickItem],
+}
+
+export component QuickAction inherits Rectangle {
+    in property <[QuickCategory]> categories;
+    // Total number of items in all categories (the menu height is computed from it).
+    in property <int> item-count: 0;
+    // Fired when an item is picked. The menu closes in the markup.
+    callback item-picked(string);
+    // Each change opens the menu (AppShell raises it for the Ctrl+Alt+N shortcut). Opening an open menu changes nothing.
+    in property <int> open-request: 0;
+    changed open-request => { pop.open(); }
+    // True while the "Quick action" tooltip is drawn (read by tests).
+    out property <bool> tooltip-shown: tip.is-shown;
+    // True while the menu is open (its items are in the tree then; read by tests).
+    out property <bool> menu-open: pop.is-open;
+
+    // Whole-pixel size, so the circle's edge lands on the pixel grid.
+    width: round(Tokens.size-control-lg / 1px) * 1px;
+    height: round(Tokens.size-control-lg / 1px) * 1px;
+    background: transparent;
+
+    // The round button. The primary colours of the Button family (rest, hover, pressed), round instead of rounded corners.
+    // The radius is exactly half the height (a true circle); the focus ring is a border on this same rectangle.
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: self.height / 2;
+        background: ta.pressed ? Tokens.button-primary-bg-active
+            : (ta.has-hover ? Tokens.button-primary-bg-hover : Tokens.button-primary-bg);
+        border-width: fs.has-focus ? 2px : 0px;
+        border-color: Tokens.focus-ring;
+        drop-shadow-color: Tokens.shadow-overlay;
+        drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+        drop-shadow-blur: Tokens.shadow-overlay-blur;
+
+        Image {
+            width: Icons.medium-size;
+            height: Icons.medium-size;
+            x: round((parent.width - self.width) / 2 / 1px) * 1px;
+            y: round((parent.height - self.height) / 2 / 1px) * 1px;
+            source: Icons.plus;
+            colorize: Tokens.button-primary-text;
+        }
+    }
+
+    fs := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                pop.toggle();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: "Quick action";
+        accessible-enabled: true;
+        clicked => {
+            fs.focus();
+            pop.trigger-clicked();
+        }
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                TooltipHub.pointer-down();
+                pop.trigger-pressed();
+            }
+        }
+    }
+
+    tip := Tooltip {
+        text: "Quick action";
+        placement: TooltipPlacement.top;
+        anchor-width: root.width;
+        anchor-height: root.height;
+        anchor-focused: fs.has-focus;
+        anchor-hovered: ta.has-hover;
+    }
+
+    // Closes the menu when it is open (the shell's Back key, gaps D7). True when it was open.
+    public function close-menu() -> bool {
+        if (pop.is-open) {
+            pop.close();
+            return true;
+        }
+        return false;
+    }
+
+    // Test hooks: the button's window geometry in px (the pointer tests aim at its centre).
+    out property <length> test-x: root.absolute-position.x;
+    out property <length> test-y: root.absolute-position.y;
+    out property <length> test-w: root.width;
+    out property <length> test-h: root.height;
+
+    // Test hook: a tap on the button, as its touch area's clicked handler does (focus, then open the menu).
+    public function test-tap() {
+        fs.focus();
+        pop.trigger-clicked();
+    }
+
+    // Test hook: a click on the item `id`, as the item's clicked handler does (fire the pick, close, focus the button).
+    public function test-pick-item(id: string) {
+        root.item-picked(id);
+        pop.close();
+        fs.focus();
+    }
+
+    // The menu. Zero-sized at the button's top left; the panel opens above the button, right-aligned to it, and stays
+    // inside the window. `bottom-limit` is the button's bottom edge, so the panel never opens below the button.
+    pop := Popover {
+        accessible-name: "Quick action menu";
+        anchor-width: root.width;
+        anchor-height: root.height;
+        align-end: true;
+        bounds-width: TooltipBounds.width;
+        bottom-limit: root.absolute-position.y + root.height;
+        panel-width: 240px;
+        content-padding: Tokens.space-2;
+        content-spacing: Tokens.space-3;
+
+        for category in root.categories : VerticalLayout {
+            spacing: Tokens.space-1;
+
+            Text {
+                text: category.title;
+                color: Tokens.text-muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                vertical-alignment: center;
+                height: 20px;
+            }
+
+            for item in category.items : Rectangle {
+                height: entry.preferred-height;
+
+                entry := Button {
+                    width: parent.width;
+                    text: item.label;
+                    leading-icon: item.icon;
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    elide: true;
+                    elide-gutter: Tokens.space-2;
+                    full-width: true;
+                    enabled: item.enabled;
+                    clicked => {
+                        root.item-picked(item.id);
+                        pop.close();
+                        fs.focus();
+                    }
+                }
+
+                // A disabled entry shows its hint as a tooltip (it cannot be clicked).
+                if !item.enabled : Rectangle {
+                    entry-touch := TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                    }
+                    entry-tip := Tooltip {
+                        text: item.hint;
+                        placement: TooltipPlacement.top;
+                        anchor-width: parent.width;
+                        anchor-height: parent.height;
+                        anchor-hovered: entry-touch.has-hover;
+                    }
+                }
+            }
+        }
+    }
+}

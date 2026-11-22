@@ -1,0 +1,58 @@
+// Phone tab bar (P0.29; PLAN 6.2). The bottom row of tabs on a phone-width window: the main areas, then More, which opens
+// the drawer. Drawn from the Tokens global only. The Rust side (src/slint_ui/app_shell.rs) fills `items` and answers
+// `activated`; `selected` is the index of the active area's tab, or -1 when the active area has no tab.
+//
+// Accessibility. Each tab is a button labelled with its name, so the headless tests find it by label.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { RailItem } from "rail.slint";
+
+export component TabBar inherits Rectangle {
+    in property <[RailItem]> items;
+    in property <int> selected: -1;
+    callback activated(int);
+
+    height: Tokens.size-tab-bar-height;
+    background: Tokens.rail-bg;
+
+    HorizontalLayout {
+        for item[index] in root.items : Rectangle {
+            horizontal-stretch: 1;
+            background: transparent;
+
+            Image {
+                width: Icons.medium-size;
+                height: Icons.medium-size;
+                x: (parent.width - self.width) / 2;
+                y: Tokens.space-1;
+                source: item.icon;
+                colorize: index == root.selected ? Tokens.rail-icon-active : Tokens.rail-icon-inactive;
+            }
+
+            Text {
+                x: 0px;
+                y: parent.height - self.height - Tokens.space-1;
+                width: parent.width;
+                text: item.label;
+                horizontal-alignment: center;
+                wrap: no-wrap;
+                overflow: elide;
+                color: index == root.selected ? Tokens.rail-icon-active : Tokens.rail-icon-inactive;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+
+            TouchArea {
+                accessible-role: button;
+                accessible-label: item.label;
+                accessible-checkable: true;
+                accessible-checked: index == root.selected;
+                clicked => {
+                    root.activated(index);
+                }
+            }
+        }
+    }
+}

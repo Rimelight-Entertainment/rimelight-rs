@@ -1,0 +1,44 @@
+// About card (decision 0007 licence, PLAN.md section 15.1). The Slint royalty-free licence needs the
+// AboutSlint widget shown on an About screen reachable from the app. The shell mounts this component there; it must not
+// be removed. The card is drawn from the Tokens global only, so it follows light and dark. The AboutSlint widget is the
+// only attribution text.
+import { AboutSlint } from "std-widgets.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+
+export component AboutScreen inherits Rectangle {
+    in property <string> app-name: "Rimelight Space";
+    in property <string> version: "0.1.0";
+    // true shows the Portuguese version label. Rust sets it from the locale.
+    in property <bool> pt: false;
+
+    width: 320px;
+    background: Tokens.surface-raised;
+    border-width: 1px;
+    border-color: Tokens.border-subtle;
+    border-radius: Tokens.radius-surface;
+
+    VerticalLayout {
+        padding: Tokens.space-4;
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        Text {
+            text: root.app-name;
+            color: Tokens.text-primary;
+            font-family: Type.subheading.family;
+            font-size: Type.subheading.size;
+            font-weight: Type.subheading.weight;
+        }
+        Text {
+            text: (root.pt ? "Versão " : "Version ") + root.version;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+        }
+        AboutSlint {
+            height: 120px;
+        }
+    }
+}

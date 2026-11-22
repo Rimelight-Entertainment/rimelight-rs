@@ -7,12 +7,17 @@ fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=ui");
     println!("cargo::rerun-if-changed={}", rimelight_ui::UI_DIR);
+    println!("cargo::rerun-if-changed={}", rimelight_shell::UI_DIR);
     println!("cargo::rerun-if-changed={}", rimelight_design::UI_DIR);
 
     let libraries = HashMap::from([
         (
             "rimelight_ui".to_owned(),
             PathBuf::from(rimelight_ui::UI_DIR),
+        ),
+        (
+            "rimelight_shell".to_owned(),
+            PathBuf::from(rimelight_shell::UI_DIR),
         ),
         (
             "rimelight_design".to_owned(),

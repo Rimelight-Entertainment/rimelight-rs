@@ -1,0 +1,438 @@
+// Status bar (S9.3; PLAN 6.1). A thin bar along the bottom of the shell: the running timer on the left, and the shell
+// controls on the right. Drawn from the Tokens global only. Presence and the connection state are not here (presence is
+// in the avatar menu in the top bar).
+//
+// Left side (OQ18, IA section 5): the personal running timer (`timer-running` shows `timer-text`, for example "1:02:03") and
+// the background-jobs indicator (`jobs`, for example uploads and exports). The indicator is hidden while `jobs` is empty;
+// otherwise it shows the job count, and a click opens a popover that lists the jobs. The jobs are mock data for now: the
+// shell sets them, and no job system runs yet.
+//
+// Alignment. Every item is the control height and the row is inset by the same vertical padding, so all items are
+// vertically centred in the bar.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ButtonSize, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { TooltipBounds } from "@rimelight_ui/components/tooltip.slint";
+import { Slider } from "@rimelight_ui/components/slider.slint";
+
+// One language choice of the Language menu: a row with its word and a check on the current one.
+component LanguageRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+
+    callback picked();
+
+    height: Tokens.size-menu-row-height;
+    horizontal-stretch: 1;
+    background: ta.has-hover ? Tokens.surface-sunken : transparent;
+    border-radius: Tokens.radius-r4;
+
+    // The row fills the menu's width: without it the layout sizes to its minimum and the label elides to "...".
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        Text {
+            text: root.label;
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+
+        if root.checked : Image {
+            width: Icons.small-size;
+            height: Icons.small-size;
+            y: (parent.height - self.height) / 2;
+            source: Icons.check;
+            colorize: Tokens.text-primary;
+        }
+    }
+
+    ta := TouchArea {
+        accessible-role: button;
+        accessible-label: root.label;
+        accessible-checkable: true;
+        accessible-checked: root.checked;
+        clicked => { root.picked(); }
+    }
+}
+
+// The Language menu: one row per supported locale, the current one checked. Drawn in the Language popover.
+component LanguageMenu inherits VerticalLayout {
+    in property <[string]> names;
+    in property <int> current;
+
+    callback picked(int);
+
+    spacing: Tokens.space-1;
+    // The inset comes from the Popover (content-padding); the menu adds none of its own.
+    padding: 0px;
+
+    for name[index] in root.names : LanguageRow {
+        label: name;
+        checked: index == root.current;
+        picked => { root.picked(index); }
+    }
+}
+
+// One background job for the jobs popover: its title and its state text (for example "Uploading 40%" or "Queued").
+export struct JobItem {
+    title: string,
+    state: string,
+}
+
+// One job row of the jobs popover: the title, and the state on the right.
+component JobRow inherits Rectangle {
+    in property <string> title;
+    in property <string> state;
+
+    height: Tokens.size-menu-row-height;
+
+    HorizontalLayout {
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        Text {
+            text: root.title;
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+            accessible-role: text;
+            accessible-label: root.title;
+        }
+
+        Text {
+            text: root.state;
+            color: Tokens.text-muted;
+            font-family: Tokens.type-caption-family;
+            font-size: Tokens.type-caption-size;
+            font-weight: Tokens.type-caption-weight;
+            vertical-alignment: center;
+            accessible-role: text;
+            accessible-label: root.state;
+        }
+    }
+}
+
+// The jobs popover's list: one row per job. Exported so a test can draw it on its own (a popover panel is a popup window).
+export component JobsMenu inherits VerticalLayout {
+    in property <[JobItem]> jobs;
+
+    spacing: Tokens.space-1;
+    // The inset comes from the Popover (content-padding); the menu adds none of its own.
+    padding: 0px;
+
+    for job in root.jobs : JobRow {
+        title: job.title;
+        state: job.state;
+    }
+
+    // Test state: the number of rows the list is fed (one row is drawn per job).
+    out property <int> row-count: root.jobs.length;
+}
+
+export component StatusBar inherits Rectangle {
+    // The personal running timer (IA section 5). The timer slot shows only while `timer-running` is true.
+    in property <bool> timer-running: false;
+    in property <string> timer-text: "";
+    // Background jobs (uploads, exports). Empty hides the indicator. Set by the shell; no job system runs yet.
+    in property <[JobItem]> jobs: [];
+    // True while the jobs popover is open.
+    out property <bool> jobs-open: jobs-pop.is-open;
+    // True while the Language popover is open.
+    out property <bool> language-open: lang.is-open;
+    // Test state: whether a Mute button is drawn. The call controls were removed (SF.4), so the bar draws none and this is false.
+    out property <bool> test-has-mute: false;
+    // Whether each shell control is drawn (its button is visible). The shell reads these for its own presence hooks.
+    out property <bool> test-has-record: record-btn.visible;
+    out property <bool> test-has-fullscreen: fullscreen-btn.visible;
+    out property <bool> test-has-shortcuts: shortcuts-btn.visible;
+    callback jobs-clicked();
+
+    // Closes the jobs popover (the shell and tests; a click outside closes it in the app).
+    public function close-jobs() {
+        jobs-pop.close();
+    }
+
+    // Test hook: a click on the jobs indicator, as its button runs it (the popover opens, then the callback). Does nothing
+    // while there are no jobs, because the button is not drawn then. The button's focus move is left out here.
+    public function click-jobs() {
+        if (root.jobs.length > 0) {
+            jobs-pop.trigger-clicked();
+            root.jobs-clicked();
+        }
+    }
+
+    // Test hook: a click on the Language button, as its handlers run it (the press, then the click, which opens the popover).
+    public function test-click-language() {
+        lang.trigger-pressed();
+        lang-btn.focus-me();
+        lang.trigger-clicked();
+    }
+
+    // Test state: the timer text drawn (empty while not running), whether the jobs indicator is drawn, and the count text
+    // and accessible label of the indicator (empty while idle).
+    out property <string> timer-label: root.timer-running ? root.timer-text : "";
+    out property <bool> jobs-indicator: root.jobs.length > 0;
+    out property <string> jobs-count-text: root.jobs.length == 0 ? "" : (root.jobs.length == 1 ? "1 job" : "\{root.jobs.length} jobs");
+    out property <string> jobs-label: root.jobs.length == 0 ? "" : (root.jobs.length == 1 ? "1 background job" : "\{root.jobs.length} background jobs");
+
+    // Closes whichever status bar popover is open (jobs or Language), for the shell's Back key (gaps D7). True when one was open.
+    public function close-popovers() -> bool {
+        if (jobs-pop.is-open) {
+            jobs-pop.close();
+            return true;
+        }
+        if (lang.is-open) {
+            lang.close();
+            return true;
+        }
+        return false;
+    }
+
+    // Right side (SF.4, IA section 5, in this order): Record, Fullscreen, Shortcuts, Language, Theme. They only report clicks;
+    // the shell decides what they do. `theme-icon` and `theme-label` show the current mode (system, light or dark). Record is
+    // a mock placeholder: no recording runs yet (PLAN.md section 6.6, "Screen recording (Clips)").
+    // The defaults are the system mode, the same as the default label. Without an icon the button drew nothing (the
+    // gallery story passed neither, so its Theme button was a blank space).
+    in property <image> theme-icon: Icons.monitor;
+    in property <string> theme-label: "Theme: system";
+    // The Language menu. `language-names` lists the supported locales in order; `language-index` is the checked one. The
+    // shell sets the index and says what a pick does.
+    in property <[string]> language-names: ["English", "Português"];
+    in property <int> language-index: 0;
+    // Zoom, as a percent: 50 to 150, default 100. The shell applies it; the bar only reports changes.
+    in-out property <float> zoom-percent: 100;
+    // The clock text, for example "14:05". Set by the shell every second; empty hides the clock.
+    in property <string> clock-text: "";
+    callback zoom-changed(float);
+    callback record-clicked();
+    callback shortcuts-clicked();
+    callback fullscreen-clicked();
+    callback theme-clicked();
+    callback language-picked(int);
+
+    height: Tokens.size-control-sm + Tokens.space-2 * 2;
+    background: Tokens.surface-raised;
+    border-width: 1px;
+    border-color: Tokens.border-subtle;
+
+    HorizontalLayout {
+        padding-top: Tokens.space-2;
+        padding-bottom: Tokens.space-2;
+        padding-left: Tokens.space-2;
+        // Measured on a 100% capture: the clock glyphs sat 9 px from the right edge and 17 px from the bottom. The right
+        // padding is 8 px wider than the others so the two gaps match (16 px plus the glyph's own 1 px side bearing).
+        padding-right: Tokens.space-4;
+        spacing: Tokens.space-2;
+        alignment: stretch;
+
+        // Left side: the timer, then the jobs indicator.
+        HorizontalLayout {
+            spacing: Tokens.space-2;
+            alignment: start;
+
+            if root.timer-running : Text {
+                text: root.timer-text;
+                color: Tokens.text-primary;
+                font-family: Tokens.type-caption-family;
+                font-size: Tokens.type-caption-size;
+                font-weight: Tokens.type-caption-weight;
+                vertical-alignment: center;
+                accessible-role: text;
+                accessible-label: root.timer-text;
+            }
+
+            // The jobs slot is always in the layout (empty while idle), so the popover can sit on it.
+            jobs-slot := HorizontalLayout {
+                spacing: Tokens.space-1;
+                alignment: start;
+
+                if root.jobs.length > 0 : jobs-btn := IconButton {
+                    icon: Icons.activity;
+                    label: "Background jobs";
+                    tooltip: "Background jobs";
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    pointer-pressed => { jobs-pop.trigger-pressed(); }
+                    clicked => {
+                        jobs-btn.focus-me();
+                        jobs-pop.trigger-clicked();
+                        root.jobs-clicked();
+                    }
+                }
+
+                // The count, with its word: "1 job" or "2 jobs". The accessible label is the same count as "N background jobs".
+                if root.jobs.length > 0 : Text {
+                    text: root.jobs-count-text;
+                    color: Tokens.text-primary;
+                    font-family: Tokens.type-caption-family;
+                    font-size: Tokens.type-caption-size;
+                    font-weight: Tokens.type-caption-weight;
+                    vertical-alignment: center;
+                    accessible-role: text;
+                    accessible-label: root.jobs-label;
+                }
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        // Every item on the right is 8 px (space-2) from the next, the same gap as the bar's edges.
+        HorizontalLayout {
+            spacing: Tokens.space-2;
+            alignment: end;
+
+            record-btn := IconButton {
+                icon: Icons.video;
+                label: "Record";
+                tooltip: "Record";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                clicked => { root.record-clicked(); }
+            }
+
+            fullscreen-btn := IconButton {
+                icon: Icons.maximize;
+                label: "Full screen";
+                tooltip: "Full screen";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                clicked => { root.fullscreen-clicked(); }
+            }
+
+            shortcuts-btn := IconButton {
+                icon: Icons.keyboard;
+                label: "Shortcuts";
+                tooltip: "Shortcuts";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                clicked => {
+                    // Focus the button first, so the shortcuts dialog gives focus back to it when it closes.
+                    shortcuts-btn.focus-me();
+                    root.shortcuts-clicked();
+                }
+            }
+
+            lang-btn := IconButton {
+                icon: Icons.languages;
+                label: "Language";
+                tooltip: "Language";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                pointer-pressed => { lang.trigger-pressed(); }
+                clicked => {
+                    lang-btn.focus-me();
+                    lang.trigger-clicked();
+                }
+            }
+
+            IconButton {
+                icon: root.theme-icon;
+                label: root.theme-label;
+                tooltip: root.theme-label;
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                clicked => { root.theme-clicked(); }
+            }
+
+            // Zoom slider, left of the clock (-50 to 150 percent, neutral at 100).
+            zoom := Slider {
+                width: 160px * Tokens.zoom-factor;
+                horizontal-stretch: 0;
+                minimum: 50;
+                maximum: 150;
+                // 10 percent steps, the same as Ctrl+plus and Ctrl+minus: only 11 zoom levels exist, so each is laid out once.
+                step: 10;
+                accessible-name: "Zoom";
+                // Two-way, so the shortcuts and the slider always show the same zoom (a one-way binding breaks once dragged).
+                value <=> root.zoom-percent;
+                changed(v) => { root.zoom-changed(v); }
+            }
+
+            // The zoom number, a row item like the clock, so the row's spacing sets its gaps. It takes its text's own width,
+            // so there is no empty box between the slider and the digits.
+            zoom-label := Text {
+                height: parent.height;
+                text: "\{round(root.zoom-percent)}%";
+                color: Tokens.text-primary;
+                font-family: Tokens.type-caption-family;
+                font-size: Tokens.type-caption-size;
+                font-weight: Tokens.type-caption-weight;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                accessible-role: text;
+                accessible-label: "Zoom \{round(root.zoom-percent)}%";
+            }
+
+            // The clock, at the bottom right. Hidden while `clock-text` is empty.
+            if root.clock-text != "" : Text {
+                // Fills the bar's inner height and centres its glyphs there, like the buttons and the slider.
+                height: parent.height;
+                text: root.clock-text;
+                color: Tokens.text-primary;
+                font-family: Tokens.type-caption-family;
+                font-size: Tokens.type-caption-size;
+                font-weight: Tokens.type-caption-weight;
+                vertical-alignment: center;
+                accessible-role: text;
+                accessible-label: root.clock-text;
+            }
+        }
+    }
+
+    // The jobs popover, opened by the jobs indicator. It opens upward from the indicator's slot, which is on the left of the bar.
+    jobs-pop := Popover {
+        x: jobs-slot.absolute-position.x - root.absolute-position.x;
+        y: jobs-slot.absolute-position.y - root.absolute-position.y;
+        accessible-name: "Background jobs";
+        anchor-height: jobs-slot.height;
+        panel-width: 280px;
+        bottom-limit: TooltipBounds.height;
+
+        JobsMenu {
+            width: 100%;
+            jobs: root.jobs;
+        }
+    }
+
+    // The Language menu, opened by the Language button. It sits in the bar, so it opens upward (bottom-limit is the window
+    // height), and it is right-aligned under the button so it stays on screen. It is placed from the button's position
+    // inside this bar.
+    lang := Popover {
+        x: lang-btn.absolute-position.x - root.absolute-position.x + lang-btn.width - 180px;
+        y: lang-btn.absolute-position.y - root.absolute-position.y;
+        accessible-name: "Language";
+        anchor-height: lang-btn.height;
+        panel-width: 180px;
+        bottom-limit: TooltipBounds.height;
+
+        LanguageMenu {
+            width: 100%;
+            names: root.language-names;
+            current: root.language-index;
+            picked(index) => {
+                lang.close();
+                root.language-picked(index);
+            }
+        }
+    }
+}

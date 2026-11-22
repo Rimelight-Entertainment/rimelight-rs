@@ -1,0 +1,177 @@
+// Command palette (S9.3; PLAN 6.1). An overlay over its parent: a scrim, and a panel at the top
+// centre with a search field and the list of pages. Drawn from the Tokens global only. The Rust side (src/slint_ui/palette.rs)
+// fills `rows` and answers the callbacks; the markup only shows the highlight and reports keys.
+//
+// Keys. The panel's FocusScope reads Up and Down (`move`, -1 or +1), Return (`picked` with the highlight) and Escape
+// (`closed`). The search field is a child, so keys it does not take bubble up to the scope. Enter also comes from the
+// field's own `submitted`. A row click picks that row. A scrim click closes. `focus-me()` gives the scope focus.
+//
+// Reuse. The search field is SearchField (search-field.slint, an Input preset). No PopupWindow: the palette is drawn
+// inside its parent, so the gallery story can show it inline. The host window places it over the whole window.
+//
+// Scroll. The list is a ScrollView. When the highlight moves outside the visible rows, the list scrolls to keep it in view.
+import { ScrollView } from "std-widgets.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { SearchField } from "@rimelight_ui/components/search-field.slint";
+
+export struct PaletteRow {
+    title: string,
+    route: string,
+}
+
+export component CommandPalette inherits Rectangle {
+    // The rows to show, already filtered by Rust.
+    in property <[PaletteRow]> rows;
+    // Index into `rows` of the highlighted row, or -1 for none.
+    in property <int> highlight: -1;
+    // The search text. Two-way with the field.
+    in-out property <string> query;
+    in property <string> search-label: "Search pages";
+    in property <string> empty-text: "No matching pages";
+    in property <length> panel-width: 480px;
+    // Height of one row. The scroll-into-view arithmetic uses it.
+    property <length> row-height: Tokens.size-control-md;
+
+    // Height of the visible part of the list, for the layout tests.
+    out property <length> list-visible-height: list.visible-height;
+
+    callback query-changed(string);
+    callback move(int);
+    callback picked(int);
+    callback closed();
+
+    public function focus-me() {
+        keys.focus();
+    }
+
+    // Keeps the highlighted row inside the visible part of the list.
+    changed highlight => {
+        if (root.highlight >= 0) {
+            let top = root.highlight * root.row-height;
+            if (top < -list.content-y) {
+                list.content-y = -top;
+            }
+            if (top + root.row-height > -list.content-y + list.visible-height) {
+                list.content-y = -(top + root.row-height - list.visible-height);
+            }
+        }
+    }
+
+    background: Tokens.scrim;
+
+    // The scrim takes clicks outside the panel. It is drawn first, so the panel gets its own clicks.
+    scrim-touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => { root.closed(); }
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.move(-1);
+                return accept;
+            }
+            if (event.text == Key.DownArrow) {
+                root.move(1);
+                return accept;
+            }
+            if (event.text == Key.Return) {
+                root.picked(root.highlight);
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                root.closed();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    panel := Rectangle {
+        x: (root.width - self.width) / 2;
+        y: Tokens.space-12;
+        width: min(root.panel-width, root.width - Tokens.space-6 * 2);
+        height: min(360px, root.height - Tokens.space-12 * 2);
+        background: Tokens.surface-overlay;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-surface;
+        clip: true;
+
+        VerticalLayout {
+            padding: Tokens.space-3;
+            spacing: Tokens.space-2;
+            alignment: start;
+
+            SearchField {
+                text <=> root.query;
+                placeholder: root.search-label;
+                accessible-name: root.search-label;
+                changed(value) => { root.query-changed(value); }
+                submitted(value) => { root.picked(root.highlight); }
+            }
+
+            list := ScrollView {
+                // The rest of the panel under the search field. A stretch in the layout gave the list a sliver, so the
+                // height is set from the panel.
+                height: panel.height - Tokens.space-3 * 2 - Tokens.size-control-md - Tokens.space-2;
+                horizontal-scrollbar-policy: always-off;
+                // Every row is the same height, so the content is its count times the row height. The explicit content
+                // height is what the ScrollView scrolls over (the same fix as the sidebar list).
+                content-height: root.rows.length * root.row-height;
+
+                VerticalLayout {
+                    alignment: start;
+                    width: parent.width;
+                    height: root.rows.length * root.row-height;
+
+                    for row[i] in root.rows : Rectangle {
+                        height: root.row-height;
+                        border-radius: Tokens.radius-control;
+                        background: i == root.highlight ? Tokens.accent-fill : transparent;
+
+                        Text {
+                            x: Tokens.space-3;
+                            width: parent.width * 0.6 - Tokens.space-3;
+                            height: parent.height;
+                            text: row.title;
+                            color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-primary;
+                            font-family: Tokens.type-body-family;
+                            font-size: Tokens.type-body-size;
+                            font-weight: Tokens.type-body-weight;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            x: parent.width * 0.6;
+                            width: parent.width * 0.4 - Tokens.space-3;
+                            height: parent.height;
+                            text: row.route;
+                            color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-muted;
+                            font-family: Tokens.type-caption-family;
+                            font-size: Tokens.type-caption-size;
+                            font-weight: Tokens.type-caption-weight;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+
+                        TouchArea {
+                            clicked => { root.picked(i); }
+                        }
+                    }
+                }
+            }
+
+            if root.rows.length == 0 : Text {
+                text: root.empty-text;
+                color: Tokens.text-muted;
+                font-family: Tokens.type-body-family;
+                font-size: Tokens.type-body-size;
+                font-weight: Tokens.type-body-weight;
+            }
+        }
+    }
+}

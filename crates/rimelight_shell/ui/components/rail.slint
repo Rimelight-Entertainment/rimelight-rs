@@ -1,0 +1,149 @@
+// Rail (S9.1, SF.4). The navy strip of area icons at the left edge of the shell (PLAN 6.1). One button
+// per area, in manifest order, drawn from the Tokens global (rail-bg, rail-icon-active, rail-icon-inactive). The Rust side
+// fills `items` from rimelight_nav (src/slint_ui/shell.rs); the rail only draws and reports the click.
+//
+// The rail holds the areas only. About, Report Issue and Settings live in the profile menu (top bar).
+//
+// Selection. `selected` is the index of the active area. A click sets it and calls `activated(index)`. The active area has
+// a 2 px indicator on its leading edge and the active icon colour.
+//
+// Accessibility. Each button is labelled with its area name (or the bottom action's name), so the headless tests find it by label.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export struct RailItem {
+    label: string,
+    icon: image,
+}
+
+// The work-queue badge of one area (OQ3). Counts only, never dots. `text` is the count as shown ("99+" above 99) and
+// `noun` the word the accessible label adds ("Chat, 3 unread"). The badge shows only when `count` is above 0.
+export struct RailBadge {
+    count: int,
+    text: string,
+    noun: string,
+}
+
+export component Rail inherits Rectangle {
+    in property <[RailItem]> items;
+    // One badge per area, in the same order as `items`. An area past the end of this model, or with a count of 0, has no badge.
+    in property <[RailBadge]> badges;
+    in-out property <int> selected: 0;
+    callback activated(int);
+
+    // The badge text drawn for area `index`, or "" when that area draws no badge (no count, or no queue).
+    function badge-shown(index: int) -> bool {
+        if index < root.badges.length {
+            return root.badges[index].count > 0;
+        }
+        return false;
+    }
+
+    // The accessible label of area `index`: its name, plus the count and noun when its badge shows.
+    function area-label(index: int) -> string {
+        if root.badge-shown(index) {
+            return root.items[index].label + ", " + root.badges[index].text + " " + root.badges[index].noun;
+        }
+        return root.items[index].label;
+    }
+
+    // Test hook: the text of the badge drawn on area `index`, or "" when none is drawn. Reads the same model the
+    // drawn badge reads.
+    public function test-badge-text(index: int) -> string {
+        if root.badge-shown(index) {
+            return root.badges[index].text;
+        }
+        return "";
+    }
+
+    // Test hook: the accessible label of area `index`, as the area's touch area reports it.
+    public function test-area-label(index: int) -> string {
+        return root.area-label(index);
+    }
+
+    width: Tokens.size-rail-width;
+    background: Tokens.rail-bg;
+    clip: true;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+
+        // The rail scrolls when the areas do not fit the height (the same rule as the sidebar list).
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            horizontal-scrollbar-policy: always-off;
+            vertical-scrollbar-policy: as-needed;
+            content-height: list.height;
+
+            list := VerticalLayout {
+                width: parent.width;
+                height: root.items.length * Tokens.size-rail-width;
+                spacing: 0px;
+                alignment: start;
+
+                for item[index] in root.items : Rectangle {
+                    height: Tokens.size-rail-width;
+                    // The same hover fill as the sidebar rows (SF.4).
+                    background: area-ta.has-hover ? Tokens.sidebar-hover-bg : transparent;
+
+                    if index == root.selected : Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: 2px;
+                        height: parent.height;
+                        background: Tokens.sidebar-selected-indicator;
+                    }
+
+                    Image {
+                        width: Icons.medium-size;
+                        height: Icons.medium-size;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        source: item.icon;
+                        colorize: index == root.selected ? Tokens.rail-icon-active : Tokens.rail-icon-inactive;
+                    }
+
+                    // The work-queue badge (OQ3): a pill at the top right of the icon, with the count as text.
+                    if index < root.badges.length && root.badges[index].count > 0 : Rectangle {
+                        x: parent.width - self.width - Tokens.space-1;
+                        y: Tokens.space-1;
+                        height: Tokens.size-badge-height;
+                        width: max(Tokens.size-badge-height, badge-text.preferred-width + Tokens.space-2);
+                        border-radius: Tokens.radius-pill;
+                        background: Tokens.accent-fill;
+                        accessible-role: text;
+                        accessible-id: "rail-badge";
+                        accessible-value: root.badges[index].text;
+
+                        badge-text := Text {
+                            text: root.badges[index].text;
+                            color: Tokens.text-on-accent;
+                            font-family: Type.label.family;
+                            font-size: Type.label.size;
+                            font-weight: Type.label.weight;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: parent.width;
+                            height: parent.height;
+                        }
+                    }
+
+                    area-ta := TouchArea {
+                        mouse-cursor: pointer;
+                        accessible-role: button;
+                        accessible-label: root.area-label(index);
+                        accessible-checkable: true;
+                        accessible-checked: index == root.selected;
+                        clicked => {
+                            root.selected = index;
+                            root.activated(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -3688,6 +3688,10 @@ version = "0.1.0"
 source = "git+https://github.com/Rimelight-Entertainment/rimelight.git?rev=d4420e634ee65c11f1e46666a4a1ccf3f713f653#d4420e634ee65c11f1e46666a4a1ccf3f713f653"
 
 [[package]]
+name = "rimelight_shell"
+version = "0.1.0"
+
+[[package]]
 name = "rimelight_ui"
 version = "0.1.0"
 dependencies = [
@@ -3700,6 +3704,7 @@ version = "0.1.0"
 dependencies = [
  "i-slint-backend-testing",
  "rimelight_design",
+ "rimelight_shell",
  "rimelight_ui",
  "slint",
  "slint-build",

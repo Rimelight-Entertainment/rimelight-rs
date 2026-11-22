@@ -68,6 +68,17 @@ import { Tooltip, TooltipOverlay } from "@rimelight_ui/components/tooltip.slint"
 import { Tree } from "@rimelight_ui/components/tree.slint";
 import { ViewSwitcher } from "@rimelight_ui/components/view-switcher.slint";
 
+import { CommandPalette } from "@rimelight_shell/components/command-palette.slint";
+import { MoreDrawer } from "@rimelight_shell/components/more-drawer.slint";
+import { QuickAction } from "@rimelight_shell/components/quick-action.slint";
+import { Rail } from "@rimelight_shell/components/rail.slint";
+import { ShortcutsDialog } from "@rimelight_shell/components/shortcuts-dialog.slint";
+import { Sidebar } from "@rimelight_shell/components/sidebar.slint";
+import { SplitPane } from "@rimelight_shell/components/split-pane.slint";
+import { JobsMenu, StatusBar } from "@rimelight_shell/components/status-bar.slint";
+import { TabBar } from "@rimelight_shell/components/tab-bar.slint";
+import { AboutScreen } from "@rimelight_shell/about.slint";
+
 export component CheckWindow inherits Window {
     title: "Rimelight UI check";
     width: 960px;
@@ -80,6 +91,19 @@ export component CheckWindow inherits Window {
             width: 928px;
             padding: 16px;
             spacing: 8px;
+            // Shell (rimelight_shell, ST2.5a)
+            CommandPalette { }
+            MoreDrawer { }
+            QuickAction { }
+            Rail { }
+            ShortcutsDialog { }
+            Sidebar { }
+            SplitPane { }
+            JobsMenu { }
+            StatusBar { }
+            TabBar { }
+            AboutScreen { }
+            // Components (rimelight_ui)
             Accordion { }
             ActivityFeed { }
             AttachmentTile { }

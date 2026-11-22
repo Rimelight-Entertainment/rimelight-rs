@@ -1,0 +1,11 @@
+[package]
+name = "rimelight_shell"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight app shell markup (rail, sidebar, status bar, tab bar, palette, quick action, About): markup only, compiled by the app crates."
+
+[lints]
+workspace = true
