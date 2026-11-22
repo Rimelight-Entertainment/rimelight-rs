@@ -1,6 +1,6 @@
 # ST2.6: the gallery (design, answered)
 
-**Status:** answered by the owner, 2026-11-22; ready to build.
+**Status:** built, 2026-11-22 (see Result at the end).
 
 ## What the gallery is today
 
@@ -57,3 +57,19 @@ Both recommendations accepted:
 - The gallery's own tests pass in rimelight-rs, and the headless captures of a story, the foundations sheet and the
   About screen work.
 - Space builds without `apps/gallery`, and its whole-shell capture works through the chosen command.
+
+## Result (2026-11-22)
+
+- **The gallery is `rimelight-rs/apps/gallery`** (`rimelight_gallery`, a lib and a bin), with 67 built-in stories, the
+  foundations sheet and hot reload. It names no app: Select, Menu and ColorHex run the kit rules on interpreter values,
+  and the shell and palette stories use sample data (`src/sample.rs`).
+- **App stories:** `--stories <dir>` adds a folder with `stories.txt` (`section/name|Title|variants`) and
+  `stories.slint` exporting `AppStories` (`story`, `variant`, `pt`). `gallery.slint` always imports
+  `AppStories` from `@app_stories`. Without the flag, that path maps to an empty stub (`ui/no-app-stories`). A first
+  try generated a derived window instead, but the interpreter does not expose a base window's properties on a derived
+  one, so it was dropped.
+- **Space:** `apps/gallery` is now `space_gallery`. It is the shared gallery with Space's stories
+  (`crates/space_ui/ui/stories`, the kanban board) as the default folder, plus the whole-app capture
+  `--story shell/<state>`. The capture also runs as `cargo xtask screenshot shell/<state> --out <png>`.
+- Checked by eye: the shared gallery's rail and sidebar, palette, button and foundations captures, plus Space's kanban
+  story and the `desktop-default` whole-app capture.

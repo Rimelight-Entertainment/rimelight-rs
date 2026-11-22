@@ -1,0 +1,2679 @@
+﻿// Action component stories (S3): Button, IconButton, ButtonGroup and Link, with every variant,
+// size and state, in the light and dark themes. The gallery (gallery.slint) shows one at a time, in the order of the Rust
+// registry (apps/gallery/src/registry.rs). The forced states (hover, pressed, focus) are set by the story, not by input, so a
+// capture shows them without a pointer.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ButtonGroup, GroupSegment } from "@rimelight_ui/components/button-group.slint";
+import { Link } from "@rimelight_ui/components/link.slint";
+import { Badge, BadgeTone, ToneColours } from "@rimelight_ui/components/badge.slint";
+import { Tag } from "@rimelight_ui/components/tag.slint";
+import { Kbd } from "@rimelight_ui/components/kbd.slint";
+import { TooltipPlacement } from "@rimelight_ui/components/tooltip.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { Menu, ContextMenu, MenuItem, MenuKind, MenuChecked } from "@rimelight_ui/components/menu.slint";
+import { Input, InputSize } from "@rimelight_ui/components/input.slint";
+import { SearchField } from "@rimelight_ui/components/search-field.slint";
+import { Textarea } from "@rimelight_ui/components/textarea.slint";
+import { NumberInput } from "@rimelight_ui/components/number-input.slint";
+import { Field, Form as FieldForm } from "@rimelight_ui/components/field.slint";
+import { Checkbox, CheckState, CheckboxSize } from "@rimelight_ui/components/checkbox.slint";
+import { RadioGroup, RadioOrientation } from "@rimelight_ui/components/radio-group.slint";
+import { Switch, SwitchSize, SwitchLabelSide } from "@rimelight_ui/components/switch.slint";
+import { Slider } from "@rimelight_ui/components/slider.slint";
+import { ColorPicker, ColorField } from "@rimelight_ui/components/color-picker.slint";
+import { Select, SelectOption, SelectSize } from "@rimelight_ui/components/select.slint";
+import { Combobox } from "@rimelight_ui/components/combobox.slint";
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Avatar, AvatarStack, AvatarSize, Presence, AvatarItem } from "@rimelight_ui/components/avatar.slint";
+import { DescriptionList, DescriptionItem } from "@rimelight_ui/components/description-list.slint";
+import { Stat, DeltaDirection } from "@rimelight_ui/components/stat.slint";
+import { Timeline, TimelineEvent } from "@rimelight_ui/components/timeline.slint";
+import { ActivityFeed, ActivityItem } from "@rimelight_ui/components/activity-feed.slint";
+import { List, ListRow } from "@rimelight_ui/components/list.slint";
+import { Table, TableColumn, TableRow } from "@rimelight_ui/components/table.slint";
+import { Divider } from "@rimelight_ui/components/divider.slint";
+import { Skeleton, SkeletonShape } from "@rimelight_ui/components/skeleton.slint";
+import { Spinner, SpinnerSize } from "@rimelight_ui/components/spinner.slint";
+import { Progress } from "@rimelight_ui/components/progress.slint";
+import { EmptyState } from "@rimelight_ui/components/empty-state.slint";
+import { ErrorState } from "@rimelight_ui/components/error-state.slint";
+import { Dialog, ConfirmDialog } from "@rimelight_ui/components/dialog.slint";
+import { Sheet, SheetPlacement } from "@rimelight_ui/components/sheet.slint";
+import { ImageViewer, ImageViewerItem } from "@rimelight_ui/components/image-viewer.slint";
+import { AttachmentGrid, AttachmentItem } from "@rimelight_ui/components/attachment-tile.slint";
+import { ToastStack, ToastEntry, ToastTone } from "@rimelight_ui/components/toast.slint";
+import { Banner, BannerTone } from "@rimelight_ui/components/banner.slint";
+import { Card, CardSurface } from "@rimelight_ui/components/card.slint";
+import { Section } from "@rimelight_ui/components/section.slint";
+import { StatusDot } from "@rimelight_ui/components/status-dot.slint";
+import { PresenceDot } from "@rimelight_ui/components/presence-dot.slint";
+import { Breadcrumbs } from "@rimelight_ui/components/breadcrumbs.slint";
+import { Tabs, ContentTab } from "@rimelight_ui/components/content-tabs.slint";
+import { Accordion, AccordionEntry } from "@rimelight_ui/components/accordion.slint";
+import { Stepper, StepItem } from "@rimelight_ui/components/stepper.slint";
+import { Pagination } from "@rimelight_ui/components/pagination.slint";
+import { Toolbar, ToolbarItem } from "@rimelight_ui/components/toolbar.slint";
+import { FilterBar, FilterChip } from "@rimelight_ui/components/filter-bar.slint";
+import { Tree, TreeRow } from "@rimelight_ui/components/tree.slint";
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
+import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
+
+component StoryHeading inherits Text {
+    color: Tokens.text-primary;
+    font-family: Type.heading.family;
+    font-size: Type.heading.size;
+    font-weight: Type.heading.weight;
+    wrap: word-wrap;
+}
+
+// A caption on the left and its controls on the right, on one line.
+component CaptionRow inherits HorizontalLayout {
+    in property <string> caption;
+    spacing: Tokens.space-4;
+    alignment: start;
+    Text {
+        width: 140px;
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+        vertical-alignment: center;
+    }
+    @children
+}
+
+// A section caption above its rows.
+component SectionCaption inherits Text {
+    color: Tokens.text-muted;
+    font-family: Type.caption.family;
+    font-size: Type.caption.size;
+    font-weight: Type.caption.weight;
+}
+
+// One variant in the three sizes.
+component SizeRow inherits CaptionRow {
+    in property <ButtonVariant> variant;
+    Button { text: "Label"; variant: root.variant; size: ButtonSize.sm; }
+    Button { text: "Label"; variant: root.variant; size: ButtonSize.md; }
+    Button { text: "Label"; variant: root.variant; size: ButtonSize.lg; }
+}
+
+// One variant in every state: rest, hover, pressed, focus ring, disabled and loading.
+component StateRow inherits CaptionRow {
+    in property <ButtonVariant> variant;
+    Button { text: "Rest"; variant: root.variant; }
+    Button { text: "Hover"; variant: root.variant; forced-state: 1; }
+    Button { text: "Pressed"; variant: root.variant; forced-state: 2; }
+    Button { text: "Focus"; variant: root.variant; forced-state: 3; }
+    Button { text: "Disabled"; variant: root.variant; enabled: false; }
+    Button { text: "Loading"; variant: root.variant; loading: true; }
+}
+
+export component ButtonStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o" : "Button"; }
+
+    SectionCaption { text: root.pt ? "Variantes e tamanhos: sm 28, md 34, lg 40" : "Variants and sizes: sm 28, md 34, lg 40"; }
+    VerticalLayout {
+        spacing: Tokens.space-3;
+        SizeRow { caption: "primary"; variant: ButtonVariant.primary; }
+        SizeRow { caption: "secondary"; variant: ButtonVariant.secondary; }
+        SizeRow { caption: "ghost"; variant: ButtonVariant.ghost; }
+        SizeRow { caption: "danger"; variant: ButtonVariant.danger; }
+        SizeRow { caption: "link"; variant: ButtonVariant.link; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    VerticalLayout {
+        spacing: Tokens.space-3;
+        StateRow { caption: "primary"; variant: ButtonVariant.primary; }
+        StateRow { caption: "secondary"; variant: ButtonVariant.secondary; }
+        StateRow { caption: "ghost"; variant: ButtonVariant.ghost; }
+        StateRow { caption: "danger"; variant: ButtonVariant.danger; }
+        StateRow { caption: "link"; variant: ButtonVariant.link; }
+    }
+
+    SectionCaption { text: root.pt ? "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âcones" : "Icons"; }
+    VerticalLayout {
+        spacing: Tokens.space-3;
+        CaptionRow {
+            caption: "leading";
+            Button { text: "Add"; leading-icon: Icons.plus; }
+            Button { text: "Add"; variant: ButtonVariant.primary; leading-icon: Icons.plus; size: ButtonSize.lg; }
+        }
+        CaptionRow {
+            caption: "trailing";
+            Button { text: "Next"; trailing-icon: Icons.chevron-right; }
+            Button { text: "Open"; variant: ButtonVariant.primary; trailing-icon: Icons.external-link; }
+        }
+        CaptionRow {
+            caption: "both";
+            Button { text: "Back"; leading-icon: Icons.chevron-left; trailing-icon: Icons.chevron-right; }
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Largura total" : "Full width"; }
+    Button { text: root.pt ? "Salvar" : "Save"; variant: ButtonVariant.primary; full-width: true; }
+
+    SectionCaption { text: root.pt ? "Sobre a barra lateral azul" : "On the navy sidebar"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 120px;
+        VerticalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            HorizontalLayout {
+                spacing: Tokens.space-3;
+                alignment: start;
+                Button { text: "Ghost"; variant: ButtonVariant.ghost; on-sidebar: true; }
+                Button { text: "Ghost hover"; variant: ButtonVariant.ghost; on-sidebar: true; forced-state: 1; }
+                Button { text: "Link"; variant: ButtonVariant.link; on-sidebar: true; }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-3;
+                alignment: start;
+                Button { text: "Primary"; variant: ButtonVariant.primary; }
+                Button { text: "Secondary"; variant: ButtonVariant.secondary; }
+                Button { text: "Danger"; variant: ButtonVariant.danger; }
+            }
+        }
+    }
+}
+
+// An icon-only button in one variant, at the three sizes.
+component IconSizeRow inherits CaptionRow {
+    in property <ButtonVariant> variant;
+    IconButton { icon: Icons.plus; label: "Add"; tooltip: "Add"; variant: root.variant; size: ButtonSize.sm; }
+    IconButton { icon: Icons.plus; label: "Add"; tooltip: "Add"; variant: root.variant; size: ButtonSize.md; }
+    IconButton { icon: Icons.plus; label: "Add"; tooltip: "Add"; variant: root.variant; size: ButtonSize.lg; }
+}
+
+// An icon-only button in every state.
+component IconStateRow inherits CaptionRow {
+    in property <ButtonVariant> variant;
+    IconButton { icon: Icons.x; label: "Close"; tooltip: "Close"; variant: root.variant; }
+    IconButton { icon: Icons.x; label: "Close"; tooltip: "Close"; variant: root.variant; forced-state: 1; }
+    IconButton { icon: Icons.x; label: "Close"; tooltip: "Close"; variant: root.variant; forced-state: 3; }
+    IconButton { icon: Icons.x; label: "Close"; tooltip: "Close"; variant: root.variant; enabled: false; }
+    IconButton { icon: Icons.x; label: "Close"; tooltip: "Close"; variant: root.variant; loading: true; }
+}
+
+export component IconButtonStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cone" : "Icon button"; }
+
+    SectionCaption { text: root.pt ? "Tamanhos: sm 28, md 34, lg 40 (quadrados)" : "Sizes: sm 28, md 34, lg 40 (square)"; }
+    VerticalLayout {
+        spacing: Tokens.space-3;
+        IconSizeRow { caption: "primary"; variant: ButtonVariant.primary; }
+        IconSizeRow { caption: "secondary"; variant: ButtonVariant.secondary; }
+        IconSizeRow { caption: "ghost"; variant: ButtonVariant.ghost; }
+        IconSizeRow { caption: "danger"; variant: ButtonVariant.danger; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    VerticalLayout {
+        spacing: Tokens.space-3;
+        IconStateRow { caption: "secondary"; variant: ButtonVariant.secondary; }
+        IconStateRow { caption: "ghost"; variant: ButtonVariant.ghost; }
+    }
+
+    SectionCaption { text: root.pt ? "Sobre a barra lateral azul" : "On the navy sidebar"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            IconButton { icon: Icons.ellipsis; label: "More"; tooltip: "More"; variant: ButtonVariant.ghost; on-sidebar: true; }
+            IconButton { icon: Icons.ellipsis; label: "More"; tooltip: "More"; variant: ButtonVariant.ghost; on-sidebar: true; forced-state: 1; }
+        }
+    }
+}
+
+export component ButtonGroupStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Grupo de botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes" : "Button group"; }
+
+    CaptionRow {
+        caption: "two";
+        ButtonGroup {
+            segments: [{ label: "Day", enabled: true }, { label: "Week", enabled: true }];
+        }
+    }
+    CaptionRow {
+        caption: "three";
+        ButtonGroup {
+            segments: [{ label: "Day", enabled: true }, { label: "Week", enabled: true }, { label: "Month", enabled: true }];
+        }
+    }
+    CaptionRow {
+        caption: "focused";
+        ButtonGroup {
+            segments: [{ label: "Day", enabled: true }, { label: "Week", enabled: true }, { label: "Month", enabled: true }];
+            forced-focus: 1;
+        }
+    }
+    CaptionRow {
+        caption: "disabled segment";
+        ButtonGroup {
+            segments: [{ label: "Day", enabled: true }, { label: "Week", enabled: false }, { label: "Month", enabled: true }];
+        }
+    }
+    CaptionRow {
+        caption: "primary";
+        ButtonGroup {
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            segments: [{ label: "Yes", enabled: true }, { label: "No", enabled: true }];
+        }
+    }
+    SectionCaption { text: root.pt ? "Largura total" : "Full width"; }
+    ButtonGroup {
+        full-width: true;
+        segments: [{ label: "Day", enabled: true }, { label: "Week", enabled: true }, { label: "Month", enabled: true }];
+    }
+}
+
+export component LinkStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Link" : "Link"; }
+
+    CaptionRow {
+        caption: "content";
+        Link { text: "Read the design notes"; }
+    }
+    CaptionRow {
+        caption: "external";
+        Link { text: "Source on GitHub"; external: true; }
+    }
+    CaptionRow {
+        caption: "hover";
+        Link { text: "Read the design notes"; forced-state: 1; }
+    }
+    CaptionRow {
+        caption: "focus";
+        Link { text: "Read the design notes"; forced-state: 3; }
+    }
+    SectionCaption { text: root.pt ? "Sobre a barra lateral azul" : "On the navy sidebar"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 96px;
+        VerticalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            Link { text: "Read the design notes"; on-sidebar: true; }
+            Link { text: "Source on GitHub"; external: true; on-sidebar: true; forced-state: 3; }
+        }
+    }
+}
+
+// Badge (S4): every tone as a count and as a dot, the cap rule, and the navy sidebar surface.
+export component BadgeStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Distintivo" : "Badge"; }
+
+    SectionCaption { text: root.pt ? "Contagem, todos os tons" : "Count, every tone"; }
+    CaptionRow {
+        caption: "count 7";
+        Badge { count: 7; tone: BadgeTone.neutral; }
+        Badge { count: 7; tone: BadgeTone.accent; }
+        Badge { count: 7; tone: BadgeTone.success; }
+        Badge { count: 7; tone: BadgeTone.warning; }
+        Badge { count: 7; tone: BadgeTone.danger; }
+        Badge { count: 7; tone: BadgeTone.info; }
+    }
+
+    SectionCaption { text: root.pt ? "Ponto, todos os tons" : "Dot, every tone"; }
+    CaptionRow {
+        caption: "dot";
+        Badge { dot: true; tone: BadgeTone.neutral; }
+        Badge { dot: true; tone: BadgeTone.accent; }
+        Badge { dot: true; tone: BadgeTone.success; }
+        Badge { dot: true; tone: BadgeTone.warning; }
+        Badge { dot: true; tone: BadgeTone.danger; }
+        Badge { dot: true; tone: BadgeTone.info; }
+    }
+
+    SectionCaption { text: root.pt ? "Zero, limite e acima do limite" : "Counts: 0, 99 and above the cap"; }
+    CaptionRow {
+        caption: "cap";
+        Badge { count: 0; }
+        Badge { count: 99; }
+        Badge { count: 100; }
+        Badge { count: 1234; max: 999; }
+    }
+
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            Badge { count: 7; tone: BadgeTone.neutral; }
+            Badge { count: 7; tone: BadgeTone.accent; }
+            Badge { dot: true; tone: BadgeTone.success; }
+        }
+    }
+}
+
+// Tag (S4): every tone, the remove button in rest and focus, and a tag on the navy sidebar.
+export component TagStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Etiqueta" : "Tag"; }
+
+    SectionCaption { text: root.pt ? "Todos os tons" : "Every tone"; }
+    CaptionRow {
+        caption: "tones";
+        Tag { label: "Neutral"; tone: BadgeTone.neutral; }
+        Tag { label: "Accent"; tone: BadgeTone.accent; }
+        Tag { label: "Success"; tone: BadgeTone.success; }
+        Tag { label: "Warning"; tone: BadgeTone.warning; }
+        Tag { label: "Danger"; tone: BadgeTone.danger; }
+        Tag { label: "Info"; tone: BadgeTone.info; }
+    }
+
+    SectionCaption { text: root.pt ? "Com botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de remover" : "With remove button"; }
+    CaptionRow {
+        caption: "remove";
+        Tag { label: "Design"; tone: BadgeTone.accent; removable: true; remove-label: "Remove Design"; }
+        Tag { label: "Urgent"; tone: BadgeTone.danger; removable: true; remove-label: "Remove Urgent"; }
+    }
+    CaptionRow {
+        caption: "remove focus";
+        Tag { label: "Design"; tone: BadgeTone.accent; removable: true; remove-label: "Remove Design"; forced-state: 3; }
+    }
+
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            Tag { label: "Sidebar tag"; tone: BadgeTone.info; on-sidebar: true; }
+        }
+    }
+}
+
+// Kbd (S4): single keys, combos (one cap per key), and a combo on the navy sidebar.
+export component KbdStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Tecla" : "Kbd"; }
+
+    CaptionRow {
+        caption: "single keys";
+        Kbd { keys: ["Esc"]; }
+        Kbd { keys: ["Enter"]; }
+        Kbd { keys: ["K"]; }
+    }
+    CaptionRow {
+        caption: "combos";
+        Kbd { keys: ["Ctrl", "K"]; }
+        Kbd { keys: ["Ctrl", "Shift", "P"]; }
+        Kbd { keys: ["Alt", "Tab"]; }
+    }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            alignment: start;
+            Kbd { keys: ["Ctrl", "K"]; }
+        }
+    }
+}
+
+// Avatar (S4): sizes, the initials fallback, an image, every presence status, and the navy sidebar surface.
+export component AvatarStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Avatar" : "Avatar"; }
+
+    CaptionRow {
+        caption: "sizes";
+        Avatar { name: "Ana Souza"; initials: "AS"; size: AvatarSize.sm; }
+        Avatar { name: "Ana Souza"; initials: "AS"; size: AvatarSize.md; }
+        Avatar { name: "Ana Souza"; initials: "AS"; size: AvatarSize.lg; }
+    }
+    CaptionRow {
+        caption: "image";
+        Avatar { name: "Ana Souza"; initials: "AS"; source: @image-url("../assets/stories/avatar-sample.svg"); size: AvatarSize.lg; }
+        Avatar { name: "Bruno Lima"; initials: "BL"; size: AvatarSize.lg; }
+    }
+    CaptionRow {
+        caption: "single initial";
+        Avatar { name: "Eva"; initials: "E"; }
+        Avatar { name: ""; initials: "?"; }
+    }
+    CaptionRow {
+        caption: "presence";
+        Avatar { name: "Bruno Lima"; initials: "BL"; presence: Presence.online; }
+        Avatar { name: "Bruno Lima"; initials: "BL"; presence: Presence.away; }
+        Avatar { name: "Bruno Lima"; initials: "BL"; presence: Presence.busy; }
+        Avatar { name: "Bruno Lima"; initials: "BL"; presence: Presence.offline; }
+    }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 64px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            Avatar { name: "Carla Mendes"; initials: "CM"; presence: Presence.online; }
+            Avatar { name: "Dani Reis"; initials: "DR"; }
+        }
+    }
+}
+
+// AvatarStack (S4): people that fit, an overflow with +N, and a small size with overflow.
+export component AvatarStackStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    property <[AvatarItem]> six: [
+        { name: "Ana Souza", initials: "AS" },
+        { name: "Bruno Lima", initials: "BL" },
+        { name: "Carla Mendes", initials: "CM" },
+        { name: "Dani Reis", initials: "DR" },
+        { name: "Eva Costa", initials: "EC" },
+        { name: "Felipe Dias", initials: "FD" },
+    ];
+    property <[AvatarItem]> three: [
+        { name: "Ana Souza", initials: "AS" },
+        { name: "Bruno Lima", initials: "BL" },
+        { name: "Carla Mendes", initials: "CM" },
+    ];
+
+    StoryHeading { text: root.pt ? "Pilha de avatares" : "Avatar stack"; }
+    CaptionRow {
+        caption: "fits (3 of 4)";
+        AvatarStack { people: root.three; max: 4; }
+    }
+    CaptionRow {
+        caption: "overflow (6, 4 slots)";
+        AvatarStack { people: root.six; max: 4; }
+    }
+    CaptionRow {
+        caption: "small, overflow (6, 3)";
+        AvatarStack { people: root.six; max: 3; size: AvatarSize.sm; }
+    }
+}
+
+// Divider (S4): horizontal, with a label, vertical, and the navy sidebar variant.
+export component DividerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Divisor" : "Divider"; }
+
+    SectionCaption { text: root.pt ? "Horizontal" : "Horizontal"; }
+    Divider { }
+    SectionCaption { text: root.pt ? "Com rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³tulo" : "With label"; }
+    Divider { label: "or"; }
+    SectionCaption { text: root.pt ? "Vertical" : "Vertical"; }
+    Rectangle {
+        height: 48px;
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            alignment: start;
+            Text { text: "Left"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; vertical-alignment: center; }
+            Divider { vertical: true; }
+            Text { text: "Right"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; vertical-alignment: center; }
+        }
+    }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 72px;
+        VerticalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-2;
+            alignment: center;
+            Divider { on-sidebar: true; }
+            Divider { label: "or"; on-sidebar: true; }
+        }
+    }
+}
+
+// Skeleton (S4): the three shapes, and one shape on the navy sidebar.
+export component SkeletonStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Esqueleto" : "Skeleton"; }
+
+    CaptionRow {
+        caption: "line";
+        VerticalLayout {
+            spacing: Tokens.space-2;
+            Skeleton { width: 180px; height: Tokens.size-skeleton-line; shape: SkeletonShape.line; }
+            Skeleton { width: 120px; height: Tokens.size-skeleton-line; shape: SkeletonShape.line; }
+        }
+    }
+    CaptionRow {
+        caption: "block";
+        Skeleton { width: 320px; height: 96px; shape: SkeletonShape.block; }
+    }
+    CaptionRow {
+        caption: "circle";
+        Skeleton { width: 40px; height: 40px; shape: SkeletonShape.circle; }
+    }
+    CaptionRow {
+        caption: "still";
+        Skeleton { width: 180px; height: Tokens.size-skeleton-line; shape: SkeletonShape.line; pulse: false; }
+    }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+            alignment: start;
+            Skeleton { width: 180px; height: Tokens.size-skeleton-line; shape: SkeletonShape.line; }
+        }
+    }
+}
+
+// Spinner (S4): the three sizes, a colour, and a still spinner for reduced motion (set in the gallery).
+export component SpinnerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Girando" : "Spinner"; }
+
+    CaptionRow {
+        caption: "sizes";
+        Spinner { size: SpinnerSize.sm; }
+        Spinner { size: SpinnerSize.md; }
+        Spinner { size: SpinnerSize.lg; }
+    }
+    CaptionRow {
+        caption: "colours";
+        Spinner { ink: Tokens.accent-text; }
+        Spinner { ink: Tokens.status-danger; }
+        Spinner { ink: Tokens.text-muted; }
+    }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        HorizontalLayout {
+            padding: Tokens.space-4;
+            alignment: start;
+            Spinner { size: SpinnerSize.md; ink: Tokens.sidebar-text; }
+        }
+    }
+}
+
+// Progress (S4): determinate values (clamped), every tone, and the indeterminate sweep, on light and dark tracks.
+export component ProgressStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Progresso" : "Progress"; }
+
+    CaptionRow {
+        caption: "0 percent";
+        Progress { value: 0; accessible-name: "Upload"; width: 280px; }
+    }
+    CaptionRow {
+        caption: "42 percent";
+        Progress { value: 0.42; accessible-name: "Upload"; width: 280px; }
+    }
+    CaptionRow {
+        caption: "100 percent";
+        Progress { value: 1; accessible-name: "Upload"; width: 280px; }
+    }
+    CaptionRow {
+        caption: "clamped (-0.5, 1.7)";
+        VerticalLayout {
+            spacing: Tokens.space-2;
+            Progress { value: -0.5; width: 280px; }
+            Progress { value: 1.7; width: 280px; }
+        }
+    }
+    SectionCaption { text: root.pt ? "Tons" : "Tones"; }
+    VerticalLayout {
+        spacing: Tokens.space-2;
+        Progress { value: 0.6; tone: BadgeTone.neutral; width: 280px; }
+        Progress { value: 0.6; tone: BadgeTone.success; width: 280px; }
+        Progress { value: 0.6; tone: BadgeTone.warning; width: 280px; }
+        Progress { value: 0.6; tone: BadgeTone.danger; width: 280px; }
+        Progress { value: 0.6; tone: BadgeTone.info; width: 280px; }
+    }
+    SectionCaption { text: root.pt ? "Indeterminado" : "Indeterminate"; }
+    Progress { indeterminate: true; accessible-name: "Loading"; width: 280px; }
+    SectionCaption { text: root.pt ? "SuperfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cie azul da barra lateral" : "Navy sidebar surface"; }
+    Rectangle {
+        background: Tokens.sidebar-bg;
+        border-radius: Tokens.radius-surface;
+        height: 56px;
+        VerticalLayout {
+            padding: Tokens.space-4;
+            alignment: center;
+            Progress { value: 0.42; width: 280px; }
+        }
+    }
+}
+
+// EmptyState (S4): with and without the action button, and the same states on the navy sidebar.
+export component EmptyStateStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Estado vazio" : "Empty state"; }
+
+    SectionCaption { text: root.pt ? "Com botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o" : "With action"; }
+    Rectangle {
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-surface;
+        background: Tokens.surface-raised;
+        EmptyState {
+            width: 360px;
+            icon: Icons.mail;
+            title: root.pt ? "Nenhuma mensagem" : "No messages";
+            description: root.pt ? "Novas mensagens aparecem aqui." : "New messages show up here.";
+            action-label: root.pt ? "Escrever" : "Compose";
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Sem botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o" : "Without action"; }
+    Rectangle {
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-surface;
+        background: Tokens.surface-raised;
+        EmptyState {
+            width: 360px;
+            icon: Icons.calendar;
+            title: root.pt ? "Nenhum evento hoje" : "No events today";
+            description: root.pt ? "Nada estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ agendado para hoje." : "Nothing is scheduled for today.";
+        }
+    }
+}
+
+// ErrorState (S4): with retry and details, and without either.
+export component ErrorStateStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Estado de erro" : "Error state"; }
+
+    SectionCaption { text: root.pt ? "Com nova tentativa e detalhes" : "With retry and details"; }
+    Rectangle {
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-surface;
+        background: Tokens.surface-raised;
+        ErrorState {
+            width: 360px;
+            icon: Icons.triangle-alert;
+            title: root.pt ? "NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­vel carregar os projetos" : "Could not load projects";
+            description: root.pt ? "Verifique a conexÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o e tente de novo." : "Check your connection and try again.";
+            retry-label: root.pt ? "Tentar de novo" : "Try again";
+            details: "HTTP 503 from /api/projects";
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Sem nova tentativa" : "Without retry"; }
+    Rectangle {
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-surface;
+        background: Tokens.surface-raised;
+        ErrorState {
+            width: 360px;
+            icon: Icons.circle-x;
+            title: root.pt ? "Algo deu errado" : "Something went wrong";
+            description: root.pt ? "Volte mais tarde." : "Please come back later.";
+        }
+    }
+}
+
+// A caption above its control, stacked, so a row fits a 390 px phone (no fixed caption column).
+component StackedRow inherits VerticalLayout {
+    in property <string> caption;
+    spacing: Tokens.space-2;
+    Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+    @children
+}
+
+// Input (S5): every size, the icons, the addon, clear and password, every state, and the sample text. The forced states
+// (hover and focus ring) are set by the story so a capture shows them without a pointer. Each field is at most 280 px wide
+// and every row stacks, so the story fits a 390 px phone.
+export component InputStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Campo de texto" : "Input"; }
+
+    SectionCaption { text: root.pt ? "Tamanhos" : "Sizes"; }
+    StackedRow { caption: "sm (28 px)";
+        Input { max-width: 280px; placeholder: "28 px"; size: InputSize.sm; accessible-name: "Small"; }
+    }
+    StackedRow { caption: "md (34 px)";
+        Input { max-width: 280px; placeholder: "34 px"; size: InputSize.md; accessible-name: "Medium"; }
+    }
+    StackedRow { caption: "lg (40 px)";
+        Input { max-width: 280px; placeholder: "40 px"; size: InputSize.lg; accessible-name: "Large"; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    StackedRow { caption: "default";
+        Input { max-width: 280px; placeholder: "Name"; accessible-name: "Name default"; }
+    }
+    StackedRow { caption: "hover";
+        Input { max-width: 280px; placeholder: "Name"; accessible-name: "Name hover"; forced-state: 1; }
+    }
+    StackedRow { caption: "focus";
+        Input { max-width: 280px; text: "Ada"; accessible-name: "Name focus"; forced-state: 2; }
+    }
+    StackedRow { caption: "disabled";
+        Input { max-width: 280px; text: "Ada"; enabled: false; accessible-name: "Name disabled"; }
+    }
+    StackedRow { caption: "read-only";
+        Input { max-width: 280px; text: "Ada"; read-only: true; accessible-name: "Name read-only"; }
+    }
+    StackedRow { caption: "invalid";
+        Input { max-width: 280px; text: "ada@"; invalid: true; accessible-name: "Email invalid"; }
+    }
+
+    SectionCaption { text: root.pt ? "Icones, sufixo, limpar e senha" : "Icons, addon, clear and password"; }
+    StackedRow { caption: "leading icon";
+        Input { max-width: 280px; placeholder: "Email"; leading-icon: Icons.mail; accessible-name: "Email"; }
+    }
+    StackedRow { caption: "addon";
+        Input { max-width: 280px; text: "example"; trailing-addon: ".dev"; accessible-name: "Domain"; }
+    }
+    StackedRow { caption: "clearable";
+        Input { max-width: 280px; text: "Ada Lovelace"; clearable: true; clear-label: "Clear name"; accessible-name: "Name clearable"; }
+    }
+    StackedRow { caption: "password";
+        Input { max-width: 280px; text: "secret"; password: true; accessible-name: "Password"; }
+    }
+}
+
+// SearchField (S5): the default, with text and the clear button, with a shortcut hint, and disabled.
+export component SearchFieldStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Campo de busca" : "SearchField"; }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "empty";
+        SearchField { placeholder: "Search"; accessible-name: "Search empty"; }
+    }
+    CaptionRow {
+        caption: "with text";
+        SearchField { text: "invoices"; accessible-name: "Search with text"; }
+    }
+    CaptionRow {
+        caption: "shortcut";
+        SearchField { placeholder: "Search"; shortcut-hint: "Ctrl K"; accessible-name: "Search shortcut"; }
+    }
+    CaptionRow {
+        caption: "disabled";
+        SearchField { text: "invoices"; enabled: false; accessible-name: "Search disabled"; }
+    }
+}
+// Textarea (S5): sizes by rows, an auto-grown field, and the states.
+export component TextareaStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Area de texto" : "Textarea"; }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "rows 3";
+        Textarea { placeholder: "Notes"; rows: 3; accessible-name: "Notes"; }
+    }
+    CaptionRow {
+        caption: "auto-grow";
+        Textarea { text: "one\ntwo\nthree\nfour"; rows: 2; max-rows: 6; line-count: 4; accessible-name: "Grown"; }
+    }
+    CaptionRow {
+        caption: "hover";
+        Textarea { placeholder: "Notes"; rows: 2; accessible-name: "Hover"; forced-state: 1; }
+    }
+    CaptionRow {
+        caption: "focus";
+        Textarea { text: "Draft"; rows: 2; accessible-name: "Focus"; forced-state: 2; }
+    }
+    CaptionRow {
+        caption: "disabled";
+        Textarea { text: "Draft"; rows: 2; enabled: false; accessible-name: "Disabled"; }
+    }
+    CaptionRow {
+        caption: "read-only";
+        Textarea { text: "Draft"; rows: 2; read-only: true; accessible-name: "Read only"; }
+    }
+    CaptionRow {
+        caption: "invalid";
+        Textarea { text: "Draft"; rows: 2; invalid: true; accessible-name: "Invalid"; }
+    }
+}
+// NumberInput (S5): sizes, the value at its ends, the empty field, disabled and invalid.
+export component NumberInputStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Campo numerico" : "NumberInput"; }
+
+    SectionCaption { text: root.pt ? "Tamanhos" : "Sizes"; }
+    CaptionRow {
+        caption: "sm, md, lg";
+        NumberInput { value: 3; text: "3"; size: InputSize.sm; accessible-name: "Small"; }
+        NumberInput { value: 3; text: "3"; size: InputSize.md; accessible-name: "Medium"; }
+        NumberInput { value: 3; text: "3"; size: InputSize.lg; accessible-name: "Large"; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "default";
+        NumberInput { value: 5; text: "5"; minimum: 0; maximum: 10; accessible-name: "Default"; }
+    }
+    CaptionRow {
+        caption: "at maximum";
+        NumberInput { value: 10; text: "10"; minimum: 0; maximum: 10; accessible-name: "Maximum"; }
+    }
+    CaptionRow {
+        caption: "hover";
+        NumberInput { value: 5; text: "5"; accessible-name: "Hover"; forced-state: 1; }
+    }
+    CaptionRow {
+        caption: "focus";
+        NumberInput { value: 5; text: "5"; accessible-name: "Focus"; forced-state: 2; }
+    }
+    CaptionRow {
+        caption: "disabled";
+        NumberInput { value: 5; text: "5"; enabled: false; accessible-name: "Disabled"; }
+    }
+    CaptionRow {
+        caption: "invalid";
+        NumberInput { value: 50; text: "50"; invalid: true; accessible-name: "Invalid"; }
+    }
+}
+// Field and Form (S5): a field with help, a required field, an error, and a complete small form (name, email, notes,
+// quantity, and a Save button) that stacks at phone width.
+export component FieldStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Campo e formulario" : "Field and Form"; }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    FieldForm {
+        Field { label: "Name"; required: true;
+            Input { placeholder: "Full name"; accessible-name: "Name"; }
+        }
+        Field { label: "Email"; help: "We never share it.";
+            Input { placeholder: "you@example.com"; leading-icon: Icons.mail; accessible-name: "Email help"; }
+        }
+        Field { label: "Email"; error: "Enter a valid email address.";
+            Input { text: "ada@"; invalid: true; accessible-name: "Email error"; }
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Formulario completo" : "Complete form"; }
+    FieldForm {
+        Field { label: "Name"; required: true;
+            Input { text: "Ada Lovelace"; accessible-name: "Full name"; }
+        }
+        Field { label: "Email"; required: true; help: "Used for invoices.";
+            Input { placeholder: "you@example.com"; leading-icon: Icons.mail; accessible-name: "Work email"; }
+        }
+        Field { label: "Notes";
+            Textarea { placeholder: "Anything else"; rows: 3; accessible-name: "Notes"; }
+        }
+        Field { label: "Quantity";
+            NumberInput { value: 2; text: "2"; minimum: 0; maximum: 10; accessible-name: "Quantity"; }
+        }
+        Button { text: "Save"; variant: ButtonVariant.primary; }
+    }
+}
+
+// Choice controls (S5): Checkbox, RadioGroup, Switch and Slider, each in its states and in a Field.
+// Forced states (focus ring 2, hover) show a state without a pointer; the in-field examples show the error look.
+export component CheckboxStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Caixa de selecao" : "Checkbox"; }
+
+    SectionCaption { text: root.pt ? "Tamanhos e estados" : "Sizes and states"; }
+    CaptionRow {
+        caption: "md";
+        Checkbox { text: "Unchecked"; accessible-name: "Unchecked md"; }
+        Checkbox { text: "Checked"; check-state: CheckState.checked; accessible-name: "Checked md"; }
+        Checkbox { text: "Mixed"; check-state: CheckState.indeterminate; accessible-name: "Mixed md"; }
+    }
+    CaptionRow {
+        caption: "sm";
+        Checkbox { text: "Unchecked"; size: CheckboxSize.sm; accessible-name: "Unchecked sm"; }
+        Checkbox { text: "Checked"; size: CheckboxSize.sm; check-state: CheckState.checked; accessible-name: "Checked sm"; }
+        Checkbox { text: "Mixed"; size: CheckboxSize.sm; check-state: CheckState.indeterminate; accessible-name: "Mixed sm"; }
+    }
+    CaptionRow {
+        caption: "disabled";
+        Checkbox { text: "Unchecked"; enabled: false; accessible-name: "Disabled unchecked"; }
+        Checkbox { text: "Checked"; enabled: false; check-state: CheckState.checked; accessible-name: "Disabled checked"; }
+        Checkbox { text: "Mixed"; enabled: false; check-state: CheckState.indeterminate; accessible-name: "Disabled mixed"; }
+    }
+    CaptionRow {
+        caption: "invalid";
+        Checkbox { text: "Accept terms"; invalid: true; accessible-name: "Invalid"; }
+    }
+    CaptionRow {
+        caption: "focus";
+        Checkbox { text: "Focused"; check-state: CheckState.checked; forced-state: 2; accessible-name: "Focus"; }
+    }
+
+    SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
+    FieldForm {
+        Field { label: "Newsletter"; help: "One email a month.";
+            Checkbox { text: "Send me the newsletter"; accessible-name: "Newsletter"; }
+        }
+        fld2 := Field { label: "Terms"; error: "You must accept the terms.";
+            Checkbox { text: "I accept the terms"; invalid: fld2.invalid; accessible-name: "Terms"; }
+        }
+    }
+}
+
+export component RadioGroupStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Grupo de opcoes" : "RadioGroup"; }
+
+    SectionCaption { text: root.pt ? "Vertical e horizontal" : "Vertical and horizontal"; }
+    CaptionRow {
+        caption: "vertical";
+        RadioGroup {
+            value: "beta";
+            accessible-name: "Vertical";
+            options: [
+                { value: "alpha", label: "Alpha", disabled: false },
+                { value: "beta", label: "Beta", disabled: false },
+                { value: "gamma", label: "Gamma (disabled)", disabled: true },
+            ];
+        }
+    }
+    CaptionRow {
+        caption: "horizontal";
+        RadioGroup {
+            value: "alpha";
+            orientation: RadioOrientation.horizontal;
+            accessible-name: "Horizontal";
+            options: [
+                { value: "alpha", label: "Alpha", disabled: false },
+                { value: "beta", label: "Beta", disabled: false },
+                { value: "gamma", label: "Gamma", disabled: false },
+            ];
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "none selected";
+        RadioGroup {
+            value: "";
+            accessible-name: "None";
+            options: [
+                { value: "one", label: "One", disabled: false },
+                { value: "two", label: "Two", disabled: false },
+            ];
+        }
+    }
+    CaptionRow {
+        caption: "disabled";
+        RadioGroup {
+            value: "one";
+            enabled: false;
+            accessible-name: "Disabled";
+            options: [
+                { value: "one", label: "One", disabled: false },
+                { value: "two", label: "Two", disabled: false },
+            ];
+        }
+    }
+    CaptionRow {
+        caption: "invalid";
+        RadioGroup {
+            value: "";
+            invalid: true;
+            accessible-name: "Invalid";
+            options: [
+                { value: "one", label: "One", disabled: false },
+                { value: "two", label: "Two", disabled: false },
+            ];
+        }
+    }
+    CaptionRow {
+        caption: "focus";
+        RadioGroup {
+            value: "two";
+            forced-state: 2;
+            accessible-name: "Focus";
+            options: [
+                { value: "one", label: "One", disabled: false },
+                { value: "two", label: "Two", disabled: false },
+            ];
+        }
+    }
+
+    SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
+    FieldForm {
+        Field { label: "Plan"; help: "You can change it later.";
+            RadioGroup {
+                value: "free";
+                accessible-name: "Plan";
+                options: [
+                    { value: "free", label: "Free", disabled: false },
+                    { value: "pro", label: "Pro", disabled: false },
+                ];
+            }
+        }
+        fld4 := Field { label: "Plan"; error: "Choose a plan.";
+            RadioGroup {
+                value: "";
+                invalid: fld4.invalid;
+                accessible-name: "Plan error";
+                options: [
+                    { value: "free", label: "Free", disabled: false },
+                    { value: "pro", label: "Pro", disabled: false },
+                ];
+            }
+        }
+    }
+}
+
+export component SwitchStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Chave" : "Switch"; }
+
+    SectionCaption { text: root.pt ? "Tamanhos e lados do rotulo" : "Sizes and label side"; }
+    CaptionRow {
+        caption: "md, right";
+        Switch { text: "Off"; accessible-name: "Off md"; }
+        Switch { text: "On"; checked: true; accessible-name: "On md"; }
+    }
+    CaptionRow {
+        caption: "md, left";
+        Switch { text: "Off"; label-side: SwitchLabelSide.left; accessible-name: "Off left"; }
+        Switch { text: "On"; checked: true; label-side: SwitchLabelSide.left; accessible-name: "On left"; }
+    }
+    CaptionRow {
+        caption: "sm";
+        Switch { text: "Off"; size: SwitchSize.sm; accessible-name: "Off sm"; }
+        Switch { text: "On"; size: SwitchSize.sm; checked: true; accessible-name: "On sm"; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "disabled";
+        Switch { text: "Off"; enabled: false; accessible-name: "Disabled off"; }
+        Switch { text: "On"; enabled: false; checked: true; accessible-name: "Disabled on"; }
+    }
+    CaptionRow {
+        caption: "focus";
+        Switch { text: "Focused"; checked: true; forced-state: 2; accessible-name: "Focus"; }
+    }
+
+    SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
+    FieldForm {
+        Field { label: "Notifications"; help: "Email me when something changes.";
+            Switch { text: "Email updates"; accessible-name: "Email"; }
+        }
+    }
+}
+
+export component SliderStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Controle deslizante" : "Slider"; }
+
+    SectionCaption { text: root.pt ? "Faixa e valor" : "Range and value"; }
+    CaptionRow {
+        caption: "0 to 100, step 10";
+        Slider { value: 40; minimum: 0; maximum: 100; step: 10; show-value: true; accessible-name: "Volume"; }
+    }
+    CaptionRow {
+        caption: "step 1";
+        Slider { value: 7; minimum: 0; maximum: 10; step: 1; show-value: true; accessible-name: "Stars"; }
+    }
+
+    SectionCaption { text: root.pt ? "Estados" : "States"; }
+    CaptionRow {
+        caption: "disabled";
+        Slider { value: 30; minimum: 0; maximum: 100; step: 10; enabled: false; accessible-name: "Disabled"; }
+    }
+    CaptionRow {
+        caption: "focus";
+        Slider { value: 60; minimum: 0; maximum: 100; step: 10; forced-state: 2; accessible-name: "Focus"; }
+    }
+
+    SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
+    FieldForm {
+        Field { label: "Volume"; help: "Between 0 and 100.";
+            Slider { value: 50; minimum: 0; maximum: 100; step: 5; show-value: true; accessible-name: "Field volume"; }
+        }
+    }
+}
+
+// Select (S6): the default story has every size, state, the icons, clearable and a Field. The open variants show the menu:
+// "open" with a highlight that differs from the chosen row (groups and a disabled option are in the menu), and "flip" with
+// the trigger at the bottom edge of the story, so the menu opens upward. The variant is set by the gallery.
+export component SelectStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    // 0 default, 1 open, 2 flip (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    property <[SelectOption]> fruit: [
+        { value: "apple", label: "Apple", disabled: false, group: "Pome" },
+        { value: "apricot", label: "Apricot", disabled: true, group: "Stone" },
+        { value: "banana", label: "Banana", disabled: false, group: "Tropical" },
+        { value: "blueberry", label: "Blueberry", disabled: false, group: "Berries" },
+        { value: "cherry", label: "Cherry", disabled: true, group: "Stone" },
+    ];
+    property <[SelectOption]> contacts: [
+        { value: "mail", label: "Email", icon: Icons.mail, disabled: false, group: "" },
+        { value: "calendar", label: "Calendar", icon: Icons.calendar, disabled: false, group: "" },
+        { value: "users", label: "Team", icon: Icons.users, disabled: true, group: "" },
+    ];
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Seleção" : "Select"; }
+
+        // Two columns, so every state is inside one frame (a capture does not scroll). Each Select is at most 280 px wide.
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            // Two 160 px columns and this gap fit a 390 px phone frame (342 px of content).
+            spacing: Tokens.space-4;
+            VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-6;
+            alignment: start;
+
+        SectionCaption { text: root.pt ? "Tamanhos" : "Sizes"; }
+        StackedRow { caption: "sm (28 px)";
+            Select { max-width: 280px; size: SelectSize.sm; value: "banana"; options: root.fruit; accessible-name: "Small"; }
+        }
+        StackedRow { caption: "md (34 px)";
+            Select { max-width: 280px; size: SelectSize.md; value: "banana"; options: root.fruit; accessible-name: "Medium"; }
+        }
+        StackedRow { caption: "lg (40 px)";
+            Select { max-width: 280px; size: SelectSize.lg; value: "banana"; options: root.fruit; accessible-name: "Large"; }
+        }
+
+        SectionCaption { text: root.pt ? "Estados" : "States"; }
+        StackedRow { caption: "placeholder";
+            Select { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; accessible-name: "Fruit placeholder"; }
+        }
+        StackedRow { caption: "hover";
+            Select { max-width: 280px; value: "banana"; options: root.fruit; forced-state: 1; accessible-name: "Fruit hover"; }
+        }
+        StackedRow { caption: "focus";
+            Select { max-width: 280px; value: "banana"; options: root.fruit; forced-state: 2; accessible-name: "Fruit focus"; }
+        }
+            }
+            VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-6;
+            alignment: start;
+
+        StackedRow { caption: "disabled";
+            Select { max-width: 280px; value: "banana"; options: root.fruit; enabled: false; accessible-name: "Fruit disabled"; }
+        }
+        StackedRow { caption: "invalid";
+            Select { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; invalid: true; accessible-name: "Fruit invalid"; }
+        }
+
+        SectionCaption { text: root.pt ? "Icones, limpar e campo" : "Icons, clear and field"; }
+        StackedRow { caption: "leading icons";
+            Select { max-width: 280px; value: "calendar"; options: root.contacts; accessible-name: "Contact"; }
+        }
+        StackedRow { caption: "clearable";
+            Select { max-width: 280px; value: "blueberry"; options: root.fruit; clearable: true; accessible-name: "Fruit clearable"; }
+        }
+        StackedRow { caption: "in a field";
+            Field { label: root.pt ? "Fruta" : "Fruit"; help: root.pt ? "Escolha uma." : "Choose one.";
+                Select { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; accessible-name: "Field fruit"; }
+            }
+        }
+        StackedRow { caption: "in a field, error";
+            fld := Field { label: root.pt ? "Fruta" : "Fruit"; error: root.pt ? "Escolha uma fruta." : "Choose a fruit.";
+                Select { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; invalid: fld.invalid; accessible-name: "Field fruit error"; }
+            }
+        }
+            }
+        }
+    }
+
+    // The menu is open, the highlight is on Banana and the chosen row is Apple. Groups and a disabled row are in the menu.
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Seleção aberta" : "Select open"; }
+        SectionCaption { text: root.pt ? "Destaque diferente da escolha" : "Highlight differs from the chosen row"; }
+        Select { max-width: 280px; value: "apple"; options: root.fruit; forced-open: true; forced-highlight: 2; accessible-name: "Fruit open"; }
+    }
+
+    // The trigger sits at the bottom edge of the story: there is no room below, so the menu opens upward.
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Seleção no fim da tela" : "Select at the bottom edge"; }
+        Rectangle { height: 240px; }
+        SectionCaption { text: root.pt ? "Abre para cima" : "Opens upward: no room below"; }
+        Select { max-width: 280px; value: "banana"; options: root.fruit; forced-open: true; forced-highlight: 3;
+            bottom-limit: root.absolute-position.y + root.height; accessible-name: "Fruit flip"; }
+    }
+}
+
+// Combobox (S6): the default states, then the open menu (filter empty), the filtered menu (the filter has "e"), and the
+// no-results line (the filter has "kiwi", and the caller's words are shown). The filter is typed text in the captures.
+export component ComboboxStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    // 0 default, 1 open, 2 filtered, 3 no results (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    property <[SelectOption]> fruit: [
+        { value: "apple", label: "Apple", disabled: false, group: "Pome" },
+        { value: "apricot", label: "Apricot", disabled: true, group: "Stone" },
+        { value: "banana", label: "Banana", disabled: false, group: "Tropical" },
+        { value: "blueberry", label: "Blueberry", disabled: false, group: "Berries" },
+        { value: "cherry", label: "Cherry", disabled: true, group: "Stone" },
+    ];
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: "Combobox"; }
+
+        // Two columns, so every state is inside one frame (a capture does not scroll).
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            // Two 160 px columns and this gap fit a 390 px phone frame (342 px of content).
+            spacing: Tokens.space-4;
+            VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-6;
+            alignment: start;
+
+        SectionCaption { text: root.pt ? "Tamanhos" : "Sizes"; }
+        StackedRow { caption: "sm (28 px)";
+            Combobox { max-width: 280px; size: SelectSize.sm; value: "banana"; options: root.fruit; accessible-name: "Small"; }
+        }
+        StackedRow { caption: "md (34 px)";
+            Combobox { max-width: 280px; size: SelectSize.md; value: "banana"; options: root.fruit; accessible-name: "Medium"; }
+        }
+        StackedRow { caption: "lg (40 px)";
+            Combobox { max-width: 280px; size: SelectSize.lg; value: "banana"; options: root.fruit; accessible-name: "Large"; }
+        }
+
+        SectionCaption { text: root.pt ? "Estados" : "States"; }
+        StackedRow { caption: "placeholder";
+            Combobox { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; accessible-name: "Fruit placeholder"; }
+        }
+        StackedRow { caption: "hover";
+            Combobox { max-width: 280px; value: "banana"; options: root.fruit; forced-state: 1; accessible-name: "Fruit hover"; }
+        }
+        StackedRow { caption: "focus";
+            Combobox { max-width: 280px; value: "banana"; options: root.fruit; forced-state: 2; accessible-name: "Fruit focus"; }
+        }
+            }
+            VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-6;
+            alignment: start;
+
+        StackedRow { caption: "disabled";
+            Combobox { max-width: 280px; value: "banana"; options: root.fruit; enabled: false; accessible-name: "Fruit disabled"; }
+        }
+        StackedRow { caption: "invalid";
+            Combobox { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; invalid: true; accessible-name: "Fruit invalid"; }
+        }
+        StackedRow { caption: "in a field";
+            Field { label: root.pt ? "Fruta" : "Fruit"; help: root.pt ? "Digite para filtrar." : "Type to filter.";
+                Combobox { max-width: 280px; placeholder: "Pick a fruit"; options: root.fruit; accessible-name: "Field fruit"; }
+            }
+        }
+            }
+        }
+    }
+
+    // The menu is open with an empty filter; the highlight is on Banana, the chosen row is Apple.
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Combobox aberto" : "Combobox open"; }
+        SectionCaption { text: root.pt ? "Filtro vazio, destaque diferente da escolha" : "Empty filter, highlight differs from the chosen row"; }
+        Combobox { max-width: 280px; value: "apple"; options: root.fruit; forced-open: true; forced-highlight: 2;
+            filter-placeholder: root.pt ? "Buscar" : "Search"; accessible-name: "Fruit open"; }
+    }
+
+    // The filter has "e": Apple, Blueberry and the disabled Cherry match.
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Combobox filtrado" : "Combobox filtered"; }
+        SectionCaption { text: root.pt ? "Filtro com e" : "Filter has e"; }
+        Combobox { max-width: 280px; value: "banana"; options: root.fruit; forced-open: true; forced-filter: "e";
+            filter-placeholder: root.pt ? "Buscar" : "Search"; accessible-name: "Fruit filtered"; }
+    }
+
+    // The filter has "kiwi", which no option matches: the caller's no-results words are shown.
+    if root.variant == 3 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        StoryHeading { text: root.pt ? "Combobox sem resultado" : "Combobox no results"; }
+        SectionCaption { text: root.pt ? "Filtro sem correspondencia" : "Filter with no match"; }
+        Combobox { max-width: 280px; value: "banana"; options: root.fruit; forced-open: true; forced-filter: "kiwi";
+            filter-placeholder: root.pt ? "Buscar" : "Search";
+            no-results-text: root.pt ? "Nenhuma fruta encontrada." : "No fruit matches."; accessible-name: "Fruit none"; }
+    }
+}
+
+// Tooltip (S7): the anchor is an IconButton and its `tooltip` is the text. 0 default: no focus and no hover, so nothing is
+// drawn. 1 focus: the anchor has keyboard focus (forced here), so the tooltip is shown above it with its shortcut. 2 bottom:
+// the same anchor with the tooltip placed below it.
+export component TooltipStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    // 0 default, 1 focus, 2 bottom (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Dica de ferramenta" : "Tooltip"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Sem foco e sem ponteiro" : "No focus, no pointer"; }
+        HorizontalLayout {
+            spacing: Tokens.space-6;
+            alignment: start;
+            IconButton { icon: Icons.plus; label: root.pt ? "Adicionar" : "Add"; tooltip: root.pt ? "Adicionar item" : "Add item"; tooltip-shortcut: ["Ctrl", "N"]; }
+            IconButton { icon: Icons.x; label: root.pt ? "Fechar" : "Close"; tooltip: root.pt ? "Fechar" : "Close"; }
+        }
+    }
+
+    // The anchor has keyboard focus, so the tooltip is drawn above it with the shortcut hint.
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Foco do teclado: acima" : "Keyboard focus: above"; }
+        Rectangle { height: 48px; }
+        HorizontalLayout {
+            spacing: Tokens.space-6;
+            alignment: start;
+            // Indented, so the bubble (centred on the anchor) stays inside the story frame.
+            Rectangle { width: 120px; }
+            IconButton { icon: Icons.plus; label: root.pt ? "Adicionar" : "Add"; tooltip: root.pt ? "Adicionar item" : "Add item"; tooltip-shortcut: ["Ctrl", "N"]; forced-state: 3; }
+        }
+    }
+
+    // The same, placed below the anchor (the bottom placement, also what a flip gives when there is no room above).
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Foco do teclado: abaixo" : "Keyboard focus: below"; }
+        HorizontalLayout {
+            spacing: Tokens.space-6;
+            alignment: start;
+            IconButton { icon: Icons.x; label: root.pt ? "Fechar" : "Close"; tooltip: root.pt ? "Fechar painel" : "Close panel"; forced-state: 3; tooltip-placement: TooltipPlacement.bottom; }
+        }
+    }
+}
+
+// Popover (S7): a trigger Button and the panel (Popover, @children). 0 default: the trigger with the panel closed. 1 open:
+// the panel is open below the trigger, with an Input and two Buttons. 2 flip: the trigger sits at the bottom edge of the
+// story, so the panel opens upward (the bottom-limit is the trigger's bottom edge). See the registry in apps/gallery/src/registry.rs.
+component PopoverDemo inherits Rectangle {
+    in property <bool> pt: false;
+    // Each change opens the panel (the gallery opens it after the first layout, see AfterRender::OpenPopover).
+    in property <int> open-tick: 0;
+    changed open-tick => {
+        pop.open();
+    }
+    // True when the trigger is at the bottom edge of the window: the panel opens upward.
+    in property <bool> flip: false;
+    property <string> name: "";
+
+    height: Tokens.size-control-md;
+    width: 160px;
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Renomear" : "Rename";
+        variant: ButtonVariant.secondary;
+        pointer-pressed => { pop.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        accessible-name: root.pt ? "Renomear" : "Rename";
+        anchor-height: trig.height;
+        panel-width: 280px;
+        bottom-limit: root.flip ? root.absolute-position.y + trig.height : 0px;
+
+        VerticalLayout {
+            spacing: Tokens.space-3;
+            Input {
+                text: root.name;
+                placeholder: root.pt ? "Nome" : "Name";
+                accessible-name: root.pt ? "Nome" : "Name";
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                alignment: end;
+                Button { text: root.pt ? "Cancelar" : "Cancel"; variant: ButtonVariant.secondary; }
+                Button { text: root.pt ? "Salvar" : "Save"; variant: ButtonVariant.primary; }
+            }
+        }
+    }
+}
+
+export component PopoverStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 default, 1 open, 2 flip (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Popover"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Fechado" : "Closed"; }
+        PopoverDemo { pt: root.pt; }
+    }
+
+    // The panel is open below the trigger: an Input and two Buttons inside it.
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Aberto abaixo do gatilho" : "Open below the trigger"; }
+        PopoverDemo { pt: root.pt; open-tick: root.open-tick; }
+    }
+
+    // The trigger sits at the bottom edge: there is no room below, so the panel opens upward.
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Abre para cima: sem espaco abaixo" : "Opens upward: no room below"; }
+        Rectangle { height: 220px; }
+        PopoverDemo { pt: root.pt; open-tick: root.open-tick; flip: true; }
+    }
+}
+
+// Menu (S7): a Button trigger and the Menu. 0 default: the trigger with the menu closed. 1 open: every kind of row (icon,
+// shortcut, checked, disabled, danger, separator, heading, a submenu). 2 submenu: the same menu with the "More" submenu
+// expanded. The open variants open after the first layout (AfterRender::OpenPopover, see apps/gallery/src/registry.rs).
+component MenuDemo inherits Rectangle {
+    in property <bool> pt: false;
+    // Each change opens the menu (the gallery opens it after the first layout).
+    in property <int> open-tick: 0;
+    // 0: the submenu is closed. 2: the "More" submenu is expanded.
+    in property <int> variant: 0;
+
+    property <[MenuItem]> items: [
+        { id: "undo", kind: MenuKind.item, label: "Undo", shortcut: "Ctrl+Z", disabled: true, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "new", kind: MenuKind.item, label: "New file", icon: Icons.plus, shortcut: "Ctrl+N", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "sep1", kind: MenuKind.separator, label: "", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "h-view", kind: MenuKind.heading, label: "View", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "wrap", kind: MenuKind.item, label: "Word wrap", shortcut: "", disabled: false, danger: false, checked: MenuChecked.on, parent: "" },
+        { id: "minimap", kind: MenuKind.item, label: "Minimap", shortcut: "", disabled: false, danger: false, checked: MenuChecked.off, parent: "" },
+        { id: "hidden", kind: MenuKind.item, label: "Hidden files", shortcut: "", disabled: true, danger: false, checked: MenuChecked.off, parent: "" },
+        { id: "sep2", kind: MenuKind.separator, label: "", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "more", kind: MenuKind.submenu, label: "More", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "duplicate", kind: MenuKind.item, label: "Duplicate", shortcut: "Ctrl+D", disabled: false, danger: false, checked: MenuChecked.none, parent: "more" },
+        { id: "export", kind: MenuKind.item, label: "Export", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "more" },
+        { id: "print", kind: MenuKind.item, label: "Print", shortcut: "Ctrl+P", disabled: true, danger: false, checked: MenuChecked.none, parent: "more" },
+        { id: "delete", kind: MenuKind.item, label: "Delete", shortcut: "Del", disabled: false, danger: true, checked: MenuChecked.none, parent: "" },
+    ];
+
+    changed open-tick => {
+        menu.open();
+    }
+
+    width: 240px;
+    height: Tokens.size-control-md;
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Ações" : "Actions";
+        variant: ButtonVariant.secondary;
+        down-pressed => { menu.open(); }
+        pointer-pressed => { menu.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            menu.trigger-clicked();
+        }
+    }
+
+    menu := Menu {
+        accessible-name: root.pt ? "Ações" : "Actions";
+        anchor-height: trig.height;
+        menu-width: 240px;
+        items: root.items;
+        expanded-id: root.variant == 2 ? "more" : "";
+    }
+}
+
+export component MenuStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 default, 1 open, 2 submenu (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Menu"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Fechado" : "Closed"; }
+        MenuDemo { pt: root.pt; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Aberto: ícone, atalho, marcado, desabilitado, perigo, separador, cabeçalho, submenu" : "Open: icon, shortcut, checked, disabled, danger, separator, heading, submenu"; }
+        MenuDemo { pt: root.pt; open-tick: root.open-tick; }
+    }
+
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Submenu aberto" : "Submenu open"; }
+        MenuDemo { pt: root.pt; open-tick: root.open-tick; variant: 2; }
+    }
+}
+
+// ContextMenu (S7): a target area that opens the menu on a right press at the pointer, or on the Menu key and Shift+F10.
+// Its menu is opened after the first layout by open-tick, at (40, 40) inside the target.
+component ContextMenuDemo inherits Rectangle {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+
+    property <[MenuItem]> items: [
+        { id: "cut", kind: MenuKind.item, label: "Cut", shortcut: "Ctrl+X", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "copy", kind: MenuKind.item, label: "Copy", shortcut: "Ctrl+C", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "paste", kind: MenuKind.item, label: "Paste", shortcut: "Ctrl+V", disabled: true, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "sep1", kind: MenuKind.separator, label: "", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "pin", kind: MenuKind.item, label: "Pin to top", shortcut: "", disabled: false, danger: false, checked: MenuChecked.on, parent: "" },
+        { id: "sep2", kind: MenuKind.separator, label: "", shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "delete", kind: MenuKind.item, label: "Delete", shortcut: "Del", disabled: false, danger: true, checked: MenuChecked.none, parent: "" },
+    ];
+
+    changed open-tick => {
+        cm.open-at(40px, 40px);
+    }
+
+    width: 320px;
+    height: 200px;
+
+    cm := ContextMenu {
+        width: parent.width;
+        height: parent.height;
+        accessible-name: root.pt ? "Arquivo" : "File";
+        menu-width: 220px;
+        items: root.items;
+
+        Rectangle {
+            background: Tokens.surface-raised;
+            border-color: Tokens.border-subtle;
+            border-width: 1px;
+            border-radius: Tokens.radius-surface;
+
+            Text {
+                text: root.pt ? "Clique com o botão direito" : "Right-click here, or press the Menu key";
+                color: Tokens.text-muted;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component ContextMenuStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 default, 1 open (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "ContextMenu"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Fechado" : "Closed"; }
+        ContextMenuDemo { pt: root.pt; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Aberto no ponteiro" : "Open at the pointer"; }
+        ContextMenuDemo { pt: root.pt; open-tick: root.open-tick; }
+    }
+}
+
+// Dialog (S8): a trigger Button and the Dialog, which covers the window when open. Each open variant opens after the
+// first layout (AfterRender::OpenPopover). The trigger takes focus before the dialog opens (the caller contract).
+component DialogDemo inherits Rectangle {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    in property <bool> dismissible: true;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+    property <string> name: "";
+
+    height: Tokens.size-control-md;
+    width: 160px;
+
+    changed open-tick => {
+        trig.focus-me();
+        dlg.open();
+    }
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Abrir" : "Open";
+        variant: ButtonVariant.secondary;
+        clicked => {
+            trig.focus-me();
+            dlg.open();
+        }
+    }
+
+    dlg := Dialog {
+        title: root.pt ? "Renomear projeto" : "Rename project";
+        description: root.pt ? "O nome aparece na lista de projetos." : "The name shows in the project list.";
+        dismissible: root.dismissible;
+        host-width: root.host-width;
+        host-height: root.host-height;
+        actions: [
+            { text: root.pt ? "Cancelar" : "Cancel", variant: ButtonVariant.secondary },
+            { text: root.pt ? "Salvar" : "Save", variant: ButtonVariant.primary },
+        ];
+
+        action-clicked(index) => {
+            dlg.close();
+        }
+
+        VerticalLayout {
+            spacing: Tokens.space-3;
+            Input {
+                text: root.name;
+                placeholder: root.pt ? "Nome" : "Name";
+                accessible-name: root.pt ? "Nome" : "Name";
+            }
+            Input {
+                text: root.name;
+                placeholder: root.pt ? "Descricao" : "Description";
+                accessible-name: root.pt ? "Descricao" : "Description";
+            }
+        }
+    }
+}
+
+// ConfirmDialog (S8): a destructive confirmation. The confirm action is drawn as a danger button.
+component ConfirmDemo inherits Rectangle {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    height: Tokens.size-control-md;
+    width: 160px;
+
+    changed open-tick => {
+        trig.focus-me();
+        dlg.open();
+    }
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Excluir" : "Delete";
+        variant: ButtonVariant.secondary;
+        clicked => {
+            trig.focus-me();
+            dlg.open();
+        }
+    }
+
+    dlg := ConfirmDialog {
+        title: root.pt ? "Excluir arquivo?" : "Delete file?";
+        message: root.pt ? "O arquivo sera removido. Esta acao nao pode ser desfeita." : "The file will be removed. This cannot be undone.";
+        confirm-label: root.pt ? "Excluir" : "Delete";
+        cancel-label: root.pt ? "Cancelar" : "Cancel";
+        danger: true;
+        host-width: root.host-width;
+        host-height: root.host-height;
+    }
+}
+
+export component DialogStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 open, 1 confirm-danger, 2 not-dismissible (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Dialog"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Aberto" : "Open"; }
+        DialogDemo { pt: root.pt; open-tick: root.open-tick; host-width: root.host-width; host-height: root.host-height; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Confirmar perigo" : "Confirm danger"; }
+        ConfirmDemo { pt: root.pt; open-tick: root.open-tick; host-width: root.host-width; host-height: root.host-height; }
+    }
+
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Nao fecha por fora" : "Not dismissible"; }
+        DialogDemo { pt: root.pt; open-tick: root.open-tick; dismissible: false; host-width: root.host-width; host-height: root.host-height; }
+    }
+}
+
+// Sheet (S8): a trigger Button and the Sheet, which covers the window when open and slides in from its edge.
+component SheetDemo inherits Rectangle {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    in property <SheetPlacement> placement: SheetPlacement.right;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    height: Tokens.size-control-md;
+    width: 160px;
+
+    changed open-tick => {
+        trig.focus-me();
+        sh.open();
+    }
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Abrir" : "Open";
+        variant: ButtonVariant.secondary;
+        clicked => {
+            trig.focus-me();
+            sh.open();
+        }
+    }
+
+    sh := Sheet {
+        title: root.pt ? "Detalhes" : "Details";
+        description: root.pt ? "Edite os dados do item." : "Edit the item's details.";
+        placement: root.placement;
+        host-width: root.host-width;
+        host-height: root.host-height;
+        actions: [
+            { text: root.pt ? "Cancelar" : "Cancel", variant: ButtonVariant.secondary },
+            { text: root.pt ? "Salvar" : "Save", variant: ButtonVariant.primary },
+        ];
+
+        action-clicked(index) => {
+            sh.close();
+        }
+
+        VerticalLayout {
+            spacing: Tokens.space-3;
+            Input {
+                placeholder: root.pt ? "Nome" : "Name";
+                accessible-name: root.pt ? "Nome" : "Name";
+            }
+            Input {
+                placeholder: root.pt ? "Descricao" : "Description";
+                accessible-name: root.pt ? "Descricao" : "Description";
+            }
+        }
+    }
+}
+
+export component SheetStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 right, 1 left, 2 bottom (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Sheet"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: "Right"; }
+        SheetDemo { pt: root.pt; open-tick: root.open-tick; placement: SheetPlacement.right; host-width: root.host-width; host-height: root.host-height; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: "Left"; }
+        SheetDemo { pt: root.pt; open-tick: root.open-tick; placement: SheetPlacement.left; host-width: root.host-width; host-height: root.host-height; }
+    }
+
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: "Bottom"; }
+        SheetDemo { pt: root.pt; open-tick: root.open-tick; placement: SheetPlacement.bottom; host-width: root.host-width; host-height: root.host-height; }
+    }
+}
+
+// Toast (S8): the stack, drawn inline. A story has no countdown (the Rust queue owns it), so the toasts stay until closed.
+export component ToastStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Toast"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: "Every tone"; }
+        ToastStack {
+            toasts: [
+                { id: 1, tone: ToastTone.neutral, title: "Sync started", description: "", action-label: "", close-label: "Dismiss sync", closing: false },
+                { id: 2, tone: ToastTone.success, title: "Saved", description: "Your changes are in.", action-label: "", close-label: "Dismiss saved", closing: false },
+                { id: 3, tone: ToastTone.warning, title: "Storage almost full", description: "About 90 percent of your quota is used.", action-label: "", close-label: "Dismiss storage", closing: false },
+                { id: 4, tone: ToastTone.danger, title: "Upload failed", description: "The file was not saved.", action-label: "", close-label: "Dismiss upload", closing: false },
+                { id: 5, tone: ToastTone.info, title: "New version available", description: "", action-label: "", close-label: "Dismiss update", closing: false },
+            ];
+            host-width: root.width + 2 * Tokens.space-4;
+            label: "Notifications";
+        }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: "Stack of three, newest first; danger has an action"; }
+        ToastStack {
+            toasts: [
+                { id: 1, tone: ToastTone.danger, title: "Upload failed", description: "The file was not saved.", action-label: "Retry", close-label: "Dismiss upload", closing: false },
+                { id: 2, tone: ToastTone.warning, title: "Storage almost full", description: "", action-label: "Manage storage", close-label: "Dismiss storage", closing: false },
+                { id: 3, tone: ToastTone.success, title: "Saved", description: "Your changes are in.", action-label: "", close-label: "Dismiss saved", closing: false },
+            ];
+            host-width: root.width + 2 * Tokens.space-4;
+            label: "Notifications";
+        }
+    }
+}
+
+// Banner (S8): an inline bar in the page flow. Every tone; with and without description, action and dismiss; compact.
+export component BannerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Banner"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-3;
+        alignment: start;
+
+        SectionCaption { text: "Every tone"; }
+        Banner { tone: BannerTone.neutral; title: "Scheduled maintenance on Friday"; description: "The sync service pauses for about ten minutes."; }
+        Banner { tone: BannerTone.success; title: "Export finished"; description: "The file is in your downloads folder."; }
+        Banner { tone: BannerTone.warning; title: "Storage almost full"; description: "About 90 percent of your quota is used."; }
+        Banner { tone: BannerTone.danger; title: "Upload failed"; description: "The file was not saved."; }
+        Banner { tone: BannerTone.info; title: "New version available"; description: "Restart the app to update."; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-3;
+        alignment: start;
+
+        SectionCaption { text: "With and without description, action and dismiss"; }
+        Banner { tone: BannerTone.danger; title: "Upload failed"; description: "The file was not saved."; action-label: "Retry"; dismiss-label: "Dismiss"; }
+        Banner { tone: BannerTone.warning; title: "Storage almost full"; action-label: "Manage storage"; }
+        Banner { tone: BannerTone.info; title: "Sync paused"; description: "Changes wait on this device."; dismiss-label: "Dismiss"; }
+        Banner { tone: BannerTone.success; title: "Saved"; }
+    }
+
+    if root.variant == 2 : VerticalLayout {
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        SectionCaption { text: "Compact, every tone"; }
+        Banner { compact: true; tone: BannerTone.neutral; title: "Neutral"; action-label: "Open"; }
+        Banner { compact: true; tone: BannerTone.success; title: "Success"; }
+        Banner { compact: true; tone: BannerTone.warning; title: "Warning"; dismiss-label: "Dismiss"; }
+        Banner { compact: true; tone: BannerTone.danger; title: "Danger"; action-label: "Retry"; }
+        Banner { compact: true; tone: BannerTone.info; title: "Info"; }
+    }
+}
+
+// Card (P0.17 batch 1): raised and sunken surfaces, with and without a title.
+export component CardStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Card"; }
+
+    HorizontalLayout {
+        spacing: Tokens.space-4;
+        alignment: start;
+        Card { width: 260px; title: "Raised with title";
+            Text { text: "Body text inside the card."; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; wrap: word-wrap; }
+        }
+        Card { width: 260px; surface: CardSurface.sunken; title: "Sunken with title";
+            Text { text: "A well inside a raised area."; color: Tokens.text-muted; font-family: Type.body.family; font-size: Type.body.size; wrap: word-wrap; }
+        }
+        Card { width: 260px;
+            Text { text: "Raised, no title."; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+        }
+    }
+}
+
+// Section (P0.17 batch 1): a heading with and without a description, with children.
+export component SectionStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Section"; }
+
+    Section {
+        width: 360px;
+        title: "Notifications";
+        description: "Choose what reaches you and when.";
+        Text { text: "Child content sits below the description."; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+    }
+    Section {
+        width: 360px;
+        title: "Without a description";
+        Text { text: "Child content only."; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+    }
+}
+
+// StatusDot (P0.17 batch 1): every tone with a label, and every tone as a bare dot with an accessible name.
+export component StatusDotStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    StoryHeading { text: "Status dot"; }
+
+    CaptionRow { caption: "With label";
+        StatusDot { tone: BadgeTone.neutral; label: "Not started"; }
+        StatusDot { tone: BadgeTone.accent; label: "In progress"; }
+        StatusDot { tone: BadgeTone.success; label: "Synced"; }
+        StatusDot { tone: BadgeTone.warning; label: "Behind"; }
+        StatusDot { tone: BadgeTone.danger; label: "Failed"; }
+        StatusDot { tone: BadgeTone.info; label: "Queued"; }
+    }
+    CaptionRow { caption: "Bare dot";
+        StatusDot { tone: BadgeTone.success; accessible-name: "Synced"; }
+        StatusDot { tone: BadgeTone.warning; accessible-name: "Behind"; }
+        StatusDot { tone: BadgeTone.danger; accessible-name: "Failed"; }
+    }
+}
+
+// PresenceDot (P0.17 batch 1): each presence state with its name beside the dot.
+export component PresenceDotStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    StoryHeading { text: "Presence dot"; }
+
+    CaptionRow { caption: "States";
+        HorizontalLayout { spacing: Tokens.space-2; alignment: start;
+            VerticalLayout { alignment: center; PresenceDot { presence: Presence.online; accessible-name: "Online"; } }
+            Text { text: "Online"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+        }
+        HorizontalLayout { spacing: Tokens.space-2; alignment: start;
+            VerticalLayout { alignment: center; PresenceDot { presence: Presence.away; accessible-name: "Away"; } }
+            Text { text: "Away"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+        }
+        HorizontalLayout { spacing: Tokens.space-2; alignment: start;
+            VerticalLayout { alignment: center; PresenceDot { presence: Presence.busy; accessible-name: "Busy"; } }
+            Text { text: "Busy"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+        }
+        HorizontalLayout { spacing: Tokens.space-2; alignment: start;
+            VerticalLayout { alignment: center; PresenceDot { presence: Presence.offline; accessible-name: "Offline"; } }
+            Text { text: "Offline"; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; }
+        }
+    }
+}
+
+// Breadcrumbs (P0.17 batch 1): a short trail, a long trail collapsed to an ellipsis, and a single item.
+export component BreadcrumbsStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    StoryHeading { text: "Breadcrumbs"; }
+
+    CaptionRow { caption: "Short";
+        Breadcrumbs { items: ["Projects", "Rimelight", "Launch plan"]; }
+    }
+    CaptionRow { caption: "Collapsed";
+        Breadcrumbs { items: ["Projects", "Rimelight", "Design", "Components", "Breadcrumbs"]; max-visible: 3; }
+    }
+    CaptionRow { caption: "Single";
+        Breadcrumbs { items: ["Home"]; }
+    }
+}
+
+// Tabs (P0.17 batch 2): content tabs with an underline on the active tab. The panel below shows the active tab's text.
+export component TabsStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    StoryHeading { text: "Tabs"; }
+
+    CaptionRow { caption: "Three tabs";
+        Tabs {
+            width: 360px;
+            accessible-name: "Project views";
+            tabs: [{ label: "Overview" }, { label: "Activity" }, { label: "Settings" }];
+        }
+    }
+    CaptionRow { caption: "Panel";
+        Text { text: "The overview of the project: status, owner and the next milestone."; color: Tokens.text-primary; font-family: Type.body.family; font-size: Type.body.size; wrap: word-wrap; width: 360px; }
+    }
+}
+
+// Accordion (P0.17 batch 2): single mode with the first item open, and multiple mode with two items open.
+export component AccordionStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Accordion"; }
+
+    CaptionRow { caption: "Single";
+        Accordion {
+            width: 360px;
+            open-index: 0;
+            items: [
+                { title: "Shipping", body: "Orders leave the warehouse within two working days." },
+                { title: "Returns", body: "Returns are accepted for thirty days after delivery." },
+                { title: "Support", body: "Write to the support desk and expect an answer the same day." }
+            ];
+        }
+    }
+    CaptionRow { caption: "Multiple";
+        Accordion {
+            width: 360px;
+            multiple: true;
+            items: [
+                { title: "Billing", body: "Invoices are sent on the first day of each month." },
+                { title: "Security", body: "Two-factor sign-in is required for every account." }
+            ];
+        }
+    }
+}
+
+// Stepper (P0.17 batch 2): a four-step process at the second step, so one step is done, one current and two upcoming.
+export component StepperStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Stepper"; }
+
+    CaptionRow { caption: "Second step";
+        Stepper {
+            width: 560px;
+            current: 1;
+            steps: [{ label: "Account" }, { label: "Profile" }, { label: "Team" }, { label: "Review" }];
+        }
+    }
+    CaptionRow { caption: "Last step";
+        Stepper {
+            width: 560px;
+            current: 3;
+            steps: [{ label: "Account" }, { label: "Profile" }, { label: "Team" }, { label: "Review" }];
+        }
+    }
+}
+
+// Pagination (P0.17 batch 2): a short run with every page, and a long run with ellipses on both sides.
+export component PaginationStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Pagination"; }
+
+    CaptionRow { caption: "Five pages";
+        Pagination { total: 5; page: 2; }
+    }
+    CaptionRow { caption: "Twelve, middle";
+        Pagination { total: 12; page: 6; }
+    }
+    CaptionRow { caption: "Twelve, first";
+        Pagination { total: 12; page: 1; }
+    }
+}
+
+// Toolbar (P0.17 batch 3): three buttons, a separator, two more with one disabled. Item 0 holds the focus ring in the capture.
+export component ToolbarStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Toolbar"; }
+
+    CaptionRow { caption: "Groups";
+        Toolbar {
+            width: 360px;
+            accessible-name: "Document";
+            forced-state: 2;
+            items: [
+                { label: "Add", icon: Icons.plus, enabled: true, separator: false },
+                { label: "Delete", icon: Icons.minus, enabled: true, separator: false },
+                { label: "", icon: Icons.plus, enabled: true, separator: true },
+                { label: "Find", icon: Icons.search, enabled: true, separator: false },
+                { label: "Hide", icon: Icons.eye-off, enabled: false, separator: false },
+                { label: "Check", icon: Icons.check, enabled: true, separator: false }
+            ];
+        }
+    }
+}
+
+// FilterBar (P0.17 batch 3): a search field with text, two active filters and "Clear all".
+export component FilterBarStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Filter bar"; }
+
+    CaptionRow { caption: "Two filters";
+        FilterBar {
+            query: "launch";
+            chips: [
+                { key: "owner", label: "Owner: Ana" },
+                { key: "status", label: "Open" }
+            ];
+        }
+    }
+    CaptionRow { caption: "No filters";
+        FilterBar { query: ""; chips: []; }
+    }
+}
+
+// Tree (P0.17 batch 3): a project tree with the first branch open, a collapsed branch, and the focus on row 1.
+export component TreeStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Tree"; }
+
+    CaptionRow { caption: "Expanded and collapsed";
+        Tree {
+            width: 280px;
+            height: 150px;
+            accessible-name: "Project files";
+            forced-state: 2;
+            focus-row: 1;
+            selected-node: 1;
+            rows: [
+                { label: "Projects", depth: 0, expanded: true, has-children: true, parent-row: -1, node: 0 },
+                { label: "Design", depth: 1, expanded: false, has-children: false, parent-row: 0, node: 1 },
+                { label: "Build", depth: 1, expanded: false, has-children: false, parent-row: 0, node: 2 },
+                { label: "Archive", depth: 0, expanded: false, has-children: true, parent-row: -1, node: 3 }
+            ];
+        }
+    }
+}
+
+// ScrollArea (P0.17 batch 3): a 160 px area over twelve lines of text, with the scrollbar at the top.
+export component ScrollAreaStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Scroll area"; }
+
+    CaptionRow { caption: "Twelve lines";
+        ScrollArea {
+            width: 240px;
+            height: 160px;
+            VerticalLayout {
+                width: parent.width;
+                spacing: Tokens.space-1;
+                for n in 12 : Text {
+                    text: "Line \{n + 1} of the scrolling region";
+                    color: Tokens.text-primary;
+                    font-family: Type.body.family;
+                    font-size: Type.body.size;
+                    font-weight: Type.body.weight;
+                }
+            }
+        }
+    }
+}
+
+// ResizablePanel (P0.17 batch 3): a panel with its handle on the right edge, at its default width.
+export component ResizablePanelStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Resizable panel"; }
+
+    CaptionRow { caption: "Handle on the right";
+        ResizablePanel {
+            height: 120px;
+            size: 240px;
+            forced-state: 2;
+            Text {
+                x: Tokens.space-4;
+                y: Tokens.space-4;
+                text: "Panel contents";
+                color: Tokens.text-primary;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+            }
+        }
+    }
+}
+
+// DescriptionList (P0.17 batch 4): four pairs in one column, then in two.
+export component DescriptionListStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    property <[DescriptionItem]> pairs: [
+        { term: "Owner", value: "Ana Ruiz" },
+        { term: "Status", value: "Open" },
+        { term: "Due", value: "14 Nov 2026" },
+        { term: "Project", value: "Rimelight Space" },
+    ];
+
+    StoryHeading { text: "Description list"; }
+
+    CaptionRow { caption: "One column";
+        DescriptionList { width: 320px; items: root.pairs; columns: 1; }
+    }
+    CaptionRow { caption: "Two columns";
+        DescriptionList { width: 440px; items: root.pairs; columns: 2; }
+    }
+}
+
+// Stat (P0.17 batch 4): an up, a down and a flat delta, each with a caption on the first.
+export component StatStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Stat"; }
+
+    CaptionRow { caption: "Up";
+        Stat { width: 160px; label: "Open issues"; value: "128"; delta: "+12 %"; direction: DeltaDirection.up; caption: "Since last week"; }
+    }
+    CaptionRow { caption: "Down";
+        Stat { width: 160px; label: "Median wait"; value: "3.2 d"; delta: "-0.8 d"; direction: DeltaDirection.down; }
+    }
+    CaptionRow { caption: "Flat";
+        Stat { width: 160px; label: "Members"; value: "42"; delta: "0"; direction: DeltaDirection.flat; }
+    }
+}
+
+// Timeline (P0.17 batch 4): three events with a tone each, the last with no body.
+export component TimelineStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Timeline"; }
+
+    CaptionRow { caption: "Three events";
+        Timeline {
+            width: 360px;
+            events: [
+                { when: "11 Nov, 09:40", title: "Build passed", body: "Release candidate 3 built.", tone: BadgeTone.success },
+                { when: "10 Nov, 17:05", title: "Review requested", body: "Waiting on design sign-off.", tone: BadgeTone.warning },
+                { when: "9 Nov, 08:12", title: "Project created", body: "", tone: BadgeTone.neutral },
+            ];
+        }
+    }
+}
+
+// ActivityFeed (P0.17 batch 4): three rows, with the "Load more" button shown.
+export component ActivityFeedStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Activity feed"; }
+
+    CaptionRow { caption: "With load more";
+        ActivityFeed {
+            width: 360px;
+            has-more: true;
+            items: [
+                { actor: "Ana Ruiz", initials: "AR", action: "moved DOC-12 to Done", when: "2 min ago" },
+                { actor: "Sam Okafor", initials: "SO", action: "commented on DOC-9", when: "1 h ago" },
+                { actor: "Lin Chen", initials: "LC", action: "created DOC-14", when: "Yesterday" },
+            ];
+        }
+    }
+}
+
+// List (P0.17 batch 5). The rows come from the caller; the gallery passes 10,000 generated labels.
+export component ListStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <[ListRow]> rows;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "List"; }
+
+    CaptionRow { caption: "10,000 rows";
+        List { width: 320px; height: 240px; rows: root.rows; accessible-name: "Entries"; }
+    }
+}
+
+// Table (P0.17 batch 5). The columns and rows come from the caller; the gallery passes 10,000 generated rows. The story
+// shows the rows unsorted and with no selection: sorting, selection and resizing are wired by the caller.
+export component TableStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <[TableColumn]> columns;
+    in property <[TableRow]> rows;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Table"; }
+
+    CaptionRow { caption: "10,000 rows";
+        Table { width: 640px; height: 320px; columns: root.columns; rows: root.rows; accessible-name: "Items"; }
+    }
+}
+
+// ImageViewer (new): a trigger Button and the viewer, which covers the window when open. The sample pictures are the
+// avatar sample. `open-tick` opens the viewer after the first layout (AfterRender::OpenPopover).
+component ImageViewerDemo inherits Rectangle {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    in property <bool> single: false;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    height: Tokens.size-control-md;
+    width: 160px;
+
+    changed open-tick => {
+        trig.focus-me();
+        viewer.open();
+    }
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.pt ? "Abrir" : "Open";
+        variant: ButtonVariant.secondary;
+        clicked => {
+            trig.focus-me();
+            viewer.open();
+        }
+    }
+
+    viewer := ImageViewer {
+        images: root.single
+            ? [{ image: @image-url("../assets/stories/avatar-sample.svg"), title: "avatar.svg" }]
+            : [
+                { image: @image-url("../assets/stories/avatar-sample.svg"), title: "avatar.svg" },
+                { image: @image-url("../assets/stories/avatar-sample.svg"), title: "avatar-2.svg" },
+                { image: @image-url("../assets/stories/avatar-sample.svg"), title: "avatar-3.svg" },
+            ];
+        host-width: root.host-width;
+        host-height: root.host-height;
+    }
+}
+
+// ImageViewer (new). 0 open (three images: arrows and "n of m"), 1 single (one image: no arrows, no counter).
+export component ImageViewerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> open-tick: 0;
+    // 0 open, 1 single (see the registry in apps/gallery/src/registry.rs).
+    in property <int> variant: 0;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "ImageViewer"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Varias imagens" : "Several images"; }
+        ImageViewerDemo { pt: root.pt; open-tick: root.open-tick; host-width: root.host-width; host-height: root.host-height; }
+    }
+
+    if root.variant == 1 : VerticalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+
+        SectionCaption { text: root.pt ? "Uma imagem" : "One image"; }
+        ImageViewerDemo { pt: root.pt; open-tick: root.open-tick; single: true; host-width: root.host-width; host-height: root.host-height; }
+    }
+}
+
+// AttachmentGrid (new): image attachments show a thumbnail, other files a file icon, name and size.
+export component AttachmentGridStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "AttachmentGrid"; }
+
+    CaptionRow { caption: root.pt ? "Imagens e arquivos" : "Images and files";
+        AttachmentGrid {
+            width: 520px;
+            items: [
+                { name: "screenshot.png", size: "240 KB", is-image: true, thumbnail: @image-url("../assets/stories/avatar-sample.svg"), changeable: true },
+                { name: "build-log.txt", size: "12 KB", is-image: false, changeable: true },
+                { name: "plan.pdf", size: "1.4 MB", is-image: false, changeable: false },
+            ];
+        }
+    }
+}
+
+export component ColorPickerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    property <color> field-colour: #1659C4;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Selector de cor" : "ColorPicker"; }
+
+    SectionCaption { text: root.pt ? "Selector" : "Picker"; }
+    CaptionRow {
+        caption: "square, hue, notations";
+        ColorPicker { color: #1659C4; accessible-name: "Colour"; }
+    }
+
+    SectionCaption { text: root.pt ? "Campo" : "Field"; }
+    CaptionRow {
+        caption: "opens a popover";
+        ColorField { width: 220px; color <=> root.field-colour; accessible-name: "Area colour"; }
+    }
+}

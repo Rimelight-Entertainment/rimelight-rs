@@ -1,0 +1,200 @@
+// Shell story (S9.1): the rail and the contextual sidebar at desktop size, with their data from the
+// rimelight_nav manifest. The Rust side (src/slint_ui/shell.rs) fills the rail items and the sidebar rows of the active
+// area, and handles `area-picked` by refilling the sidebar. The gallery (gallery.slint) shows this story as Shell / Rail
+// and sidebar.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Rail, RailItem, RailBadge } from "@rimelight_shell/components/rail.slint";
+import { Sidebar, SidebarItem } from "@rimelight_shell/components/sidebar.slint";
+import { TabStrip } from "@rimelight_ui/components/tabs.slint";
+import { SplitPane } from "@rimelight_shell/components/split-pane.slint";
+import { CommandPalette, PaletteRow } from "@rimelight_shell/components/command-palette.slint";
+import { StatusBar } from "@rimelight_shell/components/status-bar.slint";
+
+component ShellHeading inherits Text {
+    color: Tokens.text-primary;
+    font-family: Type.heading.family;
+    font-size: Type.heading.size;
+    font-weight: Type.heading.weight;
+    wrap: word-wrap;
+}
+
+export component ShellStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <[RailItem]> rail-items;
+    in property <[RailBadge]> rail-badges;
+    in property <[SidebarItem]> sidebar-items;
+    in property <string> sidebar-title;
+    // The active area (rail index) and the selected sidebar row. Both are two-way with the child components.
+    in-out property <int> area: 0;
+    in-out property <int> selected-row: -1;
+    callback area-picked(int);
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Rail and sidebar"; }
+
+    Rectangle {
+        height: 520px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+
+        HorizontalLayout {
+            Rail {
+                items: root.rail-items;
+                badges: root.rail-badges;
+                selected <=> root.area;
+                activated(index) => {
+                    root.area-picked(index);
+                }
+            }
+
+            Sidebar {
+                title: root.sidebar-title;
+                items: root.sidebar-items;
+                selected <=> root.selected-row;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Tokens.surface-raised;
+            }
+        }
+    }
+}
+
+// Tabs and split panes (S9.2): a tab strip over a split pane. The tab list and the panes are
+// placeholders here; the layout model is plain Rust (src/slint_ui/workspace.rs). The gallery shows this as Shell / Tabs
+// and split panes.
+
+export component TabsSplitStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in-out property <int> active-tab: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Tabs and split panes"; }
+
+    Rectangle {
+        height: 360px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+
+        VerticalLayout {
+            TabStrip {
+                tabs: [
+                    { label: "Home", short-label: "H", pinned: false },
+                    { label: "Mail", short-label: "M", pinned: false },
+                    { label: "Calendar", short-label: "C", pinned: false },
+                    { label: "Projects", short-label: "P", pinned: false },
+                ];
+                active <=> root.active-tab;
+            }
+
+            SplitPane {
+                vertical-stretch: 1;
+
+                Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.first-length;
+                    height: parent.height;
+                    background: Tokens.surface-raised;
+                }
+
+                Rectangle {
+                    x: parent.first-length + parent.grab;
+                    y: 0px;
+                    width: parent.second-length;
+                    height: parent.height;
+                    background: Tokens.surface-base;
+                }
+            }
+        }
+    }
+}
+
+// Command palette (S9.3): the palette drawn inline in a frame, with the rows and the highlight from
+// Rust (src/slint_ui/palette.rs). The result line shows the last pick or close. The gallery shows it as Shell / Command palette.
+
+export component CommandPaletteStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <[PaletteRow]> rows;
+    in property <int> highlight: -1;
+    in-out property <string> query;
+    in property <string> result;
+    callback query-changed(string);
+    callback move(int);
+    callback pick(int);
+    callback close();
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Command palette"; }
+
+    Rectangle {
+        height: 420px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        background: Tokens.surface-base;
+        clip: true;
+
+        CommandPalette {
+            width: parent.width;
+            height: parent.height;
+            rows: root.rows;
+            highlight: root.highlight;
+            query <=> root.query;
+            query-changed(value) => { root.query-changed(value); }
+            move(delta) => { root.move(delta); }
+            picked(index) => { root.pick(index); }
+            closed => { root.close(); }
+        }
+    }
+
+    Text {
+        text: root.result;
+        color: Tokens.text-muted;
+        font-family: Tokens.type-caption-family;
+        font-size: Tokens.type-caption-size;
+        font-weight: Tokens.type-caption-weight;
+    }
+}
+
+// Status bar (S9.3; OQ18): a running timer with background jobs, and the idle bar (no timer, no jobs). The shell controls on
+// the right report clicks only. The gallery shows it as Shell / Status bar.
+
+export component StatusBarStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Status bar"; }
+
+    StatusBar {
+        width: 100%;
+        timer-running: true;
+        timer-text: "1:02:03";
+        jobs: [
+            { title: "Upload report.pdf", state: "40%" },
+            { title: "Export payroll", state: "Queued" },
+        ];
+    }
+
+    StatusBar {
+        width: 100%;
+    }
+}

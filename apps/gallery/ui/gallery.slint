@@ -1,0 +1,456 @@
+﻿// Slint gallery window (S2). Navy sidebar of stories grouped by section, a toolbar with theme,
+// locale, viewport, text scale and reduced motion, and the story in a frame. The story list and its order come from the
+// Rust registry (apps/gallery/src/registry.rs); the story index here must match that order.
+//
+// Keyboard: Up and Down move through the sidebar stories; Tab moves through the toolbar chips (FocusScope order);
+// Space and Return choose a chip. The focus ring is drawn from Tokens.focus-ring.
+import { ScrollView } from "std-widgets.slint";
+// The app's own stories (`--stories <dir>`), or an empty stub (ui/no-app-stories) when none are given.
+import { AppStories } from "@app_stories/stories.slint";
+import { ShellStory, TabsSplitStory, CommandPaletteStory, StatusBarStory } from "shell-stories.slint";
+import { PaletteRow } from "@rimelight_shell/components/command-palette.slint";
+import { RailItem, RailBadge } from "@rimelight_shell/components/rail.slint";
+import { SidebarItem } from "@rimelight_shell/components/sidebar.slint";
+import { Tokens, ThemeChoice } from "@rimelight_design/tokens.slint";
+import { TokensStory, TypographyStory, IconsStory, SpacingStory, MotionStory, AboutStory } from "stories.slint";
+import { ButtonStory, IconButtonStory, ButtonGroupStory, LinkStory, BadgeStory, TagStory, KbdStory, AvatarStory, AvatarStackStory, DividerStory, SkeletonStory, SpinnerStory, ProgressStory, EmptyStateStory, ErrorStateStory, InputStory, SearchFieldStory, TextareaStory, NumberInputStory, FieldStory, CheckboxStory, RadioGroupStory, SwitchStory, SliderStory, SelectStory, ComboboxStory, TooltipStory, PopoverStory, MenuStory, ContextMenuStory, DialogStory, SheetStory, ToastStory, BannerStory, CardStory, SectionStory, StatusDotStory, PresenceDotStory, BreadcrumbsStory, TabsStory, AccordionStory, StepperStory, PaginationStory, ToolbarStory, FilterBarStory, TreeStory, ScrollAreaStory, ResizablePanelStory, DescriptionListStory, StatStory, TimelineStory, ActivityFeedStory, ListStory, TableStory, ImageViewerStory, AttachmentGridStory, ColorPickerStory } from "component-stories.slint";
+import { ListRow } from "@rimelight_ui/components/list.slint";
+import { TableColumn, TableRow } from "@rimelight_ui/components/table.slint";
+import { TooltipOverlay } from "@rimelight_ui/components/tooltip.slint";
+
+export struct SidebarRow {
+    title: string,
+    // true for a section heading, which is not selectable.
+    header: bool,
+    // Index of the story in the registry, or -1 for a note row.
+    story: int,
+}
+
+// A toolbar option. Activates on click, Space or Return. The focus ring is drawn when the keyboard focus is here.
+component Chip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback activated();
+
+    public function focus-me() {
+        fs.focus();
+    }
+
+    height: Tokens.size-control-sm;
+    // Wide enough for its label, with a gutter of space-4 on each side.
+    width: txt.preferred-width + Tokens.space-4 * 2;
+    horizontal-stretch: 0;
+    border-radius: Tokens.radius-control;
+    background: root.selected ? Tokens.accent-fill : Tokens.surface-raised;
+    border-width: 1px;
+    border-color: root.selected ? Tokens.accent-fill : Tokens.border-subtle;
+
+    txt := Text {
+        text: root.label;
+        color: root.selected ? Tokens.text-on-accent : Tokens.text-primary;
+        font-family: Tokens.type-label-family;
+        font-size: Tokens.type-label-size;
+        font-weight: Tokens.type-label-weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        clicked => {
+            fs.focus();
+            root.activated();
+        }
+    }
+
+    fs := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    if fs.has-focus : Rectangle {
+        x: -3px;
+        y: -3px;
+        width: root.width + 6px;
+        height: root.height + 6px;
+        border-width: 2px;
+        border-color: Tokens.focus-ring;
+        border-radius: Tokens.radius-control + 3px;
+    }
+}
+
+// A labelled group of chips on one line.
+component ChipGroup inherits HorizontalLayout {
+    in property <string> caption;
+    spacing: Tokens.space-2;
+    alignment: start;
+    Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Tokens.type-caption-family;
+        font-size: Tokens.type-caption-size;
+        font-weight: Tokens.type-caption-weight;
+        vertical-alignment: center;
+    }
+    @children
+}
+
+export component GalleryWindow inherits Window {
+    title: "Rimelight: component gallery";
+    background: Tokens.surface-base;
+    default-font-family: Tokens.type-body-family;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+
+    // Sidebar rows, set by Rust from the registry.
+    in-out property <[SidebarRow]> rows;
+    // Number of stories (selectable rows). Up and Down stay in 0 .. story-count - 1.
+    in-out property <int> story-count: 0;
+    // How many built-in stories the chain above shows (set by Rust). An app story is story N where N >= builtin-count.
+    in-out property <int> builtin-count: 67;
+    // The selected story, and its variant (see the registry).
+    in-out property <int> story: 0;
+    in-out property <int> variant: 0;
+    // Toolbar state. theme: 0 light, 1 dark, 2 system. locale: 0 en, 1 pt. viewport: 0 desktop, 1 tablet 768, 2 phone
+    // 390. scale: 0 100 percent, 1 125, 2 150, 3 200.
+    in-out property <int> theme-index: 2;
+    in-out property <int> locale-index: 0;
+    in-out property <int> viewport: 0;
+    in-out property <int> scale-index: 0;
+    in-out property <bool> chrome: true;
+    // The visible height of the sidebar's story list (the ScrollView viewport). The test checks it stays tall.
+    out property <length> story-list-height: story-list.height;
+
+    property <bool> pt: locale-index == 1;
+
+    // Called by Rust after a story with the FocusFirstChip action is shown.
+    callback focus-first();
+    focus-first => { chip-theme-light.focus-me(); }
+    // Called by Rust to give the sidebar keyboard focus (Up and Down).
+    callback focus-sidebar();
+    focus-sidebar => { side-fs.focus(); }
+    // Called by Rust after a story with the OpenPopover action is shown: opens the story popover, after its first layout.
+    callback open-popover();
+    // Shell story (S9.1): the rail items, the sidebar rows and title of the active area, and the area picked in the rail.
+    in-out property <[RailItem]> shell-rail;
+    in-out property <[RailBadge]> shell-badges;
+    in-out property <[SidebarItem]> shell-rows;
+    in-out property <string> shell-title;
+    in-out property <int> shell-area: 0;
+    callback shell-area-picked(int);
+    // List and Table (P0.17 batch 5): the rows and columns, generated by Rust (10,000 rows each, see apps/gallery/src/harness.rs).
+    in-out property <[ListRow]> list-rows;
+    in-out property <[TableColumn]> table-columns;
+    in-out property <[TableRow]> table-rows;
+    // Command palette (S9.3): the rows (filtered by Rust), the query, the highlight, the last result, and the callbacks.
+    in-out property <[PaletteRow]> palette-rows;
+    in-out property <int> palette-highlight: -1;
+    in-out property <string> palette-query;
+    in-out property <string> palette-result;
+    callback palette-query-changed(string);
+    callback palette-move(int);
+    callback palette-pick(int);
+    callback palette-close();
+    in-out property <int> popover-tick: 0;
+    open-popover => { root.popover-tick += 1; }
+
+    function select-story(index: int) {
+        if (index >= 0 && index < root.story-count) {
+            root.story = index;
+            root.variant = 0;
+        }
+    }
+
+    // Each choice writes the global token state directly, so every token repaints at once.
+    function set-theme(index: int) {
+        root.theme-index = index;
+        Tokens.theme = index == 0 ? ThemeChoice.light : (index == 1 ? ThemeChoice.dark : ThemeChoice.system);
+    }
+
+    function set-scale(index: int) {
+        root.scale-index = index;
+        Tokens.text-scale-percent = index == 0 ? 100 : (index == 1 ? 125 : (index == 2 ? 150 : 200));
+    }
+
+    function set-motion(on: bool) {
+        Tokens.reduced-motion = on;
+    }
+
+    HorizontalLayout {
+        // Sidebar: navy. Up and Down move the selection when it has focus.
+        sidebar := Rectangle {
+            visible: root.chrome;
+            width: self.visible ? Tokens.size-sidebar-width : 0px;
+            background: Tokens.sidebar-bg;
+
+            side-fs := FocusScope {
+                key-pressed(event) => {
+                    if (event.text == Key.UpArrow) {
+                        root.select-story(root.story - 1);
+                        return accept;
+                    }
+                    if (event.text == Key.DownArrow) {
+                        root.select-story(root.story + 1);
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+
+            Text {
+                x: Tokens.space-3;
+                y: Tokens.space-3;
+                width: parent.width - Tokens.space-6;
+                text: "Rimelight gallery";
+                    color: Tokens.sidebar-selected-text;
+                    font-family: Tokens.type-subheading-family;
+                    font-size: Tokens.type-subheading-size;
+                    font-weight: Tokens.type-subheading-weight;
+                    height: Tokens.size-sidebar-row-height;
+                    vertical-alignment: center;
+                }
+
+                // The story list scrolls: items below the window edge stay reachable. Each row is the same height, so the
+                // content is the rows plus the gaps between them. The ScrollView takes the height left by the title (stretch),
+                // so it does not read the sidebar's height, which would make a binding loop.
+            story-list := ScrollView {
+                x: 0px;
+                y: Tokens.space-3 + Tokens.size-sidebar-row-height + Tokens.space-1;
+                width: parent.width;
+                height: parent.height - self.y - Tokens.space-3;
+                horizontal-scrollbar-policy: always-off;
+                    content-height: root.rows.length * Tokens.size-sidebar-row-height + max(0, root.rows.length - 1) * Tokens.space-1;
+
+                    VerticalLayout {
+                        width: parent.width;
+                        spacing: Tokens.space-1;
+                        alignment: start;
+                        height: root.rows.length * Tokens.size-sidebar-row-height + max(0, root.rows.length - 1) * Tokens.space-1;
+
+                for row[i] in root.rows: Rectangle {
+                    height: row.header ? Tokens.size-sidebar-row-height : Tokens.size-sidebar-row-height;
+                    border-radius: Tokens.radius-control;
+                    background: (row.story >= 0 && row.story == root.story) ? Tokens.sidebar-selected-bg : transparent;
+
+                    // Keyboard focus on the sidebar: a focus ring around the selected row.
+                    if (side-fs.has-focus && row.story >= 0 && row.story == root.story) : Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: parent.width;
+                        height: parent.height;
+                        border-width: 2px;
+                        border-color: Tokens.focus-ring;
+                        border-radius: Tokens.radius-control;
+                    }
+
+                    // The selected row has an indicator bar on its left edge.
+                    if (row.story >= 0 && row.story == root.story) : Rectangle {
+                        x: 0px;
+                        width: 3px;
+                        height: parent.height;
+                        background: Tokens.sidebar-selected-indicator;
+                    }
+
+                    Text {
+                        x: Tokens.space-3;
+                        width: parent.width - Tokens.space-6;
+                        text: row.title;
+                        color: row.header ? Tokens.sidebar-text-muted : (row.story == root.story ? Tokens.sidebar-selected-text : Tokens.sidebar-text);
+                        font-family: row.header ? Tokens.type-caption-family : Tokens.type-body-family;
+                        font-size: row.header ? Tokens.type-caption-size : Tokens.type-body-size;
+                        font-weight: row.header ? Tokens.type-caption-weight : Tokens.type-body-weight;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    TouchArea {
+                        enabled: row.story >= 0;
+                        clicked => {
+                            side-fs.focus();
+                            root.select-story(row.story);
+                        }
+                    }
+                }
+                    }
+                }
+        }
+
+        VerticalLayout {
+            // Toolbar: theme, locale, viewport, text scale and reduced motion.
+            toolbar := Rectangle {
+                visible: root.chrome;
+                height: tb.preferred-height;
+                background: Tokens.surface-raised;
+                border-width: 1px;
+                border-color: Tokens.border-subtle;
+
+                // Two rows: the first has theme, locale and viewport; the second has text scale and motion.
+                tb := VerticalLayout {
+                    padding: Tokens.space-2;
+                    padding-left: Tokens.space-4;
+                    spacing: Tokens.space-2;
+                    alignment: start;
+
+                HorizontalLayout {
+                    spacing: Tokens.space-6;
+                    alignment: start;
+
+                    ChipGroup {
+                        caption: "Theme";
+                        chip-theme-light := Chip { label: "Light"; selected: root.theme-index == 0; activated => { root.set-theme(0); } }
+                        Chip { label: "Dark"; selected: root.theme-index == 1; activated => { root.set-theme(1); } }
+                        Chip { label: "System"; selected: root.theme-index == 2; activated => { root.set-theme(2); } }
+                    }
+                    ChipGroup {
+                        caption: "Locale";
+                        Chip { label: "en"; selected: root.locale-index == 0; activated => { root.locale-index = 0; } }
+                        Chip { label: "pt"; selected: root.locale-index == 1; activated => { root.locale-index = 1; } }
+                    }
+                    ChipGroup {
+                        caption: "Viewport";
+                        Chip { label: "Desktop"; selected: root.viewport == 0; activated => { root.viewport = 0; } }
+                        Chip { label: "Tablet 768"; selected: root.viewport == 1; activated => { root.viewport = 1; } }
+                        Chip { label: "Phone 390"; selected: root.viewport == 2; activated => { root.viewport = 2; } }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: Tokens.space-6;
+                    alignment: start;
+
+                    ChipGroup {
+                        caption: "Text";
+                        Chip { label: "100%"; selected: root.scale-index == 0; activated => { root.set-scale(0); } }
+                        Chip { label: "125%"; selected: root.scale-index == 1; activated => { root.set-scale(1); } }
+                        Chip { label: "150%"; selected: root.scale-index == 2; activated => { root.set-scale(2); } }
+                        Chip { label: "200%"; selected: root.scale-index == 3; activated => { root.set-scale(3); } }
+                    }
+                    ChipGroup {
+                        caption: "Motion";
+                        Chip { label: "Motion on"; selected: !Tokens.reduced-motion; activated => { root.set-motion(false); } }
+                        Chip { label: "Reduced"; selected: Tokens.reduced-motion; activated => { root.set-motion(true); } }
+                    }
+                }
+                }
+            }
+
+            // Content: the story in a frame that is as wide as the chosen viewport.
+            content := Rectangle {
+                background: Tokens.surface-sunken;
+                clip: true;
+
+                ScrollView {
+                    width: parent.width;
+                    height: parent.height;
+
+                    VerticalLayout {
+                        width: content.width;
+                        padding: Tokens.space-6;
+                        alignment: start;
+
+                        Rectangle {
+                            width: root.viewport == 0
+                                ? content.width - Tokens.space-12
+                                : min(root.viewport == 1 ? 768px : 390px, content.width - Tokens.space-12);
+                            min-height: 200px;
+                            background: Tokens.surface-base;
+                            border-width: root.viewport == 0 ? 0px : 1px;
+                            border-color: Tokens.border-strong;
+                            border-radius: Tokens.radius-surface;
+
+                            VerticalLayout {
+                                padding: Tokens.space-6;
+                                alignment: start;
+
+                                if root.story == 0 : TokensStory { pt: root.pt; }
+                                if root.story == 1 : TypographyStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 2 : IconsStory { pt: root.pt; }
+                                if root.story == 3 : SpacingStory { pt: root.pt; }
+                                if root.story == 4 : MotionStory { pt: root.pt; }
+                                if root.story == 5 : AboutStory { pt: root.pt; }
+                                if root.story == 6 : ButtonStory { pt: root.pt; }
+                                if root.story == 7 : IconButtonStory { pt: root.pt; }
+                                if root.story == 8 : ButtonGroupStory { pt: root.pt; }
+                                if root.story == 9 : LinkStory { pt: root.pt; }
+                                if root.story == 10 : BadgeStory { pt: root.pt; }
+                                if root.story == 11 : TagStory { pt: root.pt; }
+                                if root.story == 12 : KbdStory { pt: root.pt; }
+                                if root.story == 13 : AvatarStory { pt: root.pt; }
+                                if root.story == 14 : AvatarStackStory { pt: root.pt; }
+                                if root.story == 15 : DividerStory { pt: root.pt; }
+                                if root.story == 16 : SkeletonStory { pt: root.pt; }
+                                if root.story == 17 : SpinnerStory { pt: root.pt; }
+                                if root.story == 18 : ProgressStory { pt: root.pt; }
+                                if root.story == 19 : EmptyStateStory { pt: root.pt; }
+                                if root.story == 20 : ErrorStateStory { pt: root.pt; }
+                                if root.story == 21 : InputStory { pt: root.pt; }
+                                if root.story == 22 : SearchFieldStory { pt: root.pt; }
+                                if root.story == 23 : TextareaStory { pt: root.pt; }
+                                if root.story == 24 : NumberInputStory { pt: root.pt; }
+                                if root.story == 25 : FieldStory { pt: root.pt; }
+                                if root.story == 26 : CheckboxStory { pt: root.pt; }
+                                if root.story == 27 : RadioGroupStory { pt: root.pt; }
+                                if root.story == 28 : SwitchStory { pt: root.pt; }
+                                if root.story == 29 : SliderStory { pt: root.pt; }
+                                if root.story == 30 : SelectStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 31 : ComboboxStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 32 : TooltipStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 33 : PopoverStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; }
+                                if root.story == 34 : MenuStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; }
+                                if root.story == 35 : ContextMenuStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; }
+                                if root.story == 36 : DialogStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; host-width: root.width; host-height: root.height; }
+                                if root.story == 37 : SheetStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; host-width: root.width; host-height: root.height; }
+                                if root.story == 38 : ImageViewerStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; host-width: root.width; host-height: root.height; }
+                                if root.story == 39 : AttachmentGridStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 40 : ToastStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 41 : BannerStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 42 : CardStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 43 : SectionStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 44 : StatusDotStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 45 : PresenceDotStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 46 : BreadcrumbsStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 47 : TabsStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 48 : AccordionStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 49 : StepperStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 50 : PaginationStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 51 : ToolbarStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 52 : FilterBarStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 53 : TreeStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 54 : ScrollAreaStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 55 : ResizablePanelStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 56 : DescriptionListStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 57 : StatStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 58 : TimelineStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 59 : ActivityFeedStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 60 : ListStory { pt: root.pt; variant: root.variant; rows: root.list-rows; }
+                                if root.story == 61 : TableStory { pt: root.pt; variant: root.variant; columns: root.table-columns; rows: root.table-rows; }
+                                if root.story == 62 : ShellStory { pt: root.pt; variant: root.variant; rail-items: root.shell-rail; rail-badges: root.shell-badges; sidebar-items: root.shell-rows; sidebar-title: root.shell-title; area: root.shell-area; area-picked(i) => { root.shell-area-picked(i); } }
+                                if root.story == 63 : TabsSplitStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 64 : CommandPaletteStory { pt: root.pt; variant: root.variant; rows: root.palette-rows; highlight: root.palette-highlight; query <=> root.palette-query; result: root.palette-result; query-changed(q) => { root.palette-query-changed(q); } move(d) => { root.palette-move(d); } pick(i) => { root.palette-pick(i); } close => { root.palette-close(); } }
+                                if root.story == 65 : StatusBarStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 66 : ColorPickerStory { pt: root.pt; }
+                                // App stories (`--stories <dir>`, or the empty stub) render here, after the built-in chain.
+                                if root.story >= root.builtin-count : AppStories {
+                                    story: root.story - root.builtin-count;
+                                    variant: root.variant;
+                                    pt: root.pt;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Tooltips draw here, above everything in the window (TooltipLayer).
+    TooltipOverlay {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+    }
+}

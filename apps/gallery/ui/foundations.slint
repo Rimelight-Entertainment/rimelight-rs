@@ -1,0 +1,193 @@
+// Foundations sheet (S1 evidence; apps/gallery --foundations): token swatches, type samples in English and
+// Portuguese, the icon sheet at three sizes, and the About screen. Everything here reads the Tokens, Type and Icons
+// globals; no literal colours, sizes or fonts.
+import { ScrollView } from "std-widgets.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type, TextStyle } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { AboutScreen } from "@rimelight_shell/about.slint";
+
+component Swatch inherits Rectangle {
+    in property <string> label;
+    in property <color> colour;
+    width: 128px;
+    height: 72px;
+    VerticalLayout {
+        spacing: Tokens.space-1;
+        Rectangle {
+            height: 40px;
+            background: root.colour;
+            border-radius: Tokens.radius-control;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+        }
+        Text {
+            text: root.label;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            overflow: elide;
+        }
+    }
+}
+
+component Sample inherits Text {
+    in property <TextStyle> style;
+    color: Tokens.text-primary;
+    font-family: root.style.family;
+    font-size: root.style.size;
+    font-weight: root.style.weight;
+    wrap: word-wrap;
+}
+
+component Heading inherits Text {
+    color: Tokens.text-primary;
+    font-family: Type.heading.family;
+    font-size: Type.heading.size;
+    font-weight: Type.heading.weight;
+}
+
+export component FoundationsWindow inherits Window {
+    // Locale for the sample text: false English, true Portuguese.
+    in-out property <bool> pt: false;
+
+    title: "Rimelight: Slint foundations";
+    background: Tokens.surface-base;
+    default-font-family: Type.body.family;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+
+    property <[image]> icons: [
+        Icons.house, Icons.message-square, Icons.mail, Icons.calendar, Icons.folder-kanban, Icons.building-2,
+        Icons.users, Icons.landmark, Icons.headset, Icons.boxes, Icons.chart-column, Icons.shield,
+        Icons.search, Icons.bell, Icons.circle-question-mark, Icons.plus, Icons.chevron-left, Icons.chevron-right,
+        Icons.chevrons-up-down, Icons.x, Icons.check, Icons.ellipsis, Icons.panel-left, Icons.sun,
+        Icons.moon, Icons.monitor, Icons.external-link, Icons.info, Icons.circle-check, Icons.triangle-alert,
+        Icons.circle-x, Icons.chevron-down, Icons.columns-2,
+    ];
+
+    ScrollView {
+        VerticalLayout {
+            padding: Tokens.space-6;
+            spacing: Tokens.space-6;
+            alignment: start;
+
+            Heading { text: root.pt ? "Cores" : "Colours"; }
+            // Navy rail and sidebar first (owner decision 3), then the surfaces and text, then status and feedback.
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                Swatch { label: "rail.bg"; colour: Tokens.rail-bg; }
+                Swatch { label: "sidebar.bg"; colour: Tokens.sidebar-bg; }
+                Swatch { label: "sidebar.selected"; colour: Tokens.sidebar-selected-bg; }
+                Swatch { label: "sidebar.text"; colour: Tokens.sidebar-text; }
+                Swatch { label: "sidebar.divider"; colour: Tokens.sidebar-divider; }
+                Swatch { label: "sidebar.link"; colour: Tokens.sidebar-link; }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                Swatch { label: "surface.base"; colour: Tokens.surface-base; }
+                Swatch { label: "surface.raised"; colour: Tokens.surface-raised; }
+                Swatch { label: "surface.sunken"; colour: Tokens.surface-sunken; }
+                Swatch { label: "surface.overlay"; colour: Tokens.surface-overlay; }
+                Swatch { label: "text.primary"; colour: Tokens.text-primary; }
+                Swatch { label: "text.muted"; colour: Tokens.text-muted; }
+                Swatch { label: "border.strong"; colour: Tokens.border-strong; }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                Swatch { label: "accent.default"; colour: Tokens.accent-default; }
+                Swatch { label: "accent.fill"; colour: Tokens.accent-fill; }
+                Swatch { label: "accent.text"; colour: Tokens.accent-text; }
+                Swatch { label: "focus.ring"; colour: Tokens.focus-ring; }
+                Swatch { label: "status.success"; colour: Tokens.status-success; }
+                Swatch { label: "status.warning"; colour: Tokens.status-warning; }
+                Swatch { label: "status.danger"; colour: Tokens.status-danger; }
+                Swatch { label: "status.info"; colour: Tokens.status-info; }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                Swatch { label: "status.success.surface"; colour: Tokens.status-success-surface; }
+                Swatch { label: "status.warning.surface"; colour: Tokens.status-warning-surface; }
+                Swatch { label: "status.danger.surface"; colour: Tokens.status-danger-surface; }
+                Swatch { label: "status.info.surface"; colour: Tokens.status-info-surface; }
+                Swatch { label: "disabled.surface"; colour: Tokens.disabled-surface; }
+                Swatch { label: "disabled.fill"; colour: Tokens.disabled-fill; }
+            }
+
+            Heading { text: root.pt ? "Tipografia" : "Typography"; }
+            Sample {
+                style: Type.display;
+                text: root.pt ? "Painel de Rimelight: ação, órgão, coração" : "Rimelight Space: Display";
+            }
+            Sample {
+                style: Type.title;
+                text: root.pt ? "Título: ção, ã, õ, ç, é, ê, ô, à" : "Title: Aa Gg 0123456789";
+            }
+            Sample {
+                style: Type.heading;
+                text: root.pt ? "Cabeçalho: “aspas” e € R$ 1.250,00" : "Heading: “quotes” and € 1,250.00";
+            }
+            Sample {
+                style: Type.subheading;
+                text: root.pt ? "Subtítulo: caixa de entrada – pendências…" : "Subheading: inbox – pending items…";
+            }
+            Sample {
+                style: Type.body;
+                text: root.pt ? "Corpo: o texto comum da interface, com acentos: ç ã õ á é í ó ú." : "Body: the common interface text, Noto Sans regular.";
+            }
+            Sample {
+                style: Type.body-strong;
+                text: root.pt ? "Corpo forte: confirmação de cadastro." : "Body strong: confirm the record.";
+            }
+            Sample {
+                style: Type.label;
+                text: root.pt ? "Rótulo do botão" : "Button label";
+            }
+            Sample {
+                style: Type.caption;
+                text: root.pt ? "Legenda: última sincronização há 2 minutos" : "Caption: last synced 2 minutes ago";
+            }
+            Sample {
+                style: Type.code;
+                text: "let total = 1_250 + 0x2F; // JetBrains Mono";
+            }
+
+            Heading { text: root.pt ? "Ícones" : "Icons"; }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                for img in root.icons: Image {
+                    source: img;
+                    width: Icons.small-size;
+                    height: Icons.small-size;
+                    colorize: Tokens.text-primary;
+                }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                for img in root.icons: Image {
+                    source: img;
+                    width: Icons.medium-size;
+                    height: Icons.medium-size;
+                    colorize: Tokens.text-primary;
+                }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                for img in root.icons: Image {
+                    source: img;
+                    width: Icons.large-size;
+                    height: Icons.large-size;
+                    colorize: Tokens.text-primary;
+                }
+            }
+
+            Heading { text: root.pt ? "Sobre" : "About"; }
+            AboutScreen {
+                pt: root.pt;
+                height: 380px;
+                width: 560px;
+            }
+        }
+    }
+}

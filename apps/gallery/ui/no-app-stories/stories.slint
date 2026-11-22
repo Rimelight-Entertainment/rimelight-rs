@@ -1,0 +1,12 @@
+// The app story slot when the gallery runs without `--stories`: an `AppStories` that draws nothing. The harness maps the
+// `@app_stories` library path here, so `gallery.slint` always has an `AppStories` to place. An app's own folder exports
+// the same component (see apps/gallery/README.md).
+
+export component AppStories inherits VerticalLayout {
+    // The app story to show, from 0 (the gallery's story index minus its built-in count).
+    in property <int> story;
+    // The selected variant of that story.
+    in property <int> variant;
+    // True for the Portuguese locale (the gallery's locale switch).
+    in property <bool> pt;
+}

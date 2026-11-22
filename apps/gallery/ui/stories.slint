@@ -1,0 +1,350 @@
+// Foundations stories for the Slint gallery (S2). Each story is one component that reads only
+// the Tokens, Type and Icons globals; no literal colour, size or font. The gallery (gallery.slint) shows one at a time,
+// in the order of the Rust story registry (apps/gallery/src/registry.rs). `pt` switches the sample text to Portuguese.
+import { ScrollView } from "std-widgets.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type, TextStyle } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { AboutScreen } from "@rimelight_shell/about.slint";
+
+struct SwatchData {
+    label: string,
+    colour: color,
+}
+
+// Weights of the bundled faces: Noto Sans Medium, SemiBold, Bold; the Italic face is selected with font-italic.
+global Weights {
+    out property <int> medium: 500;
+    out property <int> semibold: 600;
+    out property <int> bold: 700;
+}
+
+// A colour swatch. Swatches share a row and stretch with it; TokensStory picks the number of columns from the width.
+component Swatch inherits Rectangle {
+    in property <string> label;
+    in property <color> colour;
+    horizontal-stretch: 1;
+    min-width: 120px;
+    min-height: 72px * Tokens.text-factor;
+    VerticalLayout {
+        spacing: Tokens.space-1;
+        Rectangle {
+            min-height: 40px * Tokens.text-factor;
+            background: root.colour;
+            border-radius: Tokens.radius-control;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+        }
+        Text {
+            text: root.label;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            wrap: word-wrap;
+            vertical-alignment: top;
+        }
+    }
+}
+
+component Heading inherits Text {
+    color: Tokens.text-primary;
+    font-family: Type.heading.family;
+    font-size: Type.heading.size;
+    font-weight: Type.heading.weight;
+    wrap: word-wrap;
+}
+
+component Line inherits Text {
+    in property <TextStyle> style;
+    color: Tokens.text-primary;
+    font-family: root.style.family;
+    font-size: root.style.size;
+    font-weight: root.style.weight;
+    wrap: word-wrap;
+}
+
+// One row of a specimen table: a caption on the left and the sample text on the right.
+component Specimen inherits VerticalLayout {
+    in property <string> caption;
+    in property <string> sample;
+    in property <int> weight: 400;
+    in property <bool> italic: false;
+    in property <string> family: Type.body.family;
+    spacing: Tokens.space-4;
+    Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+    Text {
+        text: root.sample;
+        color: Tokens.text-primary;
+        font-family: root.family;
+        font-size: Type.body.size;
+        font-weight: root.weight;
+        font-italic: root.italic;
+        wrap: word-wrap;
+    }
+}
+
+export component TokensStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    property <[SwatchData]> colours: [
+        { label: "rail.bg", colour: Tokens.rail-bg },
+        { label: "sidebar.bg", colour: Tokens.sidebar-bg },
+        { label: "sidebar.selected", colour: Tokens.sidebar-selected-bg },
+        { label: "sidebar.text", colour: Tokens.sidebar-text },
+        { label: "sidebar.divider", colour: Tokens.sidebar-divider },
+        { label: "sidebar.link", colour: Tokens.sidebar-link },
+        { label: "surface.base", colour: Tokens.surface-base },
+        { label: "surface.raised", colour: Tokens.surface-raised },
+        { label: "surface.sunken", colour: Tokens.surface-sunken },
+        { label: "surface.overlay", colour: Tokens.surface-overlay },
+        { label: "text.primary", colour: Tokens.text-primary },
+        { label: "text.muted", colour: Tokens.text-muted },
+        { label: "border.strong", colour: Tokens.border-strong },
+        { label: "accent.default", colour: Tokens.accent-default },
+        { label: "accent.fill", colour: Tokens.accent-fill },
+        { label: "accent.text", colour: Tokens.accent-text },
+        { label: "focus.ring", colour: Tokens.focus-ring },
+        { label: "status.success", colour: Tokens.status-success },
+        { label: "status.warning", colour: Tokens.status-warning },
+        { label: "status.danger", colour: Tokens.status-danger },
+        { label: "status.info", colour: Tokens.status-info },
+        { label: "status.success.surface", colour: Tokens.status-success-surface },
+        { label: "status.warning.surface", colour: Tokens.status-warning-surface },
+        { label: "status.danger.surface", colour: Tokens.status-danger-surface },
+        { label: "status.info.surface", colour: Tokens.status-info-surface },
+        { label: "disabled.surface", colour: Tokens.disabled-surface },
+        { label: "disabled.fill", colour: Tokens.disabled-fill },
+    ];
+
+    // As many columns as fit, at least one; a 230 px cell at 100 percent, scaled with the text.
+    property <int> columns: Math.max(1, Math.floor(root.width / (230px * Tokens.text-factor)));
+    Heading { text: root.pt ? "Cores" : "Colours"; }
+    GridLayout {
+        spacing: Tokens.space-2;
+        for swatch[i] in root.colours: Swatch {
+            label: swatch.label;
+            colour: swatch.colour;
+            row: Math.floor(i / root.columns);
+            col: Math.mod(i, root.columns);
+        }
+    }
+}
+
+export component TypographyStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    // 0: every specimen, 1: weights and italic only, 2: JetBrains Mono only.
+    in property <int> variant: 0;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    Heading { text: root.pt ? "Tipografia" : "Typography"; }
+
+    if root.variant == 0 : VerticalLayout {
+        spacing: Tokens.space-4;
+        Line { style: Type.display; text: root.pt ? "Painel de Rimelight: ação, órgão, coração" : "Rimelight Space: Display"; }
+        Line { style: Type.title; text: root.pt ? "Título: ção, ã, õ, ç, é, ê, ô, à" : "Title: Aa Gg 0123456789"; }
+        Line { style: Type.heading; text: root.pt ? "Cabeçalho: “aspas” e € R$ 1.250,00" : "Heading: “quotes” and € 1,250.00"; }
+        Line { style: Type.subheading; text: root.pt ? "Subtítulo: caixa de entrada – pendências…" : "Subheading: inbox – pending items…"; }
+        Line { style: Type.body; text: root.pt ? "Corpo: o texto comum da interface, com acentos: ç ã õ á é í ó ú." : "Body: the common interface text, Noto Sans regular."; }
+        Line { style: Type.body-strong; text: root.pt ? "Corpo forte: confirmação de cadastro." : "Body strong: confirm the record."; }
+        Line { style: Type.label; text: root.pt ? "Rótulo do botão" : "Button label"; }
+        Line { style: Type.caption; text: root.pt ? "Legenda: última sincronização há 2 minutos" : "Caption: last synced 2 minutes ago"; }
+    }
+
+    if root.variant != 2 : VerticalLayout {
+        spacing: Tokens.space-3;
+        Specimen { caption: "Noto Sans 400"; sample: root.pt ? "Regular: ação e coração" : "Regular: Aa Gg 0123"; weight: 400; }
+        Specimen { caption: "Noto Sans 500"; sample: root.pt ? "Medium: ação e coração" : "Medium: Aa Gg 0123"; weight: Weights.medium; }
+        Specimen { caption: "Noto Sans 600"; sample: root.pt ? "SemiBold: ação e coração" : "SemiBold: Aa Gg 0123"; weight: Weights.semibold; }
+        Specimen { caption: "Noto Sans 700"; sample: root.pt ? "Bold: ação e coração" : "Bold: Aa Gg 0123"; weight: Weights.bold; }
+        Specimen { caption: "Noto Sans italic"; sample: root.pt ? "Itálico: ação e coração" : "Italic: Aa Gg 0123"; weight: 400; italic: true; }
+    }
+
+    if root.variant != 1 : VerticalLayout {
+        spacing: Tokens.space-3;
+        Specimen {
+            caption: "JetBrains Mono 400";
+            sample: "let total = 1_250 + 0x2F; // JetBrains Mono";
+            family: Tokens.type-code-family;
+            weight: 400;
+        }
+        Specimen {
+            caption: "JetBrains Mono 700";
+            sample: "fn main() -> Result<(), Error> { Ok(()) }";
+            family: Tokens.type-code-family;
+            weight: Weights.bold;
+        }
+    }
+}
+
+// The icons of one size, in a grid that has as many columns as fit the available width (at least one).
+component IconSheet inherits GridLayout {
+    in property <[image]> icons;
+    in property <length> size;
+    in property <length> available;
+    spacing: Tokens.space-2;
+    property <int> columns: Math.max(1, Math.floor(root.available / (root.size + Tokens.space-2)));
+    for img[i] in root.icons: Image {
+        source: img;
+        width: root.size;
+        height: root.size;
+        colorize: Tokens.text-primary;
+        row: Math.floor(i / root.columns);
+        col: Math.mod(i, root.columns);
+    }
+}
+
+export component IconsStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    property <[image]> icons: [
+        Icons.house, Icons.message-square, Icons.mail, Icons.calendar, Icons.folder-kanban, Icons.building-2,
+        Icons.users, Icons.landmark, Icons.headset, Icons.boxes, Icons.chart-column, Icons.shield,
+        Icons.search, Icons.bell, Icons.circle-question-mark, Icons.plus, Icons.chevron-left, Icons.chevron-right,
+        Icons.chevrons-up-down, Icons.x, Icons.check, Icons.ellipsis, Icons.panel-left, Icons.sun,
+        Icons.moon, Icons.monitor, Icons.external-link, Icons.info, Icons.circle-check, Icons.triangle-alert,
+        Icons.circle-x, Icons.chevron-down, Icons.columns-2,
+    ];
+
+    Heading { text: root.pt ? "Ícones" : "Icons"; }
+    Text {
+        text: root.pt ? "Três tamanhos; eles crescem com a escala de texto." : "Three sizes; they grow with the text scale.";
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+    IconSheet { icons: root.icons; size: Icons.small-size; available: root.width; }
+    IconSheet { icons: root.icons; size: Icons.medium-size; available: root.width; }
+    IconSheet { icons: root.icons; size: Icons.large-size; available: root.width; }
+}
+
+// One spacing bar: the width is the token, so the bar shows the step.
+component SpaceBar inherits VerticalLayout {
+    in property <string> caption;
+    in property <length> amount;
+    spacing: Tokens.space-3;
+    Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+    Rectangle {
+        width: root.amount;
+        height: 16px * Tokens.text-factor;
+        background: Tokens.accent-fill;
+        border-radius: Tokens.radius-r4;
+    }
+}
+
+// One radius sample.
+component RadiusSample inherits VerticalLayout {
+    in property <string> caption;
+    in property <length> amount;
+    spacing: Tokens.space-1;
+    Rectangle {
+        width: 72px * Tokens.text-factor;
+        height: 72px * Tokens.text-factor;
+        background: Tokens.surface-raised;
+        border-width: 2px;
+        border-color: Tokens.border-strong;
+        border-radius: root.amount;
+    }
+    Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+}
+
+export component SpacingStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    Heading { text: root.pt ? "Espaçamento e raio" : "Spacing and radius"; }
+    VerticalLayout {
+        spacing: Tokens.space-2;
+        SpaceBar { caption: "space-1"; amount: Tokens.space-1 * Tokens.text-factor; }
+        SpaceBar { caption: "space-2"; amount: Tokens.space-2 * Tokens.text-factor; }
+        SpaceBar { caption: "space-3"; amount: Tokens.space-3 * Tokens.text-factor; }
+        SpaceBar { caption: "space-4"; amount: Tokens.space-4 * Tokens.text-factor; }
+        SpaceBar { caption: "space-6"; amount: Tokens.space-6 * Tokens.text-factor; }
+        SpaceBar { caption: "space-8"; amount: Tokens.space-8 * Tokens.text-factor; }
+        SpaceBar { caption: "space-10"; amount: Tokens.space-10 * Tokens.text-factor; }
+        SpaceBar { caption: "space-12"; amount: Tokens.space-12 * Tokens.text-factor; }
+    }
+    HorizontalLayout {
+        spacing: Tokens.space-6;
+        alignment: start;
+        RadiusSample { caption: "radius-control"; amount: Tokens.radius-control; }
+        RadiusSample { caption: "radius-surface"; amount: Tokens.radius-surface; }
+        RadiusSample { caption: "radius-r8"; amount: Tokens.radius-r8; }
+        RadiusSample { caption: "radius-pill"; amount: 36px * Tokens.text-factor; }
+    }
+}
+
+export component MotionStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    // Toggled by the Play control; the square's travel uses the base duration, which is 0 under reduced motion.
+    in-out property <bool> at-end: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    Heading { text: root.pt ? "Movimento" : "Motion"; }
+    Text {
+        text: (root.pt ? "Rápido " : "Fast ") + round(Tokens.motion-fast / 1ms) + " ms, "
+            + (root.pt ? "base " : "base ") + round(Tokens.motion-base / 1ms) + " ms, "
+            + (root.pt ? "lento " : "slow ") + round(Tokens.motion-slow / 1ms) + " ms. "
+            + (Tokens.reduced-motion ? (root.pt ? "Movimento reduzido ativo." : "Reduced motion is on: all durations are 0.") : "");
+        color: Tokens.text-muted;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        wrap: word-wrap;
+    }
+    Rectangle {
+        height: 48px * Tokens.text-factor;
+        background: Tokens.surface-sunken;
+        border-radius: Tokens.radius-surface;
+        Rectangle {
+            x: root.at-end ? parent.width - self.width - 8px : 8px;
+            y: 8px;
+            width: 32px * Tokens.text-factor;
+            height: 32px * Tokens.text-factor;
+            background: Tokens.accent-fill;
+            border-radius: Tokens.radius-control;
+            animate x { duration: Tokens.motion-base; easing: ease-in-out; }
+        }
+    }
+}
+
+export component AboutStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    Heading { text: root.pt ? "Sobre" : "About"; }
+    AboutScreen {
+        pt: root.pt;
+        min-height: 380px;
+    }
+}

@@ -1,0 +1,26 @@
+[package]
+name = "rimelight_gallery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Component gallery for the Rimelight design system on the Slint interpreter: stories from rimelight_ui, rimelight_shell and rimelight_design, plus an app's own stories from a folder. Not shipped."
+
+[lints]
+workspace = true
+
+[dependencies]
+# The interpreter compiles ui/dev.slint with the `rimelight_design` library path (`rimelight_design::UI_DIR`).
+rimelight_design = { workspace = true }
+# The shared component library: the interpreter maps the `rimelight_ui` library path to `rimelight_ui::UI_DIR`.
+rimelight_ui = { path = "../../crates/rimelight_ui" }
+# The shared shell markup and its plain rules (the palette filter and step, the badge text).
+rimelight_shell = { path = "../../crates/rimelight_shell" }
+# The plain rules of the Select, Menu and ColorPicker callbacks.
+rimelight_ui_kit = { path = "../../crates/rimelight_ui_kit" }
+slint = { workspace = true }
+slint-interpreter = { workspace = true }
+# The headless platform for captures and the interpreter tests (software renderer, no native window).
+i-slint-backend-testing = { workspace = true, features = ["renderer-software"] }
+image = { workspace = true }
+spin_on = { workspace = true }

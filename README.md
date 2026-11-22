@@ -23,6 +23,9 @@ The plan these crates follow is `docs/plan.md` in rimelight-space.
     module per file, for the ui test binary.
   - `apps/ui_check`: compile check. Its `ui/main.slint` places every exported component of `rimelight_ui` in one
     window, and its headless test creates that window. Not shipped.
+  - `apps/gallery`: the component gallery (`rimelight_gallery`): the design system's stories on the Slint interpreter,
+    app-independent, with sample data for the shell. An app adds its own stories from a folder with `--stories <dir>`.
+    Not shipped.
   - `apps/`: other app crates that compile Slint come here.
   - `xtask/`: workspace task runner (`cargo xtask`); prints usage only for now.
   - `spikes/`: its own workspace, excluded from this one.
