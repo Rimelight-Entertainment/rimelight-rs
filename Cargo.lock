@@ -3706,6 +3706,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rimelight_ui_kit"
+version = "0.1.0"
+dependencies = [
+ "slint",
+]
+
+[[package]]
 name = "rowan"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -22,5 +22,6 @@ The plan these crates follow is `docs/plan.md` in rimelight-space.
   - `xtask/`: workspace task runner (`cargo xtask`); prints usage only for now.
   - `spikes/`: its own workspace, excluded from this one.
   - `vendor/`: excluded; added with the FFmpeg bindings when `rimelight_media` is extracted.
+  - `crates/rimelight_ui_kit`: shared Slint glue (ST2.4, not yet compiled): the plain rules of the toast queue, colour parsing, table, tree, display, select, menu and theme, plus the `macro_rules!` an app expands to wire them to its generated types (`wire_select!`, `wire_menu!`, `wire_color_hex!`, `wire_theme!`). Depends on `slint` only.
 - Crates are extracted from rimelight-space in ST2.2 to ST2.7.
 - Rules for agents and the layering are in `AGENTS.md`.

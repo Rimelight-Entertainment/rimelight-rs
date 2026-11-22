@@ -1,0 +1,14 @@
+[package]
+name = "rimelight_ui_kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight shared Slint glue: plain-Rust rules plus macros the app expands to wire them to its generated types."
+
+[lints]
+workspace = true
+
+[dependencies]
+slint = { workspace = true }
