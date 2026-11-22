@@ -9,10 +9,14 @@
 //!
 //! The plain-Rust models: the page tabs ([`tabs`]), their back and forward [`history`], the tile groups ([`tiles`]), the
 //! tab drop zones ([`tile_drop`]), and the top-level workspaces and their saving ([`workspace`]). They are generic over
-//! the app's [`Routes`], which give the route titles, the Home route and the rail areas. The palette and the rail and
-//! sidebar row models still live in each app (the next ST2.5b steps).
+//! the app's [`Routes`], which give the route titles, the Home route and the rail areas.
+//!
+//! The shared rules: the palette filter and highlight step ([`palette`]) and the rail badge text ([`badge`]). The row
+//! builders that read an app's route manifest stay in each app, since each app has its own manifest.
 
+pub mod badge;
 pub mod history;
+pub mod palette;
 pub mod routes;
 pub mod tabs;
 pub mod tile_drop;

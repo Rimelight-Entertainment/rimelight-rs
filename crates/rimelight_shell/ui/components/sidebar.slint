@@ -507,18 +507,24 @@ component BackRow inherits Rectangle {
     }
 }
 
-// The project switcher (tail C3; IA section 3, OQ9): the Projects context header's name. The name and a chevrons-up-down
-// mark open a list of every project, with a filter field above it. Picking a project reports its key. The filter reports
-// the field's text, and the shell narrows `projects` to the matches.
+// The context switcher (tail C3; IA section 3, OQ9): the context header's name. The name and a chevrons-up-down
+// mark open a list of every item (a project, in Space), with a filter field above it. Picking an item reports its key. The
+// filter reports the field's text, and the app narrows `projects` to the matches.
 component ProjectSwitch inherits Rectangle {
     in property <string> name;
     in property <string> current-key;
     in property <[ProjectChoice]> projects;
-    // The current project's picture, drawn left of its name when `current-has-image` is true.
+    // The current item's picture, drawn left of its name when `current-has-image` is true.
     in property <image> current-image;
     in property <bool> current-has-image: false;
-    // The current project's initials, drawn in the trigger when it has no picture.
+    // The current item's initials, drawn in the trigger when it has no picture.
     in property <string> current-initials;
+    // The labels the app names. The defaults are Space's project wording. `list-label` is the list's accessible name,
+    // `filter-label` the filter field's placeholder and accessible name, and `switch-label` the start of the trigger's
+    // accessible label (followed by the current name).
+    in property <string> list-label: "Projects";
+    in property <string> filter-label: "Filter projects";
+    in property <string> switch-label: "Switch project";
     // The sidebar's width: the switcher's list is as wide as the sidebar header.
     in property <length> sidebar-width;
     // The most rows the list shows before it scrolls.
@@ -595,7 +601,7 @@ component ProjectSwitch inherits Rectangle {
 
         ta := TouchArea {
             accessible-role: button;
-            accessible-label: "Switch project, \{root.name}";
+            accessible-label: "\{root.switch-label}, \{root.name}";
             pointer-event(event) => {
                 if (event.kind == PointerEventKind.down) {
                     pop.trigger-pressed();
@@ -625,7 +631,7 @@ component ProjectSwitch inherits Rectangle {
     pop := Popover {
         x: 0px;
         y: 0px;
-        accessible-name: "Projects";
+        accessible-name: root.list-label;
         anchor-height: SidebarSize.header-height;
         panel-width: root.sidebar-width;
         content-padding: Tokens.space-2;
@@ -634,8 +640,8 @@ component ProjectSwitch inherits Rectangle {
             spacing: Tokens.space-2;
 
             Input {
-                placeholder: "Filter projects";
-                accessible-name: "Filter projects";
+                placeholder: root.filter-label;
+                accessible-name: root.filter-label;
                 changed(value) => { root.filter-changed(value); }
             }
 
@@ -768,15 +774,19 @@ export component Sidebar inherits Rectangle {
     // The phone drawer shows a back row above the header when it was opened from the More list (tail C2).
     in property <bool> back-row: false;
     callback back-clicked();
-    // The project switcher (tail C3): on the Projects area the header's name is the switcher, over `projects` (the list the
-    // shell narrows by the filter) with `project-key` the current project.
+    // The context switcher (tail C3): on the Projects area the header's name is the switcher, over `projects` (the list the
+    // app narrows by the filter) with `project-key` the current item.
     in property <bool> switcher: false;
     in property <[ProjectChoice]> projects;
     in property <string> project-key;
-    // The current project's picture, for the switcher's trigger.
+    // The current item's picture, for the switcher's trigger.
     in property <image> project-image;
     in property <bool> project-has-image: false;
     in property <string> project-initials;
+    // The switcher's labels, named by the app (defaults are Space's wording). See ProjectSwitch.
+    in property <string> switcher-list-label: "Projects";
+    in property <string> switcher-filter-label: "Filter projects";
+    in property <string> switcher-switch-label: "Switch project";
     callback project-filter-changed(string);
     callback project-picked(string);
     callback project-create-requested();
@@ -864,6 +874,9 @@ export component Sidebar inherits Rectangle {
                 current-initials: root.project-initials;
                 sidebar-width: root.width;
                 projects: root.projects;
+                list-label: root.switcher-list-label;
+                filter-label: root.switcher-filter-label;
+                switch-label: root.switcher-switch-label;
                 filter-changed(text) => { root.project-filter-changed(text); }
                 picked(key) => { root.project-picked(key); }
                 create-requested => { root.project-create-requested(); }

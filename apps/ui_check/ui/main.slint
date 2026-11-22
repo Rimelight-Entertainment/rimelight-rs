@@ -78,6 +78,8 @@ import { SplitPane } from "@rimelight_shell/components/split-pane.slint";
 import { JobsMenu, StatusBar } from "@rimelight_shell/components/status-bar.slint";
 import { TabBar } from "@rimelight_shell/components/tab-bar.slint";
 import { AboutScreen } from "@rimelight_shell/about.slint";
+import { AccountMenu } from "@rimelight_shell/components/account-menu.slint";
+import { SignInScreen } from "@rimelight_shell/components/sign-in-screen.slint";
 
 export component CheckWindow inherits Window {
     title: "Rimelight UI check";
@@ -103,6 +105,8 @@ export component CheckWindow inherits Window {
             StatusBar { }
             TabBar { }
             AboutScreen { }
+            AccountMenu { }
+            SignInScreen { }
             // Components (rimelight_ui)
             Accordion { }
             ActivityFeed { }

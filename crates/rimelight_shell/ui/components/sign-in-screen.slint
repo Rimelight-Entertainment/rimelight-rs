@@ -1,0 +1,170 @@
+// Sign-in screen. Shown over the shell while there is no session, and while the app checks a stored one at start-up
+// (loading). The desktop app drives it: `phase` says what to show, `error-text` is the line under the button, and the two
+// callbacks answer the button and the Cancel button.
+//
+// Phases. `loading` shows a spinner while the stored session is checked. `signed-out` shows the primary button and any
+// error. `waiting` shows the browser message with Cancel, while the system browser finishes the sign-in. `signed-in` hides the
+// screen (the shell shows).
+//
+// `unreachable` shows "Can't reach <product-name>" with the connection line and a Retry button. The desktop driver retries
+// on its own while this phase shows. The stored session is kept.
+//
+// `product-name` is the app's name. The unreachable strings are built from it, so an app that sets it gets its own name
+// in every line that shows it.
+//
+// English only: the strings are properties with English defaults. rimelight_i18n is still a placeholder.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { Spinner, SpinnerSize } from "@rimelight_ui/components/spinner.slint";
+
+export enum SessionPhase { loading, signed-out, waiting, signed-in, unreachable }
+
+export component SignInScreen inherits Rectangle {
+    in property <SessionPhase> phase: SessionPhase.loading;
+    in property <string> error-text: "";
+    in property <string> product-name: "Rimelight";
+    in property <string> sign-in-label: "Sign in with Rimelight";
+    in property <string> waiting-text: "Finish signing in in your browser";
+    in property <string> cancel-label: "Cancel";
+    in property <string> loading-text: "Checking your session...";
+    in property <string> unreachable-title: "Can't reach \{root.product-name}";
+    in property <string> unreachable-text: "Check your connection. \{root.product-name} needs to be online.";
+    in property <string> retry-label: "Retry";
+
+    callback sign-in-clicked();
+    callback cancel-clicked();
+    callback retry-clicked();
+
+    // Test state: which group is drawn, and the text of the line the phase shows.
+    out property <bool> button-shown: root.phase == SessionPhase.signed-out;
+    out property <bool> waiting-shown: root.phase == SessionPhase.waiting;
+    out property <bool> loading-shown: root.phase == SessionPhase.loading;
+    out property <bool> unreachable-shown: root.phase == SessionPhase.unreachable;
+    out property <bool> error-shown: root.phase == SessionPhase.signed-out && root.error-text != "";
+    out property <string> status-text: root.phase == SessionPhase.waiting ? root.waiting-text
+        : (root.phase == SessionPhase.loading ? root.loading-text : "");
+
+    // Test hook: a click on the primary button, as its pointer area does. Nothing happens while the button is disabled.
+    public function test-click-sign-in() {
+        sign-in-btn.test-click();
+    }
+
+    // Test hook: a click on Retry, as its pointer area does.
+    public function test-click-retry() {
+        retry-btn.test-click();
+    }
+
+    // Test hook: a click on Cancel, as its pointer area does.
+    public function test-click-cancel() {
+        cancel-btn.test-click();
+    }
+
+    background: Tokens.surface-base;
+
+    VerticalLayout {
+        width: min(root.width - Tokens.space-8, 360px);
+        spacing: Tokens.space-4;
+        alignment: center;
+
+        Text {
+            text: root.product-name;
+            color: Tokens.text-primary;
+            font-family: Type.title.family;
+            font-size: Type.title.size;
+            font-weight: Type.title.weight;
+            horizontal-alignment: center;
+            accessible-role: text;
+            accessible-label: root.product-name;
+            visible: root.phase != SessionPhase.unreachable;
+        }
+
+        if root.unreachable-shown : Text {
+            text: root.unreachable-title;
+            color: Tokens.text-primary;
+            font-family: Type.title.family;
+            font-size: Type.title.size;
+            font-weight: Type.title.weight;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: root.unreachable-title;
+        }
+
+        if root.unreachable-shown : Text {
+            text: root.unreachable-text;
+            color: Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: root.unreachable-text;
+            accessible-live-region: polite;
+        }
+
+        retry-btn := Button {
+            text: root.retry-label;
+            accessible-name: root.retry-label;
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            full-width: true;
+            visible: root.unreachable-shown;
+            clicked => { root.retry-clicked(); }
+        }
+
+        if root.loading-shown || root.waiting-shown : Spinner {
+            size: SpinnerSize.md;
+        }
+
+        Text {
+            text: root.status-text;
+            color: Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            visible: root.status-text != "";
+            accessible-role: text;
+            accessible-label: root.status-text;
+            accessible-live-region: polite;
+        }
+
+        sign-in-btn := Button {
+            text: root.sign-in-label;
+            accessible-name: root.sign-in-label;
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            full-width: true;
+            enabled: root.phase == SessionPhase.signed-out;
+            visible: root.button-shown;
+            clicked => { root.sign-in-clicked(); }
+        }
+
+        Text {
+            text: root.error-text;
+            color: Tokens.status-danger;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            visible: root.error-shown;
+            accessible-role: text;
+            accessible-label: root.error-text;
+            accessible-live-region: polite;
+        }
+
+        cancel-btn := Button {
+            text: root.cancel-label;
+            accessible-name: root.cancel-label;
+            variant: ButtonVariant.secondary;
+            size: ButtonSize.md;
+            full-width: true;
+            visible: root.waiting-shown;
+            clicked => { root.cancel-clicked(); }
+        }
+    }
+}

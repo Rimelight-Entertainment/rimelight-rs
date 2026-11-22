@@ -1,6 +1,6 @@
 # ST2.5b: the shell's Rust models and the app frame (design, answered)
 
-**Status:** answered by the owner, 2026-11-22; ready to build. ST2.5a (the shell markup) is done.
+**Status:** built, 2026-11-22 (see Result at the end). ST2.5a (the shell markup) is done.
 
 ## Where things stand
 
@@ -88,3 +88,26 @@ All four recommendations accepted:
 - Its unit tests move with it and pass in rimelight-rs.
 - Space builds against the pinned rev with no visible change: clippy, `--lib`, `--test ui`, and the host, wasm32 and
   Android checks.
+
+## Result (2026-11-22)
+
+**Moved to `rimelight_shell`**
+- `routes.rs`: the `Routes` trait. It is static (no `self`): home route, home area, page title of a route, and area
+  ids for saving. The models take it as a type parameter, so they stay plain data. Space implements it as
+  `SpaceRoutes` over `rimelight_nav`.
+- `tabs.rs` (page tabs, closed stack, strip menu rows), `history.rs` (one tab's back and forward), `tiles.rs`,
+  `tile_drop.rs` and `workspace.rs` (workspaces, the saved text, `Store`, `Saver`, `FileStore`).
+  `FileStore::in_app_data` takes the app's folder name.
+- `palette.rs` (filter and highlight step) and `badge.rs` (the "99+" rule).
+- Markup: `AccountMenu` (was Space's `ProfileMenu`) and `SignInScreen`, whose product name is a property (Space passes
+  "Rimelight Space"). The sidebar's project switcher has `list-label`, `filter-label` and `switch-label`
+  (on `Sidebar`: `switcher-*`), defaulting to today's text.
+- 81 unit tests in the crate. Space keeps thin modules with type aliases, so its paths did not change.
+
+**Stays in Space, on purpose**
+- The row builders (`palette::entries_for`, `shell::sidebar_entries`, rail badges per area, the icon table). Each
+  reads Space's manifest (project key, built project pages, mock counts, queue nouns). The `&self` route trait of the
+  proposal (`areas`, `sidebar`, `pages`) is not built yet: with one app using it, its shape would be a guess. It is
+  designed when idantity's shell is built (WS5), from two real manifests.
+- The window (`app-shell.slint`, `app_shell.rs`), per answer 2 (frame pieces). Extracting frame pieces from it is
+  its own step.

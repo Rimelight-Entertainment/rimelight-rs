@@ -1,0 +1,323 @@
+// Account menu (IA owner direction 1). The content of the avatar popover in the top bar: the signed-in person, a
+// presence picker (Online, Away, Busy; a person sets these only), a Profile section (Profile), then the bottom section
+// (About, Report Issue, Settings, Sign out). Drawn from the Tokens global only. The caller places it in a Popover
+// (@rimelight_ui/components/popover.slint).
+//
+// Offline is not in the picker. Others see it when a person is not connected; a person never sets it (a work app).
+//
+// Presence is local UI state: the caller binds `presence` (two-way) and nothing here talks to a server. The presence
+// mark uses the status colours and each state has its word beside it in the picker, so colour is not the only cue.
+//
+// Layout rule. Every row's inner layout takes the row's full width (`width: parent.width`). A layout with no width sizes
+// to its minimum, and its label then elides to "..." (the owner's screenshots, 2026-11-13).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Avatar, AvatarSize } from "@rimelight_ui/components/avatar.slint";
+
+export enum UserPresence { online, away, busy, offline }
+
+// The coloured mark for a presence. Used by the avatar in the top bar and by each picker row.
+export component PresenceMark inherits Rectangle {
+    in property <UserPresence> presence: UserPresence.online;
+
+    width: Tokens.size-presence-dot;
+    height: Tokens.size-presence-dot;
+    border-radius: Tokens.radius-pill;
+    background: root.presence == UserPresence.online ? Tokens.status-success
+        : (root.presence == UserPresence.away ? Tokens.status-warning
+        : (root.presence == UserPresence.busy ? Tokens.status-danger
+        : Tokens.border-strong));
+}
+
+// One choice of the presence picker: a row with its mark, its word and a check on the current one.
+component PresenceRow inherits Rectangle {
+    in property <UserPresence> value;
+    in property <UserPresence> current;
+    in property <string> label;
+
+    callback picked(UserPresence);
+
+    height: Tokens.size-menu-row-height;
+    horizontal-stretch: 1;
+    background: ta.has-hover ? Tokens.surface-sunken : transparent;
+    border-radius: Tokens.radius-r4;
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        PresenceMark {
+            presence: root.value;
+            y: (parent.height - self.height) / 2;
+        }
+
+        Text {
+            text: root.label;
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+
+        if root.current == root.value : Image {
+            width: Icons.small-size;
+            height: Icons.small-size;
+            y: (parent.height - self.height) / 2;
+            source: Icons.check;
+            colorize: Tokens.text-primary;
+        }
+    }
+
+    ta := TouchArea {
+        accessible-role: button;
+        accessible-label: root.label;
+        accessible-checkable: true;
+        accessible-checked: root.current == root.value;
+        clicked => { root.picked(root.value); }
+    }
+}
+
+// A plain action row with a leading icon (Profile, About, Give Feedback, Report Issue, Settings, Sign out).
+component MenuAction inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    // Drawn in the danger colour (Sign out).
+    in property <bool> danger: false;
+    callback clicked();
+
+    height: Tokens.size-menu-row-height;
+    horizontal-stretch: 1;
+    background: ta.has-hover ? Tokens.surface-sunken : transparent;
+    border-radius: Tokens.radius-r4;
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        Image {
+            source: root.icon;
+            colorize: root.danger ? Tokens.status-danger : Tokens.text-muted;
+            width: Icons.small-size;
+            height: Icons.small-size;
+            y: (parent.height - self.height) / 2;
+        }
+
+        Text {
+            text: root.text;
+            color: root.danger ? Tokens.status-danger : Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+    }
+
+    // Test hook: a click on the row, as its pointer area does.
+    public function test-click() {
+        root.clicked();
+    }
+
+    ta := TouchArea {
+        accessible-role: button;
+        accessible-label: root.text;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A small muted heading over a group of rows.
+component SectionHeading inherits Text {
+    color: Tokens.text-muted;
+    font-family: Type.caption.family;
+    font-size: Type.caption.size;
+    font-weight: Type.caption.weight;
+    overflow: elide;
+    horizontal-alignment: left;
+}
+
+export component AccountMenu inherits VerticalLayout {
+    // The signed-in person (a placeholder name until sign-in exists).
+    in property <string> user-name: "You";
+    // The initials drawn in the header avatar.
+    in property <string> user-initials: "Y";
+    // A muted placeholder until sign-in exists.
+    in property <string> user-email: "you@rimelight";
+    // Two-way: the picker writes it, the caller reads it.
+    in-out property <UserPresence> presence: UserPresence.online;
+
+    callback profile-clicked();
+    callback about-clicked();
+    callback submit-feedback-clicked();
+    callback report-issue-clicked();
+    callback settings-clicked();
+    callback sign-out-clicked();
+
+    // The height the content takes, for the caller's panel height.
+    out property <length> content-height: root.preferred-height;
+
+    // Test hook: a click on the presence row `value`, as the row's picked handler does (it sets the presence).
+    public function test-pick-presence(value: UserPresence) {
+        root.presence = value;
+    }
+
+    // Test hooks: the labels of the picker rows, in order, and of the action rows, in order.
+    out property <[string]> test-presence-labels: [online-row.label, away-row.label, busy-row.label];
+    out property <string> shown-name: name-text.text;
+
+    // Test hook: a click on Sign out, as its row does.
+    public function test-click-sign-out() {
+        sign-out-row.test-click();
+    }
+    out property <[string]> test-action-labels: [profile-row.text, about-row.text, feedback-row.text, report-issue-row.text, settings-row.text, sign-out-row.text];
+
+    // The inset comes from the Popover that holds this menu (content-padding), so the menu adds none of its own.
+    spacing: Tokens.space-1;
+    padding: 0px;
+
+    // Header: a round avatar with the initials, the name, and the muted email under it.
+    HorizontalLayout {
+        width: parent.width;
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        padding-bottom: Tokens.space-2;
+        spacing: Tokens.space-3;
+
+        Rectangle {
+            width: header-avatar.width;
+            height: header-avatar.height;
+            y: (parent.height - self.height) / 2;
+
+            header-avatar := Avatar {
+                name: root.user-name;
+                initials: root.user-initials;
+                size: AvatarSize.md;
+            }
+
+            // The presence chip sits on the picture's bottom-right edge, as in the top bar.
+            PresenceMark {
+                x: parent.width - self.width - 2px;
+                y: parent.height - self.height - 2px;
+                presence: root.presence;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+
+            // The shown name: the signed-in person's display name. `shown-name` is the test state of this line.
+            name-text := Text {
+                text: root.user-name;
+                color: Tokens.text-primary;
+                font-family: Type.body-strong.family;
+                font-size: Type.body-strong.size;
+                font-weight: Type.body-strong.weight;
+                overflow: elide;
+            }
+            Text {
+                text: root.user-email;
+                color: Tokens.text-muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                overflow: elide;
+            }
+        }
+    }
+
+    Rectangle {
+        height: 1px;
+        horizontal-stretch: 1;
+        background: Tokens.border-subtle;
+    }
+
+    Rectangle {
+        height: Tokens.size-menu-row-height * 0.6;
+        horizontal-stretch: 1;
+
+        SectionHeading {
+            x: Tokens.space-2;
+            width: parent.width - 2 * Tokens.space-2;
+            height: parent.height;
+            text: "Status";
+            vertical-alignment: bottom;
+        }
+    }
+
+    online-row := PresenceRow {
+        value: UserPresence.online;
+        label: "Online";
+        current: root.presence;
+        picked(value) => { root.presence = value; }
+    }
+    away-row := PresenceRow {
+        value: UserPresence.away;
+        label: "Away";
+        current: root.presence;
+        picked(value) => { root.presence = value; }
+    }
+    busy-row := PresenceRow {
+        value: UserPresence.busy;
+        label: "Busy";
+        current: root.presence;
+        picked(value) => { root.presence = value; }
+    }
+    Rectangle {
+        height: 1px;
+        horizontal-stretch: 1;
+        background: Tokens.border-subtle;
+    }
+
+    // The profile section. More rows go here later; the divider below keeps it apart from the bottom section.
+    profile-row := MenuAction {
+        text: "Profile";
+        icon: Icons.user-round;
+        clicked => { root.profile-clicked(); }
+    }
+
+    Rectangle {
+        height: 1px;
+        horizontal-stretch: 1;
+        background: Tokens.border-subtle;
+    }
+
+    // The bottom section: About, Give Feedback, Report Issue, Settings, Sign out.
+    about-row := MenuAction {
+        text: "About";
+        icon: Icons.circle-question-mark;
+        clicked => { root.about-clicked(); }
+    }
+    feedback-row := MenuAction {
+        text: "Give Feedback";
+        icon: Icons.message-circle;
+        clicked => { root.submit-feedback-clicked(); }
+    }
+    report-issue-row := MenuAction {
+        text: "Report Issue";
+        icon: Icons.bug;
+        clicked => { root.report-issue-clicked(); }
+    }
+    settings-row := MenuAction {
+        text: "Settings";
+        icon: Icons.settings;
+        clicked => { root.settings-clicked(); }
+    }
+    sign-out-row := MenuAction {
+        text: "Sign out";
+        icon: Icons.log-out;
+        danger: true;
+        clicked => { root.sign-out-clicked(); }
+    }
+}
