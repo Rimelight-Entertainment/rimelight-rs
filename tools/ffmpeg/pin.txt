@@ -1,0 +1,9 @@
+# Pin for the trimmed FFmpeg the Rimelight apps link against (built by tools/ffmpeg/build.sh, published by the FFmpeg
+# workflow). tools/get-ffmpeg.ps1 reads these key=value lines; the apps' fetch commands (Space: cargo xtask ffmpeg) and
+# vendor/ffmpeg-sys-next/build.rs (PIN) must match. A pin change updates build.rs PIN, Space's xtask ffmpeg and Media's
+# get-ffmpeg.ps1 together. The asset is still published from rimelight-media's release until this repo's FFmpeg workflow
+# publishes one.
+release=ffmpeg-n9.0.2-r1
+asset=rimelight-ffmpeg-n9.0.2-r1-win64-lgpl-shared.zip
+sha256=013136dbfe3ae75d6f2eadcd6bec35f7a2fc49d2163996f01625ef5a912d0de0
+url=https://github.com/Rimelight-Entertainment/rimelight-media/releases/download/ffmpeg-n9.0.2-r1/rimelight-ffmpeg-n9.0.2-r1-win64-lgpl-shared.zip

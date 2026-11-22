@@ -1,0 +1,49 @@
+name: FFmpeg
+
+# Builds the trimmed FFmpeg shared by Rimelight apps (tools/ffmpeg/build.sh) and publishes it as a release asset under
+# the tag ffmpeg-<version>-<revision>. tools/get-ffmpeg.ps1 downloads that zip (SHA-256 pinned in tools/ffmpeg/pin.txt)
+# for local builds. Runs when the build script or options change, or by hand.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/ffmpeg/**"
+      - ".github/workflows/ffmpeg.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ffmpeg
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Trimmed FFmpeg for Windows x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24)
+      - name: Install the MinGW-w64 toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 nasm meson ninja-build pkg-config zip
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-win32 || true
+      - name: Build
+        run: bash tools/ffmpeg/build.sh
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          zip=$(ls dist/*.zip)
+          name=$(basename "$zip" .zip)
+          tag=$(echo "$name" | sed -E 's/^rimelight-ffmpeg-(.*)-win64-lgpl-shared$/ffmpeg-\1/')
+          sha256sum "$zip" | tee "$zip.sha256"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$zip" "$zip.sha256" --clobber
+          else
+            gh release create "$tag" "$zip" "$zip.sha256" --title "FFmpeg build $tag" --latest=false \
+              --notes "Trimmed LGPL FFmpeg shared by Rimelight apps, built by tools/ffmpeg/build.sh. Not an app release."
+          fi

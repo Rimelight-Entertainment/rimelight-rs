@@ -1,0 +1,41 @@
+# FFmpeg configure options for the trimmed FFmpeg shared by Rimelight apps (tools/ffmpeg/build.sh). One per line;
+# comments. Only what the apps play, probe, trim and record. Bump REVISION in build.sh after changing this file.
+
+--disable-everything
+--disable-autodetect
+--disable-programs
+--disable-doc
+--disable-network
+--disable-debug
+--disable-avdevice
+--disable-avfilter
+--enable-swscale
+--enable-swresample
+--enable-w32threads
+--enable-mediafoundation
+# The Media Foundation encoder (h264_mf) uses FFmpeg's Direct3D 11 frame support.
+--enable-d3d11va
+--enable-libdav1d
+--enable-protocol=file
+
+# Containers it opens.
+--enable-demuxer=mov,matroska,avi,asf,flv,mpegps,mpegts,mpegvideo,ogg,mp3,flac,wav,aac,ac3,eac3,dts,truehd,aiff,ape,wv,w64,caf,amr,h264,hevc,m4v,ivf,srt,ass,webvtt,microdvd,subviewer
+
+# Containers it writes: trimmed copies keep the source's kind; recordings are MP4/M4A.
+--enable-muxer=mp4,ipod,mov,matroska,webm,avi,asf,mpegts,mpeg,ogg,opus,mp3,flac,wav,adts,ac3,eac3,aiff,flv,srt,ass,webvtt
+
+# Video decoders (AV1 through dav1d).
+--enable-decoder=h264,hevc,vp8,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v1,msmpeg4v2,msmpeg4v3,h263,flv,wmv1,wmv2,wmv3,vc1,theora,mjpeg,prores,dnxhd,huffyuv,rawvideo,cinepak,svq3
+
+# Audio decoders.
+--enable-decoder=aac,aac_latm,mp1,mp1float,mp2,mp2float,mp3,mp3float,flac,vorbis,opus,ac3,eac3,dca,truehd,mlp,alac,ape,wavpack,tta,wmav1,wmav2,wmapro,wmalossless,amrnb,amrwb,gsm_ms,adpcm_ms,adpcm_ima_wav,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_u8,pcm_alaw,pcm_mulaw,pcm_s8
+
+# Subtitle decoders (text and picture).
+--enable-decoder=subrip,srt,ass,ssa,webvtt,mov_text,text,microdvd,subviewer,dvdsub,dvbsub,pgssub
+
+# Encoders: screen and voice recording (H.264 through Windows' Media Foundation, MPEG-4 as the fallback; AAC).
+--enable-encoder=h264_mf,mpeg4,aac
+
+# Parsers and bitstream filters packets pass through when reading and when copying into another file.
+--enable-parser=h264,hevc,vp8,vp9,av1,mpeg4video,mpegvideo,h263,vc1,mjpeg,aac,aac_latm,ac3,dca,flac,mpegaudio,opus,vorbis,mlp,dvdsub,dvbsub
+--enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,vp9_superframe,av1_frame_split,extract_extradata,null
