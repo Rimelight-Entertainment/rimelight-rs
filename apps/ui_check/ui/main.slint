@@ -1,0 +1,159 @@
+// Compile check for the whole rimelight_ui component library. Every exported component of every file in
+// ui/components is imported and placed once in CheckWindow, so the Slint compiler type-checks all of them.
+// The app has no real UI: CheckWindow exists only so build.rs compiles the markup and tests can create it.
+// Generated from the export list; regenerate it when a component is added or renamed.
+
+import { Accordion } from "@rimelight_ui/components/accordion.slint";
+import { ActivityFeed } from "@rimelight_ui/components/activity-feed.slint";
+import { AttachmentTile, AttachmentGrid } from "@rimelight_ui/components/attachment-tile.slint";
+import { Avatar, AvatarStack } from "@rimelight_ui/components/avatar.slint";
+import { Badge } from "@rimelight_ui/components/badge.slint";
+import { Banner } from "@rimelight_ui/components/banner.slint";
+import { Breadcrumbs } from "@rimelight_ui/components/breadcrumbs.slint";
+import { ButtonGroup } from "@rimelight_ui/components/button-group.slint";
+import { Button } from "@rimelight_ui/components/button.slint";
+import { CalendarGrid } from "@rimelight_ui/components/calendar-grid.slint";
+import { Card } from "@rimelight_ui/components/card.slint";
+import { Checkbox } from "@rimelight_ui/components/checkbox.slint";
+import { ClipboardWriter } from "@rimelight_ui/components/clipboard-writer.slint";
+import { ColorPicker, ColorField } from "@rimelight_ui/components/color-picker.slint";
+import { Combobox } from "@rimelight_ui/components/combobox.slint";
+import { Tabs } from "@rimelight_ui/components/content-tabs.slint";
+import { DatePicker } from "@rimelight_ui/components/date-picker.slint";
+import { DateRangePicker } from "@rimelight_ui/components/date-range-picker.slint";
+import { DescriptionList } from "@rimelight_ui/components/description-list.slint";
+import { Dialog, ConfirmDialog } from "@rimelight_ui/components/dialog.slint";
+import { Divider } from "@rimelight_ui/components/divider.slint";
+import { EmptyState } from "@rimelight_ui/components/empty-state.slint";
+import { ErrorState } from "@rimelight_ui/components/error-state.slint";
+import { Field, Form } from "@rimelight_ui/components/field.slint";
+import { FilterBar } from "@rimelight_ui/components/filter-bar.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ImageViewer } from "@rimelight_ui/components/image-viewer.slint";
+import { InputAction, Input } from "@rimelight_ui/components/input.slint";
+import { Kbd } from "@rimelight_ui/components/kbd.slint";
+import { Link } from "@rimelight_ui/components/link.slint";
+import { List } from "@rimelight_ui/components/list.slint";
+import { MenuList, Menu, ContextMenu } from "@rimelight_ui/components/menu.slint";
+import { MultiSelect } from "@rimelight_ui/components/multiselect.slint";
+import { NumberInput } from "@rimelight_ui/components/number-input.slint";
+import { PageState } from "@rimelight_ui/components/page-state.slint";
+import { Pagination } from "@rimelight_ui/components/pagination.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { PresenceDot } from "@rimelight_ui/components/presence-dot.slint";
+import { Progress } from "@rimelight_ui/components/progress.slint";
+import { RadioGroup } from "@rimelight_ui/components/radio-group.slint";
+import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
+import { SearchField } from "@rimelight_ui/components/search-field.slint";
+import { Section } from "@rimelight_ui/components/section.slint";
+import { SelectRow, Select } from "@rimelight_ui/components/select.slint";
+import { Sheet } from "@rimelight_ui/components/sheet.slint";
+import { Skeleton } from "@rimelight_ui/components/skeleton.slint";
+import { Slider } from "@rimelight_ui/components/slider.slint";
+import { Spinner } from "@rimelight_ui/components/spinner.slint";
+import { Stat } from "@rimelight_ui/components/stat.slint";
+import { StatusDot } from "@rimelight_ui/components/status-dot.slint";
+import { Stepper } from "@rimelight_ui/components/stepper.slint";
+import { Switch } from "@rimelight_ui/components/switch.slint";
+import { Table } from "@rimelight_ui/components/table.slint";
+import { TabStrip } from "@rimelight_ui/components/tabs.slint";
+import { Tag } from "@rimelight_ui/components/tag.slint";
+import { Textarea } from "@rimelight_ui/components/textarea.slint";
+import { TimePicker } from "@rimelight_ui/components/time-picker.slint";
+import { Timeline } from "@rimelight_ui/components/timeline.slint";
+import { ToastStack } from "@rimelight_ui/components/toast.slint";
+import { Toolbar } from "@rimelight_ui/components/toolbar.slint";
+import { Tooltip, TooltipOverlay } from "@rimelight_ui/components/tooltip.slint";
+import { Tree } from "@rimelight_ui/components/tree.slint";
+import { ViewSwitcher } from "@rimelight_ui/components/view-switcher.slint";
+
+export component CheckWindow inherits Window {
+    title: "Rimelight UI check";
+    width: 960px;
+    height: 720px;
+
+    Flickable {
+        // A fixed width breaks the loop between the viewport size and components that size themselves from their parent.
+        content-width: 928px;
+        VerticalLayout {
+            width: 928px;
+            padding: 16px;
+            spacing: 8px;
+            Accordion { }
+            ActivityFeed { }
+            AttachmentTile { }
+            AttachmentGrid { }
+            Avatar { }
+            AvatarStack { }
+            Badge { }
+            Banner { }
+            Breadcrumbs { }
+            ButtonGroup { }
+            Button { }
+            CalendarGrid { }
+            Card { }
+            Checkbox { }
+            ClipboardWriter { }
+            ColorPicker { }
+            ColorField { }
+            Combobox { }
+            Tabs { }
+            DatePicker { }
+            DateRangePicker { }
+            DescriptionList { }
+            Dialog { }
+            ConfirmDialog { }
+            Divider { }
+            EmptyState { }
+            ErrorState { }
+            Field { }
+            Form { }
+            FilterBar { }
+            IconButton { }
+            ImageViewer { }
+            InputAction { }
+            Input { }
+            Kbd { }
+            Link { }
+            List { }
+            MenuList { }
+            Menu { }
+            ContextMenu { }
+            MultiSelect { }
+            NumberInput { }
+            PageState { }
+            Pagination { }
+            Popover { }
+            PresenceDot { }
+            Progress { }
+            RadioGroup { }
+            ResizablePanel { }
+            ScrollArea { }
+            SearchField { }
+            Section { }
+            SelectRow { }
+            Select { }
+            Sheet { }
+            Skeleton { }
+            Slider { }
+            Spinner { }
+            Stat { }
+            StatusDot { }
+            Stepper { }
+            Switch { }
+            Table { }
+            TabStrip { }
+            Tag { }
+            Textarea { }
+            TimePicker { }
+            Timeline { }
+            ToastStack { }
+            Toolbar { }
+            Tooltip { }
+            TooltipOverlay { }
+            Tree { }
+            ViewSwitcher { }
+        }
+    }
+}

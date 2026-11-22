@@ -1,0 +1,159 @@
+// AttachmentTile and AttachmentGrid (new). Drawn from the Tokens global. The page fills the items; the components hold no logic.
+//
+// A tile shows a thumbnail for an image attachment (`item.thumbnail`, a decoded picture the page supplies) and a file icon
+// for anything else, with the name and the size. The whole tile is one control: choosing it reports `activate`, and the
+// grid turns that into `open(index)` for an image and `download(index)` for any other file. `changeable` draws a Delete
+// control, which reports `delete(index)`. Nothing here is wired to the issue page; a page builds the items.
+//
+// A page gets `thumbnail` for an image by fetching the attachment bytes (ApiClient::attachment_bytes), decoding them into
+// a picture (page_data::decode_picture) and wrapping it (page_data::picture) on the UI thread. Until that is ready, leave
+// `thumbnail` empty: the tile then shows the file icon.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+
+// One attachment as the tile shows it. `size` is text (for example "2.4 MB"). `is-image` picks the thumbnail; `thumbnail`
+// is read only then.
+export struct AttachmentItem {
+    name: string,
+    size: string,
+    is-image: bool,
+    thumbnail: image,
+    changeable: bool,
+}
+
+// One attachment. `activate` fires when the tile is chosen; the grid decides whether that opens or downloads it.
+export component AttachmentTile inherits Rectangle {
+    in property <AttachmentItem> item;
+    // Width of the tile. The grid sizes its columns from it.
+    in property <length> tile-width: 160px;
+    callback activate();
+    callback delete();
+
+    width: root.tile-width;
+    height: content.preferred-height;
+    accessible-role: none;
+
+    // The whole tile, below the Delete control so that control gets its own presses.
+    touch := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        accessible-role: button;
+        accessible-label: root.item.name;
+        clicked => {
+            root.activate();
+        }
+    }
+
+    content := VerticalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        spacing: Tokens.space-2;
+
+        Rectangle {
+            height: 96px;
+            background: Tokens.surface-sunken;
+            border-radius: Tokens.radius-r6;
+            clip: true;
+
+            if root.item.is-image : Image {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                source: root.item.thumbnail;
+                image-fit: cover;
+                accessible-role: image;
+                accessible-label: root.item.name;
+            }
+
+            if !root.item.is-image : Image {
+                width: 32px;
+                height: 32px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: Icons.file-text;
+                colorize: Tokens.text-muted;
+            }
+        }
+
+        Text {
+            text: root.item.name;
+            color: Tokens.text-primary;
+            overflow: elide;
+            font-family: Type.body-strong.family;
+            font-size: Type.body-strong.size;
+            font-weight: Type.body-strong.weight;
+        }
+
+        HorizontalLayout {
+            spacing: Tokens.space-2;
+            alignment: space-between;
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.size;
+                color: Tokens.text-muted;
+                overflow: elide;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                vertical-alignment: center;
+            }
+
+            if root.item.changeable : Button {
+                text: "Delete";
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                accessible-name: "Delete attachment " + root.item.name;
+                clicked => {
+                    root.delete();
+                }
+            }
+        }
+    }
+}
+
+// The attachments of one issue (or any list), in columns. Choosing an image reports `open(index)`, choosing any other
+// file reports `download(index)`, and a Delete control reports `delete(index)`. `index` is the position in `items`.
+export component AttachmentGrid inherits Rectangle {
+    in property <[AttachmentItem]> items: [];
+    // Columns of tiles. Rows wrap after this many.
+    in property <int> columns: 3;
+    in property <length> tile-width: 160px;
+
+    callback open(int);
+    callback download(int);
+    callback delete(int);
+
+    height: grid.preferred-height;
+    accessible-role: none;
+
+    grid := GridLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        spacing: Tokens.space-3;
+
+        for entry[index] in root.items : AttachmentTile {
+            row: floor(index / root.columns);
+            col: mod(index, root.columns);
+            item: entry;
+            tile-width: root.tile-width;
+            activate => {
+                if (entry.is-image) {
+                    root.open(index);
+                } else {
+                    root.download(index);
+                }
+            }
+            delete => {
+                root.delete(index);
+            }
+        }
+    }
+}

@@ -1,0 +1,181 @@
+// Stepper (P0.17 batch 2). A row of steps through a process, with a connector between neighbours. Each step is in one of
+// three states, from `current`: done (before it), current (the index itself) or upcoming (after it). A done step shows a
+// check mark on an accent circle; the current step has an accent ring and its number; an upcoming step is a muted number.
+// The phase is shown by colour and shape only: the accessible label is the step's own label (see the README gaps).
+//
+// Clickable done steps. With `done-clickable` true (the default) a done step can be activated, to go back to it. Current
+// and upcoming steps never activate. The caller moves `current` when it handles `activated(index)`.
+//
+// Keyboard: a clickable done step is a Tab stop. Enter or Space activates it, as a click does. Current and upcoming steps
+// are not Tab stops. The focus ring (2 px) sits round the step's circle. Labels do not wrap; a long label is cut at the
+// edge of the component's layout, so keep the labels short.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export struct StepItem {
+    label: string,
+}
+
+// One step: the circle and the label, drawn at fixed offsets. `phase` is 0 done, 1 current, 2 upcoming.
+component StepCell inherits Rectangle {
+    in property <int> index;
+    in property <string> label;
+    in property <int> phase;
+    // True when the step can be activated (a done step, with done-clickable set).
+    in property <bool> clickable;
+    callback activate();
+
+    property <length> circle: Tokens.icon-large;
+    property <bool> ring: root.clickable && fs.has-focus;
+
+    width: root.circle + Tokens.space-2 + label-text.preferred-width;
+    height: Tokens.size-control-md;
+
+    marker := Rectangle {
+        x: 0px;
+        y: (root.height - self.height) / 2;
+        width: root.circle;
+        height: root.circle;
+        border-radius: Tokens.radius-pill;
+        border-width: root.phase == 1 ? 2px : 1px;
+        border-color: root.phase == 2 ? Tokens.border-strong : Tokens.accent-default;
+        background: root.phase == 0 ? Tokens.accent-default : Tokens.surface-base;
+
+        if root.phase == 0 : Image {
+            width: Tokens.icon-small;
+            height: Tokens.icon-small;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            source: Icons.check;
+            colorize: Tokens.text-on-accent;
+        }
+        if root.phase != 0 : Text {
+            text: root.index + 1;
+            width: parent.width;
+            height: parent.height;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            color: root.phase == 1 ? Tokens.accent-text : Tokens.text-muted;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+        }
+    }
+
+    // The focus ring: a 2 px ring 3 px outside the circle, shown only for keyboard focus on a clickable step.
+    Rectangle {
+        visible: root.ring;
+        x: marker.x - 3px;
+        y: marker.y - 3px;
+        width: marker.width + 6px;
+        height: marker.height + 6px;
+        border-radius: Tokens.radius-pill;
+        border-width: 2px;
+        border-color: Tokens.focus-ring;
+        background: transparent;
+    }
+
+    label-text := Text {
+        x: root.circle + Tokens.space-2;
+        y: 0px;
+        height: root.height;
+        text: root.label;
+        color: root.phase == 2 ? Tokens.text-muted : Tokens.text-primary;
+        font-family: Type.body-strong.family;
+        font-size: Type.body-strong.size;
+        font-weight: root.phase == 1 ? Type.body-strong.weight : Type.body.weight;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+
+    ta := TouchArea {
+        accessible-role: button;
+        accessible-label: root.label;
+        accessible-enabled: root.clickable;
+        enabled: root.clickable;
+        clicked => { root.activate(); }
+    }
+
+    fs := FocusScope {
+        enabled: root.clickable;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.activate();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component Stepper inherits Rectangle {
+    in property <[StepItem]> steps;
+    // The index of the current step. Steps before it are done; steps after it are upcoming. Out of range marks all as done
+    // (a value past the last step) or all as upcoming (below zero).
+    in property <int> current: 0;
+    // False: done steps are not clickable and not Tab stops.
+    in property <bool> done-clickable: true;
+    // The index of the done step that was activated by a click or a key.
+    callback activated(int);
+
+    // 0 done, 1 current, 2 upcoming.
+    pure function phase-of(i: int) -> int {
+        if (i < root.current) {
+            return 0;
+        }
+        if (i == root.current) {
+            return 1;
+        }
+        return 2;
+    }
+
+    // Test hooks. `test-click` is what a step's TouchArea does on a click (only a clickable done step reports);
+    // `test-label` reads a step's label.
+    public function test-click(i: int) {
+        if (root.done-clickable && root.phase-of(i) == 0) {
+            root.activated(i);
+        }
+    }
+    public function test-label(i: int) -> string {
+        return root.steps[i].label;
+    }
+
+    height: Tokens.size-control-md;
+    min-width: 200px;
+    horizontal-stretch: 1;
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        for step[i] in root.steps : HorizontalLayout {
+            spacing: Tokens.space-2;
+            alignment: start;
+
+            StepCell {
+                index: i;
+                label: step.label;
+                phase: root.phase-of(i);
+                clickable: root.done-clickable && root.phase-of(i) == 0;
+                activate => { root.activated(i); }
+            }
+
+            if i < root.steps.length - 1 : Rectangle {
+                horizontal-stretch: 1;
+                min-width: Tokens.space-6;
+
+                Rectangle {
+                    x: 0px;
+                    y: parent.height / 2 - 1px;
+                    width: parent.width;
+                    height: 2px;
+                    background: i < root.current ? Tokens.accent-default : Tokens.border-strong;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,162 @@
+// List (P0.17 batch 5). A vertical list of text rows that scrolls. The rows are a `for` loop inside a `ListView`, so Slint
+// creates only the rows on screen: 10,000 rows cost about what 20 do. The selection flags are on the rows (see
+// src/slint_ui/table.rs, `Selection`), so the caller applies each pick and sets `selected` again.
+//
+// Keyboard: the list is one Tab stop. Down and Up move the focus row by one, Home and End go to the first and last row,
+// and Page Up and Page Down move by the rows that fit. The focus row is scrolled into view. Space calls
+// `picked(row, false, true)`, which the caller treats as a toggle. Enter calls `picked(row, false, false)`, which selects
+// only that row. A click on a row calls `picked(row, shift, ctrl)` with the modifiers of the click, and moves the focus.
+//
+// Limits: Shift with the keys does not extend a selection (only a shift-click does). The list does not scroll to a
+// selected row on its own; `focus-row` is the only row it moves to. It has no type-ahead.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { ListView } from "std-widgets.slint";
+
+export struct ListRow {
+    label: string,
+    selected: bool,
+}
+
+export component List inherits Rectangle {
+    in property <[ListRow]> rows;
+    // Accessible name of the list.
+    in property <string> accessible-name;
+    // The row with the keyboard focus. Two-way, so the caller can read or move it.
+    in-out property <int> focus-row: 0;
+    // Forced look for captures: 2 shows the focus ring on the focus row. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the list holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // Row index, shift, ctrl. Ctrl stands for a toggle (Space). See the header comment.
+    callback picked(int, bool, bool);
+
+    property <int> count: root.rows.length;
+    property <length> row-height: Tokens.size-tree-row-height;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+
+    // The rows that fit in the view, at least one. Page Up and Page Down move by this many.
+    function page-rows() -> int {
+        return max(1, Math.floor(root.height / root.row-height));
+    }
+
+    // Moves the focus to row `i`, clamped to the list, and scrolls it into view.
+    function move-to(i: int) {
+        if (root.count > 0) {
+            root.focus-row = i < 0 ? 0 : (i >= root.count ? root.count - 1 : i);
+            root.reveal(root.focus-row);
+        }
+    }
+
+    // The ListView scrolls in whole rows (it snaps an offset to a row boundary), so the bottom case scrolls to a whole
+    // row count that leaves the focus row fully in view.
+    function reveal(i: int) {
+        if (i * root.row-height < -lv.content-y) {
+            lv.content-y = -(i * root.row-height);
+        } else if ((i + 1) * root.row-height > root.height - lv.content-y) {
+            lv.content-y = -(max(0, i + 1 - root.page-rows()) * root.row-height);
+        }
+    }
+
+    // Focuses the list, so a caller (or a test) can give it the keyboard.
+    public function focus-list() {
+        fs.focus();
+    }
+
+    // Test hooks. `test-pick-row` is a press on row `i` (what its TouchArea does, with no modifiers). `test-row-on-screen`
+    // reports whether row `i` lies in the view, which is the part of the list the ListView creates rows for.
+    public function test-pick-row(i: int) {
+        root.focus-row = i;
+        fs.focus();
+        root.picked(i, false, false);
+    }
+    public function test-row-on-screen(i: int) -> bool {
+        let top = i * root.row-height + lv.content-y;
+        return top + root.row-height > 0px && top < root.height;
+    }
+
+    background: transparent;
+    min-width: 160px;
+
+    fs := FocusScope {
+        enabled: root.count > 0;
+        focus-on-click: false;
+        width: parent.width;
+        height: parent.height;
+
+        key-pressed(event) => {
+            if (event.text == Key.DownArrow) {
+                root.move-to(root.focus-row + 1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                root.move-to(root.focus-row - 1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.move-to(0);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.move-to(root.count - 1);
+                return accept;
+            }
+            if (event.text == Key.PageDown) {
+                root.move-to(root.focus-row + root.page-rows());
+                return accept;
+            }
+            if (event.text == Key.PageUp) {
+                root.move-to(root.focus-row - root.page-rows());
+                return accept;
+            }
+            if (event.text == Key.Space) {
+                root.picked(root.focus-row, false, true);
+                return accept;
+            }
+            if (event.text == Key.Return) {
+                root.picked(root.focus-row, false, false);
+                return accept;
+            }
+            return reject;
+        }
+
+        lv := ListView {
+            width: parent.width;
+            height: parent.height;
+
+            for entry[i] in root.rows : Rectangle {
+                height: root.row-height;
+                width: root.width;
+                background: entry.selected ? Tokens.selection : transparent;
+                border-radius: Tokens.radius-control;
+                border-width: root.ring-on && root.focus-row == i ? 2px : 0px;
+                border-color: Tokens.focus-ring;
+
+                Text {
+                    x: Tokens.space-3;
+                    width: parent.width - Tokens.space-6;
+                    height: parent.height;
+                    text: entry.label;
+                    color: Tokens.text-primary;
+                    font-family: Type.body.family;
+                    font-size: Type.body.size;
+                    font-weight: Type.body.weight;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: entry.label;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                            root.focus-row = i;
+                            fs.focus();
+                            root.picked(i, event.modifiers.shift, event.modifiers.control);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

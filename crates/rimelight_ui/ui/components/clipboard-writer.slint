@@ -1,0 +1,27 @@
+// Clipboard writer (Copy link, gaps D2). A zero-size, read-only TextInput that never takes focus. `copy-text` puts the text
+// into the input, selects all of it and calls the TextInput's `copy()`, which hands the selection to the platform clipboard
+// (Slint's clipboard path: desktop through arboard, Android through the Java helper). Slint's `copy()` works only inside a
+// browser copy event, so the web build does not use this component: apps/web writes the link itself (see
+// src/slint_ui/clipboard.rs).
+//
+// Focus. `select-all()` and `copy()` do not need focus, and the input is not focusable here (read-only, zero size), so the
+// window's focus and the shortcut scopes are unchanged after a copy.
+
+export component ClipboardWriter inherits Rectangle {
+    width: 0px;
+    height: 0px;
+    opacity: 0;
+
+    public function copy-text(value: string) {
+        input.text = value;
+        input.select-all();
+        input.copy();
+    }
+
+    input := TextInput {
+        width: 0px;
+        height: 0px;
+        read-only: true;
+        text: "";
+    }
+}

@@ -1,0 +1,117 @@
+// Breadcrumbs (P0.17 batch 1). A trail of segments from the top of a hierarchy to the current page. Every segment but
+// the last is a Link that calls `activated(index)`. The last segment is the current page: text, not clickable, not a
+// Tab stop. Segments are separated by a chevron.
+//
+// Collapsing. With `max-visible` set to 2 or more and more items than that, the middle segments collapse into an
+// ellipsis. The first item and the last `max-visible - 1` items stay, and the ellipsis is text (not clickable). A
+// collapsed segment is not drawn and cannot be reached. `max-visible` 0 (the default) never collapses.
+// Collapsing follows the count, not the window width: a width-based rule needs text measurement that Slint 1.18.1
+// does not expose to markup in a loop, so the caller picks `max-visible` (see the README gaps).
+//
+// Keyboard: Tab moves between the clickable segments in order (the Link rules: Enter and Space activate). The current
+// segment is skipped. Separators and the ellipsis take no focus.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Link } from "link.slint";
+
+// The separator between two segments: a chevron with a space on each side. Decorative.
+component BreadcrumbSeparator inherits Rectangle {
+    width: Icons.small-size + Tokens.space-2 * 2;
+    accessible-role: none;
+
+    Image {
+        x: Tokens.space-2;
+        y: (parent.height - self.height) / 2;
+        width: Icons.small-size;
+        height: Icons.small-size;
+        source: Icons.chevron-right;
+        colorize: Tokens.text-faint;
+    }
+}
+
+export component Breadcrumbs inherits HorizontalLayout {
+    // The labels, from the top of the hierarchy to the current page. The last one is the current page.
+    in property <[string]> items;
+    // 0 never collapses. 2 or more collapses the middle when there are more items than this.
+    in property <int> max-visible: 0;
+    // The index of the segment that was clicked or activated with the keyboard.
+    callback activated(int);
+
+    // True when the middle is collapsed right now.
+    out property <bool> collapsed: root.max-visible >= 2 && root.items.length > root.max-visible;
+    // Items after the first that stay visible when collapsed.
+    out property <int> tail-count: root.max-visible - 1;
+
+    // Whether the segment at `index` is drawn. Every item is drawn when not collapsed.
+    pure function shown(index: int) -> bool {
+        return !root.collapsed || index == 0 || index >= root.items.length - root.tail-count;
+    }
+    // The ellipsis comes right before the first visible item after the collapsed run.
+    pure function ellipsis-before(index: int) -> bool {
+        return root.collapsed && index == root.items.length - root.tail-count;
+    }
+
+    // Test hooks. `test-click` is what the Link of segment `index` does on a click: only a drawn, clickable segment
+    // (not the current one) reports. `test-shown` and `test-ellipsis-drawn` report what is drawn.
+    public function test-click(index: int) {
+        if (root.shown(index) && index < root.items.length - 1) {
+            root.activated(index);
+        }
+    }
+    public function test-shown(index: int) -> bool {
+        return root.shown(index);
+    }
+    public function test-ellipsis-drawn() -> bool {
+        return root.collapsed;
+    }
+
+    // A fixed row height: the segments centre inside it, and nothing here sizes itself from its parent.
+    height: Tokens.size-control-md;
+    spacing: Tokens.space-0;
+    alignment: start;
+    accessible-role: none;
+
+    for item[index] in root.items : HorizontalLayout {
+        spacing: Tokens.space-0;
+        alignment: start;
+
+        if root.ellipsis-before(index) : BreadcrumbSeparator { }
+        if root.ellipsis-before(index) : Text {
+            y: 0;
+            height: parent.height;
+            text: "…";
+            color: Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+            accessible-role: text;
+            accessible-label: "…";
+        }
+        if index > 0 && root.shown(index) : BreadcrumbSeparator { }
+        // The Link keeps its own height, so it is centered in a full-height wrapper like the other segments.
+        if root.shown(index) && index < root.items.length - 1 : Rectangle {
+            width: crumb-link.width;
+            height: parent.height;
+
+            crumb-link := Link {
+                y: (parent.height - self.height) / 2;
+                text: item;
+                clicked => { root.activated(index); }
+            }
+        }
+        if root.shown(index) && index == root.items.length - 1 : Text {
+            y: 0;
+            height: parent.height;
+            text: item;
+            color: Tokens.text-primary;
+            font-family: Type.body-strong.family;
+            font-size: Type.body-strong.size;
+            font-weight: Type.body-strong.weight;
+            vertical-alignment: center;
+            accessible-role: text;
+            accessible-label: item;
+        }
+    }
+}

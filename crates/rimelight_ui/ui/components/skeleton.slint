@@ -1,0 +1,35 @@
+// Skeleton (S4). A placeholder for content that is loading: a text line, a block or a circle.
+// Own component drawn from the Tokens global. 
+//
+// The fill is `border.track` (3.43:1 on the dark base, from the component token), not `border.subtle`, which was 1.51:1
+// there and too faint to see. The fill pulses in opacity between 0.55 and 1.0. Under reduced motion the opacity stays at
+// 1.0, so the placeholder is still and visible.
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export enum SkeletonShape { line, block, circle }
+
+export component Skeleton inherits Rectangle {
+    in property <SkeletonShape> shape: SkeletonShape.line;
+    // false keeps the placeholder still, for callers that show it with no motion at all.
+    in property <bool> pulse: true;
+
+    // The pulse level. Starts at 1.0 and is set to 0.55 once shown, so the animation runs between the two.
+    property <float> level: 1.0;
+    init => {
+        if (root.pulse && !Tokens.reduced-motion) {
+            root.level = 0.55;
+        }
+    }
+    animate level {
+        duration: Tokens.motion-loop;
+        iteration-count: -1;
+        direction: alternate;
+        easing: ease-in-out;
+    }
+
+    // The caller sets the size: a line is Tokens.size-skeleton-line high, and a circle has equal width and height.
+    border-radius: root.shape == SkeletonShape.line ? Tokens.radius-pill
+        : (root.shape == SkeletonShape.circle ? Tokens.radius-pill : Tokens.radius-surface);
+    background: Tokens.border-track;
+    opacity: (root.pulse && !Tokens.reduced-motion) ? root.level : 1.0;
+}

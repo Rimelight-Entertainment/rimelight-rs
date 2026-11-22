@@ -1,0 +1,128 @@
+// Banner (S8). An inline message bar in the page flow. It is not modal, does not float and takes no
+// focus of its own: its action and dismiss buttons are ordinary buttons in page order (Tab reaches them, Enter and Space
+// activate them). Drawn from the status tokens, the same as the Toast.
+//
+// Layout. A tone icon, then a column with the title, the optional description, and the optional buttons under the text (the
+// action first, then the dismiss). The bar takes the width its parent gives it (horizontal-stretch 1),
+// so the caller sets the width: full width by default, or a fixed width for an inline bar. The text wraps inside the bar, so it
+// reads at phone width. `compact` uses less padding and the label style for the title.
+//
+// The banner does not hide itself. Its dismiss button calls `dismiss-clicked`, and the caller removes the banner from the page.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+
+export enum BannerTone { neutral, success, warning, danger, info }
+
+export component Banner inherits Rectangle {
+    // The tone: colours and icon.
+    in property <BannerTone> tone: BannerTone.neutral;
+    in property <string> title;
+    // "" means no description.
+    in property <string> description;
+    // "" means no action button. The caller's label.
+    in property <string> action-label;
+    // "" means no dismiss button. The caller's label.
+    in property <string> dismiss-label;
+    // Less padding and the label style for the title, for a bar in a dense page.
+    in property <bool> compact: false;
+
+    // Runs once per click or Enter on the action button.
+    callback action-clicked();
+    // Runs once per click or Enter on the dismiss button. The caller removes the banner.
+    callback dismiss-clicked();
+
+    property <color> tone-surface: root.tone == BannerTone.success ? Tokens.status-success-surface
+        : root.tone == BannerTone.warning ? Tokens.status-warning-surface
+        : root.tone == BannerTone.danger ? Tokens.status-danger-surface
+        : root.tone == BannerTone.info ? Tokens.status-info-surface
+        : Tokens.status-neutral-surface;
+    property <color> tone-border: root.tone == BannerTone.success ? Tokens.status-success-border
+        : root.tone == BannerTone.warning ? Tokens.status-warning-border
+        : root.tone == BannerTone.danger ? Tokens.status-danger-border
+        : root.tone == BannerTone.info ? Tokens.status-info-border
+        : Tokens.status-neutral-border;
+    property <color> tone-text: root.tone == BannerTone.success ? Tokens.status-success-text-on-surface
+        : root.tone == BannerTone.warning ? Tokens.status-warning-text-on-surface
+        : root.tone == BannerTone.danger ? Tokens.status-danger-text-on-surface
+        : root.tone == BannerTone.info ? Tokens.status-info-text-on-surface
+        : Tokens.status-neutral-text-on-surface;
+    property <image> tone-icon: root.tone == BannerTone.success ? Icons.circle-check
+        : root.tone == BannerTone.warning ? Icons.triangle-alert
+        : root.tone == BannerTone.danger ? Icons.circle-x
+        : root.tone == BannerTone.info ? Icons.info
+        : Icons.bell;
+
+    horizontal-stretch: 1;
+    height: content.preferred-height;
+    background: root.tone-surface;
+    border-color: root.tone-border;
+    border-width: 1px;
+    border-radius: Tokens.radius-surface;
+    accessible-role: none;
+
+    content := HorizontalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        padding-top: root.compact ? Tokens.space-1 : Tokens.space-3;
+        padding-bottom: root.compact ? Tokens.space-1 : Tokens.space-3;
+        padding-left: root.compact ? Tokens.space-2 : Tokens.space-4;
+        padding-right: root.compact ? Tokens.space-2 : Tokens.space-4;
+        spacing: Tokens.space-3;
+
+        Image {
+            width: 16px;
+            height: 16px;
+            y: 2px;
+            source: root.tone-icon;
+            colorize: root.tone-text;
+            accessible-role: none;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-1;
+
+            Text {
+                text: root.title;
+                color: root.tone-text;
+                font-family: root.compact ? Type.label.family : Type.body-strong.family;
+                font-size: root.compact ? Type.label.size : Type.body-strong.size;
+                font-weight: root.compact ? Type.label.weight : Type.body-strong.weight;
+                wrap: word-wrap;
+                accessible-role: text;
+                accessible-label: root.title;
+            }
+
+            if root.description != "" : Text {
+                text: root.description;
+                color: Tokens.text-primary;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                wrap: word-wrap;
+            }
+
+            if root.action-label != "" || root.dismiss-label != "" : HorizontalLayout {
+                alignment: start;
+                spacing: Tokens.space-2;
+
+                if root.action-label != "" : Button {
+                    text: root.action-label;
+                    variant: ButtonVariant.secondary;
+                    size: ButtonSize.sm;
+                    clicked => { root.action-clicked(); }
+                }
+
+                if root.dismiss-label != "" : Button {
+                    text: root.dismiss-label;
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    clicked => { root.dismiss-clicked(); }
+                }
+            }
+        }
+    }
+}

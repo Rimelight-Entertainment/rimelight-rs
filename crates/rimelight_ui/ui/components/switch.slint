@@ -1,0 +1,160 @@
+// Switch (S5): an on or off setting with a label. Own component, not the std-widgets Switch: its
+// Fluent style colours it from FluentPalette, which Tokens cannot reach, it cannot put the label on the left, and its
+// thumb animation is a fixed 150 ms linear curve with no reduced-motion switch (README, "Slint port" S5).
+//
+// sizes sm (28 by 16 px track) and md (36 by 20 px),
+// the label on the left or the right, disabled, and the focus ring around the track.
+//
+// Motion: the thumb moves with `animate x` over Tokens.motion-base (200 ms, or 0 under reduced motion) on an ease-in-out
+// curve. Under reduced motion the duration is 0, so the thumb jumps and is static.
+//
+// Colours: on uses the accent track and text.on-accent thumb. Off uses border.strong for the track and surface.raised for
+// the thumb, so the thumb stands out from the track at 3:1 (the contrast pair checked by the tests).
+//
+// Keyboard: Tab reaches the switch. Space and Enter toggle it (WAI-ARIA switch pattern). A click toggles it, and so does
+// a click on the label. A pointer click does not move keyboard focus, so the focus ring shows only for keyboard focus.
+// Disabled: not a Tab stop, and ignores clicks and keys.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export enum SwitchSize { sm, md }
+export enum SwitchLabelSide { left, right }
+
+export component Switch inherits Rectangle {
+    // The state, two-way: the switch edits it and the caller can set it.
+    in-out property <bool> checked: false;
+    in property <string> text;
+    // Accessible name. Empty means the label text is the name.
+    in property <string> accessible-name;
+    in property <SwitchSize> size: SwitchSize.md;
+    in property <SwitchLabelSide> label-side: SwitchLabelSide.right;
+    in property <bool> enabled: true;
+    // Forced look for captures: 2 shows the focus ring. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the FocusScope holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // The state after the change.
+    callback changed(bool);
+
+    property <length> track-w: root.size == SwitchSize.sm ? 28px : 36px;
+    property <length> track-h: root.size == SwitchSize.sm ? 16px : 20px;
+    property <length> thumb: root.size == SwitchSize.sm ? 12px : 16px;
+    // The thumb keeps 2 px from the track edge when off and when on.
+    property <length> thumb-off: 2px;
+    property <length> thumb-on: root.track-w - 2px - root.thumb;
+    property <bool> focused: fs.has-focus || root.forced-state == 2;
+
+    property <color> track-fill: !root.enabled
+        ? (root.checked ? Tokens.disabled-fill : Tokens.disabled-border)
+        : (root.checked ? Tokens.accent-default : Tokens.border-strong);
+    property <color> thumb-fill: root.enabled && root.checked ? Tokens.text-on-accent : Tokens.surface-raised;
+    property <color> label-color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+
+    function toggle() {
+        if (root.enabled) {
+            root.checked = !root.checked;
+            root.changed(root.checked);
+        }
+    }
+
+    // Test hook: a click on the row, as its pointer area does (toggles unless disabled).
+    public function test-click() {
+        root.toggle();
+    }
+
+    accessible-role: switch;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : root.text;
+    accessible-enabled: root.enabled;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    height: root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md;
+    min-width: root.track-w;
+    horizontal-stretch: 0;
+
+    layout := HorizontalLayout {
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        if root.label-side == SwitchLabelSide.left && root.text != "" : Text {
+            horizontal-stretch: 1;
+            text: root.text;
+            color: root.label-color;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            wrap: word-wrap;
+            accessible-role: none;
+        }
+
+        // A full-height cell, so the track is centred with `y` inside it (a layout would pin it to the top).
+        Rectangle {
+            width: root.track-w;
+            min-height: root.track-h;
+
+            track := Rectangle {
+                width: root.track-w;
+                height: root.track-h;
+                y: (parent.height - self.height) / 2;
+                border-radius: Tokens.radius-pill;
+                background: root.track-fill;
+
+                thumb-shape := Rectangle {
+                    width: root.thumb;
+                    height: root.thumb;
+                    y: (parent.height - self.height) / 2;
+                    x: root.checked ? root.thumb-on : root.thumb-off;
+                    border-radius: Tokens.radius-pill;
+                    background: root.thumb-fill;
+
+                    animate x { duration: Tokens.motion-base; easing: ease-in-out; }
+                }
+            }
+
+            // The focus ring sits outside the track, with a 2 px gap, so it shows on the on (accent) track too.
+            focus-ring := Rectangle {
+                visible: root.focused;
+                x: -4px;
+                y: (parent.height - root.track-h) / 2 - 4px;
+                width: root.track-w + 8px;
+                height: root.track-h + 8px;
+                border-radius: Tokens.radius-pill;
+                border-width: 2px;
+                border-color: Tokens.focus-ring;
+                background: transparent;
+            }
+        }
+
+        if root.label-side == SwitchLabelSide.right && root.text != "" : Text {
+            horizontal-stretch: 1;
+            text: root.text;
+            color: root.label-color;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            vertical-alignment: center;
+            wrap: word-wrap;
+            accessible-role: none;
+        }
+    }
+
+    // The whole row toggles on a click, the label included. Declared after the layout so it is on top.
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.toggle(); }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.toggle();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

@@ -1,0 +1,397 @@
+// Table (P0.17 batch 5). A header of columns above rows. The rows are a `for` loop inside a `ListView`, so Slint creates
+// only the rows on screen; 10,000 rows are the target. The caller sorts the rows (src/slint_ui/table.rs, `sort_rows`) and
+// passes the sort state back in `sort-column` and `sort-descending`, which draws the indicator. The selection flags are
+// on the rows, and the caller applies each pick (`Selection`). Column widths are owned by the caller: a drag reports the
+// new width and the caller sets it (clamped with `clamp_width`).
+//
+// Keyboard. The table has two Tab stops: the header, then the body.
+// - Header: Left and Right move the focused column. Enter or Space calls `sort-requested(column)` on it. Down moves to
+//   the body. A click on a header label does the same as Enter on it.
+// - Body: Down and Up move the focus row by one, Home and End go to the first and last row, Page Up and Page Down move by
+//   the rows that fit, and the focus row is scrolled into view. Space calls `picked(row, false, true)` (a toggle); Enter
+//   calls `picked(row, false, false)` (select only that row). A click on a row calls `picked(row, shift, ctrl)`.
+// Mouse, body rows. A double-click calls `activated(row)` (Enter does not). A right press calls `context-requested(row, x, y)`
+//   with the pointer at (x, y) in the table's own coordinates; a row that is not selected is picked first, with
+//   `picked(row, false, false)`, so the menu acts on the row it was opened on. Tables that do not use these callbacks are unaffected.
+// Resize: a drag on the 6px handle at the right of a header cell calls `column-resized(column, width)` with the width the
+// column would have now (its width at the start of the drag plus the drag distance). The caller clamps it.
+//
+// Limits: no horizontal scrolling (columns past the width are clipped), no column reordering, no sort on the body, no
+// row grouping. Up on the first row does not move to the header.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { ListView } from "std-widgets.slint";
+import { Icons } from "../icons.slint";
+import { IconButton } from "icon-button.slint";
+import { ButtonVariant, ButtonSize } from "button.slint";
+
+export struct TableColumn {
+    title: string,
+    width: length,
+    // False hides the sort indicator and makes the header label not sort on click.
+    sortable: bool,
+}
+
+export struct TableRow {
+    // One text per column, in column order.
+    cells: [string],
+    selected: bool,
+}
+
+export component Table inherits Rectangle {
+    in property <[TableColumn]> columns;
+    in property <[TableRow]> rows;
+    // Accessible name of the table.
+    in property <string> accessible-name;
+    // The row with the keyboard focus in the body. Two-way, so the caller can read or move it.
+    in-out property <int> focus-row: 0;
+    // The header column with the keyboard focus. Two-way.
+    in-out property <int> header-column: 0;
+    // The column the rows are sorted by, or -1, and the direction. The caller sets them after it sorts.
+    in property <int> sort-column: -1;
+    in property <bool> sort-descending: false;
+    // Forced look for captures: 2 shows the focus rings. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the header or the body holds keyboard focus.
+    out property <bool> has-focus: header-fs.has-focus || body-fs.has-focus;
+    // Column index. Fires on a header click, and on Enter or Space on the focused header column.
+    callback sort-requested(int);
+    // Row index, shift, ctrl. Ctrl stands for a toggle (Space). See the header comment.
+    callback picked(int, bool, bool);
+    // Column index and the new width, while the handle is dragged. The caller clamps it and sets the column.
+    callback column-resized(int, float);
+    // Row index. A double-click on a body row. See the header comment.
+    callback activated(int);
+    // Row index, and the pointer's x and y in the table's coordinates, on a right press on a body row. See the header comment.
+    callback context-requested(int, length, length);
+    // When true, every body row shows an ellipsis button at its right end (a trailing column, not a cell). Its click calls
+    // `row-menu-requested(row, x, y)` with the button's bottom left in the table's coordinates. The click does not pick
+    // or activate the row.
+    in property <bool> row-menu: false;
+    callback row-menu-requested(int, length, length);
+
+    property <int> count: root.rows.length;
+    property <int> column-count: root.columns.length;
+    property <length> row-height: Tokens.size-tree-row-height;
+    property <length> header-height: Tokens.size-control-md;
+    property <length> handle-width: 6px;
+    property <bool> body-ring-on: body-fs.has-focus || root.forced-state == 2;
+    property <bool> header-ring-on: header-fs.has-focus || root.forced-state == 2;
+    // The drag in progress: the column, and the drag origin and the width at its start.
+    property <int> drag-column: -1;
+    property <length> drag-origin;
+    property <length> drag-start;
+
+    // The whole rows that fit in the body, at least one. Page Up and Page Down move by this many, and a reveal at the
+    // bottom scrolls by it.
+    function page-rows() -> int {
+        return max(1, Math.floor((root.height - root.header-height) / root.row-height));
+    }
+
+    function move-to(i: int) {
+        if (root.count > 0) {
+            root.focus-row = i < 0 ? 0 : (i >= root.count ? root.count - 1 : i);
+            root.reveal(root.focus-row);
+        }
+    }
+
+    // The ListView scrolls in whole rows (it snaps an offset to a row boundary), so the bottom case scrolls to a whole
+    // row count that leaves the focus row fully in view.
+    function reveal(i: int) {
+        let view = root.height - root.header-height;
+        if (i * root.row-height < -lv.content-y) {
+            lv.content-y = -(i * root.row-height);
+        } else if ((i + 1) * root.row-height > view - lv.content-y) {
+            lv.content-y = -(max(0, i + 1 - root.page-rows()) * root.row-height);
+        }
+    }
+
+    // Focuses the header, so a caller (or a test) can give it the keyboard.
+    public function focus-header() {
+        header-fs.focus();
+    }
+
+    // Test hooks. `test-pick-row` is a press on body row `i` (what its TouchArea does, with no modifiers).
+    // `test-sort-click` is a click on the sort label of column `c` (what the header label does). `test-body-row-on-screen`
+    // reports whether body row `i` lies in the body, which is where the ListView creates rows. The geometry values are
+    // the header's own, for a test that presses the resize handle with real pointer events.
+    public function test-pick-row(i: int) {
+        root.focus-row = i;
+        body-fs.focus();
+        root.picked(i, false, false);
+    }
+    public function test-sort-click(c: int) {
+        root.header-column = c;
+        header-fs.focus();
+        root.sort-requested(c);
+    }
+    public function test-body-row-on-screen(i: int) -> bool {
+        let top = i * root.row-height + lv.content-y;
+        return top + root.row-height > 0px && top < root.height - root.header-height;
+    }
+    out property <length> test-header-height: root.header-height;
+    out property <length> test-handle-width: root.handle-width;
+
+    background: transparent;
+    min-width: 240px;
+
+    // Plain positioning, not a layout: a VerticalLayout reported its children's sizes back to the parent and made a
+    // height binding loop when a page sized the table from its content.
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: transparent;
+
+        // The header. Clipped, so columns wider than the table do not draw past it.
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: root.header-height;
+            clip: true;
+            background: Tokens.surface-raised;
+
+            header-fs := FocusScope {
+                enabled: root.column-count > 0;
+                focus-on-click: false;
+                width: parent.width;
+                height: parent.height;
+
+                key-pressed(event) => {
+                    if (event.text == Key.LeftArrow) {
+                        root.header-column = root.header-column > 0 ? root.header-column - 1 : 0;
+                        return accept;
+                    }
+                    if (event.text == Key.RightArrow) {
+                        root.header-column = root.header-column < root.column-count - 1 ? root.header-column + 1 : root.column-count - 1;
+                        return accept;
+                    }
+                    if (event.text == Key.Return || event.text == Key.Space) {
+                        root.sort-requested(root.header-column);
+                        return accept;
+                    }
+                    if (event.text == Key.DownArrow) {
+                        body-fs.focus();
+                        return accept;
+                    }
+                    return reject;
+                }
+
+                HorizontalLayout {
+                    alignment: start;
+                    height: parent.height;
+
+                    for col[ci] in root.columns : Rectangle {
+                        // Pinned, so the layout cannot shrink a column when the header is narrow.
+                        min-width: col.width;
+                        max-width: col.width;
+                        height: parent.height;
+                        background: transparent;
+                        border-width: root.header-ring-on && root.header-column == ci ? 2px : 0px;
+                        border-color: Tokens.focus-ring;
+
+                        Text {
+                            x: Tokens.space-3;
+                            width: parent.width - Tokens.space-6 - Tokens.space-3 - Tokens.icon-small;
+                            height: parent.height;
+                            text: col.title;
+                            color: Tokens.text-primary;
+                            font-family: Type.label.family;
+                            font-size: Type.label.size;
+                            font-weight: Type.label.weight;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+
+                        if col.sortable && root.sort-column == ci : Image {
+                            x: parent.width - Tokens.icon-small - Tokens.space-3;
+                            y: (parent.height - self.height) / 2;
+                            width: Tokens.icon-small;
+                            height: Tokens.icon-small;
+                            source: Icons.chevron-down;
+                            colorize: Tokens.text-muted;
+                            transform-rotation: root.sort-descending ? 0deg : 180deg;
+                        }
+
+                        TouchArea {
+                            x: 0;
+                            width: parent.width - root.handle-width;
+                            height: parent.height;
+                            accessible-role: button;
+                            accessible-label: "Sort by \{col.title}";
+                            clicked => {
+                                root.header-column = ci;
+                                header-fs.focus();
+                                root.sort-requested(ci);
+                            }
+                        }
+
+                        // The resize handle: a drag on it changes the width of this column.
+                        Rectangle {
+                            x: parent.width - root.handle-width;
+                            width: root.handle-width;
+                            height: parent.height;
+                            background: transparent;
+
+                            TouchArea {
+                                mouse-cursor: ew-resize;
+                                accessible-role: button;
+                                accessible-label: "Resize column \{col.title}";
+                                pointer-event(event) => {
+                                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                        root.drag-column = ci;
+                                        root.drag-origin = self.absolute-position.x + self.mouse-x;
+                                        root.drag-start = col.width;
+                                    }
+                                    if (event.kind == PointerEventKind.up) {
+                                        root.drag-column = -1;
+                                    }
+                                }
+                                moved => {
+                                    if (self.pressed && root.drag-column == ci) {
+                                        root.column-resized(ci, (root.drag-start + (self.absolute-position.x + self.mouse-x - root.drag-origin)) / 1px);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // The body. Clipped, so cells wider than the table are cut off at the edge.
+        Rectangle {
+            clip: true;
+            x: 0;
+            y: root.header-height;
+            width: parent.width;
+            height: root.height - root.header-height;
+
+            body-fs := FocusScope {
+                enabled: root.count > 0;
+                focus-on-click: false;
+                width: parent.width;
+                height: parent.height;
+
+                key-pressed(event) => {
+                    if (event.text == Key.DownArrow) {
+                        root.move-to(root.focus-row + 1);
+                        return accept;
+                    }
+                    if (event.text == Key.UpArrow) {
+                        root.move-to(root.focus-row - 1);
+                        return accept;
+                    }
+                    if (event.text == Key.Home) {
+                        root.move-to(0);
+                        return accept;
+                    }
+                    if (event.text == Key.End) {
+                        root.move-to(root.count - 1);
+                        return accept;
+                    }
+                    if (event.text == Key.PageDown) {
+                        root.move-to(root.focus-row + root.page-rows());
+                        return accept;
+                    }
+                    if (event.text == Key.PageUp) {
+                        root.move-to(root.focus-row - root.page-rows());
+                        return accept;
+                    }
+                    if (event.text == Key.Space) {
+                        root.picked(root.focus-row, false, true);
+                        return accept;
+                    }
+                    if (event.text == Key.Return) {
+                        root.picked(root.focus-row, false, false);
+                        return accept;
+                    }
+                    return reject;
+                }
+
+                lv := ListView {
+                    width: parent.width;
+                    height: parent.height;
+
+                    for entry[i] in root.rows : Rectangle {
+                        height: root.row-height;
+                        width: root.width;
+                        background: entry.selected ? Tokens.selection : transparent;
+                        border-radius: Tokens.radius-control;
+                        border-width: root.body-ring-on && root.focus-row == i ? 2px : 0px;
+                        border-color: Tokens.focus-ring;
+
+                        HorizontalLayout {
+                            alignment: start;
+                            height: parent.height;
+
+                            for col[ci] in root.columns : Rectangle {
+                                min-width: col.width;
+                                max-width: col.width;
+                                height: parent.height;
+
+                                Text {
+                                    x: Tokens.space-3;
+                                    width: parent.width - Tokens.space-6;
+                                    height: parent.height;
+                                    text: entry.cells[ci];
+                                    color: Tokens.text-primary;
+                                    font-family: Type.body.family;
+                                    font-size: Type.body.size;
+                                    font-weight: Type.body.weight;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                            }
+                        }
+
+                        TouchArea {
+                            width: root.row-menu ? parent.width - Tokens.size-control-md - Tokens.space-3 : parent.width;
+                            height: parent.height;
+                            accessible-role: button;
+                            accessible-label: entry.cells[0];
+                            pointer-event(event) => {
+                                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                    root.focus-row = i;
+                                    body-fs.focus();
+                                    root.picked(i, event.modifiers.shift, event.modifiers.control);
+                                }
+                                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                                    root.focus-row = i;
+                                    body-fs.focus();
+                                    if (!entry.selected) {
+                                        root.picked(i, false, false);
+                                    }
+                                    root.context-requested(i,
+                                        self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                                        self.absolute-position.y + self.mouse-y - root.absolute-position.y);
+                                }
+                            }
+                            double-clicked => {
+                                root.activated(i);
+                            }
+                        }
+
+                        // The trailing ellipsis button. Declared after the row's TouchArea, so it gets its own clicks.
+                        if root.row-menu : IconButton {
+                            x: parent.width - Tokens.size-control-md - Tokens.space-3;
+                            y: (parent.height - self.height) / 2;
+                            width: Tokens.size-control-md;
+                            height: Tokens.size-control-md;
+                            icon: Icons.ellipsis;
+                            label: "More actions";
+                            tooltip: "More actions";
+                            variant: ButtonVariant.ghost;
+                            size: ButtonSize.sm;
+                            clicked => {
+                                root.row-menu-requested(i,
+                                    self.absolute-position.x - root.absolute-position.x,
+                                    self.absolute-position.y - root.absolute-position.y + self.height);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

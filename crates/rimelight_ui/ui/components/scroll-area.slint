@@ -1,0 +1,142 @@
+// ScrollArea (P0.17 batch 3). A vertical scroll container with a token-coloured scrollbar. It wraps Slint's ScrollView, with
+// the built-in scrollbars turned off (their colours come from the platform, not from tokens). The scrollbar is drawn here:
+// a thumb at the right edge, shown only when the content is taller than the area.
+//
+// Content. The caller puts its content in the area as children, and sets the content's height; the area scrolls it.
+//
+// Keyboard: the area is ONE Tab stop. Down and Up scroll one step (space-6). Page Down and Page Up scroll one visible
+// height. Home and End go to the top and the bottom. The focus ring is drawn around the area.
+//
+// Pointer: the mouse wheel and touch drag scroll the ScrollView. The thumb can be dragged; a press on the track beside it
+// centres it on the pointer and drags from there.
+//
+// Read-only state. `scroll-fraction` is 0 at the top and 1 at the bottom (0 when nothing scrolls). `scrollable` is true when
+// the content is taller than the area. Both are read by tests and captures.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export component ScrollArea inherits Rectangle {
+    // Accessible name of the scroll region.
+    in property <string> accessible-name: "Scrolling region";
+    // Forced look for captures: 2 shows the focus ring. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    out property <bool> has-focus: fs.has-focus;
+    out property <bool> scrollable: root.overflow > 0px;
+    out property <float> scroll-fraction: root.overflow > 0px ? (-sv.content-y) / root.overflow : 0;
+    // The thumb's length and its offset from the top of the track. Zero length when nothing scrolls.
+    out property <length> thumb-length: root.overflow > 0px ? max(Tokens.space-6, root.track * (sv.visible-height / sv.content-height)) : 0px;
+    out property <length> thumb-offset: root.overflow > 0px ? (-sv.content-y) / root.overflow * (root.track - root.thumb-length) : 0px;
+
+    property <length> overflow: max(0px, sv.content-height - sv.visible-height);
+    property <length> track: root.height - Tokens.space-2;
+    property <length> step: Tokens.space-6;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+
+    // Where on the thumb the drag holds it (from the thumb's top).
+    property <length> grab: 0px;
+
+    // Puts the thumb's top at `top` (from the top of the track) and scrolls the content to match.
+    function seek(top: length) {
+        if (root.track - root.thumb-length <= 0px) {
+            return;
+        }
+        sv.content-y = -max(0px, min(root.track - root.thumb-length, top)) / (root.track - root.thumb-length) * root.overflow;
+    }
+
+    // Scrolls by d (negative is down), keeping the content inside the area.
+    function scroll-by(d: length) {
+        sv.content-y = max(-root.overflow, min(0px, sv.content-y + d));
+    }
+
+    background: transparent;
+    clip: true;
+    min-width: 40px;
+    min-height: 40px;
+
+    // The one Tab stop of the area. It has no size: it takes focus and keys only.
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.DownArrow) {
+                root.scroll-by(-root.step);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                root.scroll-by(root.step);
+                return accept;
+            }
+            if (event.text == Key.PageDown) {
+                root.scroll-by(-sv.visible-height);
+                return accept;
+            }
+            if (event.text == Key.PageUp) {
+                root.scroll-by(sv.visible-height);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                sv.content-y = 0px;
+                return accept;
+            }
+            if (event.text == Key.End) {
+                sv.content-y = -root.overflow;
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // The content is a column of the children. The ScrollView needs the content height set explicitly (as the command
+    // palette list does), so it is the column's preferred height.
+    sv := ScrollView {
+        width: parent.width;
+        height: parent.height;
+        horizontal-scrollbar-policy: always-off;
+        vertical-scrollbar-policy: always-off;
+        content-height: column.preferred-height;
+
+        column := VerticalLayout {
+            width: parent.width;
+            alignment: start;
+            @children
+        }
+    }
+
+    // The thumb, drawn over the content at the right edge.
+    if root.overflow > 0px : Rectangle {
+        x: root.width - Tokens.space-2 - Tokens.space-1;
+        y: Tokens.space-1 + root.thumb-offset;
+        width: Tokens.space-2;
+        height: root.thumb-length;
+        border-radius: Tokens.radius-pill;
+        background: Tokens.border-strong;
+    }
+
+    // Dragging the thumb: a strip along the right edge, a little wider than the thumb so it is easy to grip.
+    if root.overflow > 0px : TouchArea {
+        x: root.width - Tokens.space-2 - Tokens.space-2;
+        y: 0px;
+        width: Tokens.space-2 + Tokens.space-2;
+        height: root.height;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                let on-thumb = self.mouse-y >= Tokens.space-1 + root.thumb-offset && self.mouse-y <= Tokens.space-1 + root.thumb-offset + root.thumb-length;
+                root.grab = on-thumb ? self.mouse-y - Tokens.space-1 - root.thumb-offset : root.thumb-length / 2;
+                root.seek(self.mouse-y - Tokens.space-1 - root.grab);
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.seek(self.mouse-y - Tokens.space-1 - root.grab);
+            }
+        }
+    }
+
+    // The focus ring, drawn over everything so it is not hidden by the content.
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: Tokens.radius-control;
+        border-width: root.ring-on ? 2px : 0px;
+        border-color: Tokens.focus-ring;
+    }
+}

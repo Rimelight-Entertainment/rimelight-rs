@@ -1,0 +1,138 @@
+// Textarea (S5): multi-line text field on Slint's low-level `TextInput` (multi-line mode), so the
+// caret, selection, clipboard, undo and IME come from Slint. This file draws the frame and placeholder from Tokens.
+//
+// rows, auto-grow up to a maximum row count,
+// and the same states as Input (default, hover, focus, disabled, read-only, invalid), with changed and submitted-free
+// editing (Enter inserts a line break; there is no submit on Enter).
+//
+// Auto-grow: the height follows the number of line breaks in the text, clamped to `rows` (minimum) and `max-rows`
+// (maximum). Lines produced by soft wrapping are not counted (Slint 1.18.1 gives no measured line count to a plain
+// element); beyond `max-rows` the TextInput scrolls.
+//
+// Keyboard: Tab reaches the field. Enter inserts a line break. The focus ring (2 px) shows on keyboard and pointer focus:
+// a text field needs the caret, so the README records why this differs from the buttons.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { InputFocus } from "input-focus.slint";
+
+export component Textarea inherits Rectangle {
+    in-out property <string> text <=> ti.text;
+    in property <string> placeholder;
+    in property <string> accessible-name;
+    // Minimum and maximum visible lines.
+    in property <int> rows: 3;
+    in property <int> max-rows: 8;
+    // Number of lines in the text (line breaks + 1). Slint 1.18.1 has no string split, so the caller counts them in Rust
+    // and sets this on every change (see README, "Slint port" S5).
+    in property <int> line-count: 1;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in property <bool> invalid: false;
+    // Forced look for captures: 0 none, 1 hover, 2 focus ring.
+    in property <int> forced-state: 0;
+    // True while the text area holds keyboard focus.
+    out property <bool> has-focus: ti.has-focus;
+    changed has-focus => { InputFocus.focused-count += self.has-focus ? 1 : -1; }
+    // The number of visible lines the height currently reserves (rows .. max-rows).
+    // Lines the wrapped text takes, measured by the layout (the mirror `measure` below), so long wrapped text grows the field too.
+    property <int> measured-lines: ceil(measure.height / Type.body.line-height);
+    out property <int> visible-rows: max(root.rows, min(root.max-rows, max(root.line-count, root.measured-lines)));
+
+    callback changed(string);
+
+    property <bool> hovered: (hover-area.has-hover && root.enabled && !root.read-only) || root.forced-state == 1;
+    property <bool> focused: ti.has-focus || root.forced-state == 2;
+    property <color> fg: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> muted: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+    property <length> line-height: Type.body.line-height;
+
+    accessible-role: text-input;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : root.placeholder;
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    forward-focus: ti;
+
+    height: root.visible-rows * root.line-height + Tokens.space-3 * 2;
+    min-width: 120px;
+    horizontal-stretch: 1;
+    border-radius: Tokens.radius-control;
+    background: !root.enabled ? Tokens.disabled-surface : Tokens.surface-raised;
+    border-width: root.focused ? 2px : 1px;
+    border-color: root.focused ? Tokens.focus-ring
+        : (root.invalid ? Tokens.status-danger-border
+        : (!root.enabled ? Tokens.disabled-border
+        : (root.hovered ? Tokens.border-strong : Tokens.border-subtle)));
+
+    hover-area := TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.not-allowed;
+    }
+
+    field := Rectangle {
+        x: Tokens.space-3;
+        y: Tokens.space-3;
+        width: parent.width - Tokens.space-3 * 2;
+        height: parent.height - Tokens.space-3 * 2;
+        clip: true;
+
+        placeholder := Text {
+            width: 100%;
+            height: 100%;
+            vertical-alignment: top;
+            wrap: word-wrap;
+            text: root.text == "" ? root.placeholder : "";
+            color: root.muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            accessible-role: none;
+        }
+
+        // The text scrolls inside the field when it is taller than the visible rows: the wheel and a drag move it. The
+        // mirror Text sets the scrolled height (its wrapped height at the field's width); it is invisible.
+        scroller := Flickable {
+            width: parent.width;
+            height: parent.height;
+            content-width: parent.width;
+            content-height: max(parent.height, measure.height);
+
+            measure := Text {
+                x: 0px;
+                y: 0px;
+                width: scroller.width;
+                wrap: word-wrap;
+                opacity: 0;
+                text: root.text == "" ? " " : root.text + " ";
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                accessible-role: none;
+            }
+
+            ti := TextInput {
+                width: parent.width;
+                height: scroller.content-height;
+                wrap: word-wrap;
+            single-line: false;
+            vertical-alignment: top;
+            color: root.fg;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            selection-background-color: Tokens.accent-fill;
+            selection-foreground-color: Tokens.text-on-accent;
+            read-only: root.read-only;
+            enabled: root.enabled;
+            accessible-role: none;
+
+            edited => {
+                root.changed(self.text);
+                // Typing at the end keeps the caret in view: the field scrolls to its bottom. (Slint has no caret rectangle,
+                // so an edit in the middle does not move the scroll; the wheel and drag still do.)
+                if (self.cursor-position-byte-offset >= root.text.character-count) {
+                    scroller.content-y = min(0px, scroller.height - scroller.content-height);
+                }
+            }
+        }
+        }
+    }
+}

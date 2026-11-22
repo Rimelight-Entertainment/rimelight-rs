@@ -1,0 +1,268 @@
+// Toast (S8). A transient message in a stack at a window corner. Own components, drawn from the
+// Tokens global (status tones, the overlay shadow, the motion tokens).
+//
+// Layer. The stack is drawn INLINE: it is an ordinary child of the window's page, placed by the caller at a corner. It is not
+// a PopupWindow, because a popup takes focus when it is shown and a toast must never steal focus from the control the user is
+// on (the same reason as the Tooltip). Caller contract: place the stack with x and y, and give it the window's size as
+// `host-width` (the stack is capped to the window with a 16 px gutter on each side).
+//
+// Stack. Newest first (the caller orders `toasts`). The caller passes at most five entries; older ones wait in the Rust queue.
+// Entries are laid out in a column, one after another. Nothing overlaps or collapses.
+//
+// Auto-dismiss is NOT here. The Rust queue (src/slint_ui/toast.rs) owns each toast's countdown and calls `closing` when
+// the time runs out. This component only reports, per id, whether the toast is paused (the pointer is over it, or keyboard
+// focus is on one of its buttons) through `paused-changed`.
+//
+// Close. Closing (the timer, the close control, or the Rust `dismiss`) sets the entry's `closing` flag: the toast fades and
+// slides out over `motion-base`, then reports `exit-done` and the caller removes it. Reduced motion makes both instant.
+//
+// Keyboard. `focus-newest()` (the caller calls it from its shortcut, F6 in the gallery) moves focus to the newest toast's
+// action button, or to its close control when it has no action. Focus order follows the markup: the close control (title
+// row) comes before the action (bottom row), so Shift+Tab from the action reaches the close control, and Tab from the close
+// control reaches the action. Tab after the action leaves the toast as for any control.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+import { IconButton } from "icon-button.slint";
+
+export enum ToastTone { neutral, success, warning, danger, info }
+
+// One toast. `action-label` "" means no action. `close-label` is the accessible name of the close control (caller strings).
+export struct ToastEntry {
+    id: int,
+    tone: ToastTone,
+    title: string,
+    description: string,
+    action-label: string,
+    close-label: string,
+    closing: bool,
+}
+
+component ToastItem inherits Rectangle {
+    in property <ToastEntry> entry;
+    // True for the newest toast (the first in the stack).
+    in property <bool> newest: false;
+    // Incremented by the stack on focus-newest; the newest toast moves focus to its first button.
+    in property <int> focus-tick: 0;
+    // Set on each show so the enter animation runs from the hidden state.
+    property <bool> entered: false;
+
+    callback action-clicked(int);
+    callback close-requested(int);
+    callback exit-done(int);
+    // Reports the paused state of this toast (see the header): true while hovered or focused.
+    callback paused-changed(int, bool);
+
+    property <ToastTone> tone: root.entry.tone;
+    property <color> tone-surface: root.tone == ToastTone.success ? Tokens.status-success-surface
+        : root.tone == ToastTone.warning ? Tokens.status-warning-surface
+        : root.tone == ToastTone.danger ? Tokens.status-danger-surface
+        : root.tone == ToastTone.info ? Tokens.status-info-surface
+        : Tokens.status-neutral-surface;
+    property <color> tone-border: root.tone == ToastTone.success ? Tokens.status-success-border
+        : root.tone == ToastTone.warning ? Tokens.status-warning-border
+        : root.tone == ToastTone.danger ? Tokens.status-danger-border
+        : root.tone == ToastTone.info ? Tokens.status-info-border
+        : Tokens.status-neutral-border;
+    property <color> tone-text: root.tone == ToastTone.success ? Tokens.status-success-text-on-surface
+        : root.tone == ToastTone.warning ? Tokens.status-warning-text-on-surface
+        : root.tone == ToastTone.danger ? Tokens.status-danger-text-on-surface
+        : root.tone == ToastTone.info ? Tokens.status-info-text-on-surface
+        : Tokens.status-neutral-text-on-surface;
+    property <image> tone-icon: root.tone == ToastTone.success ? Icons.circle-check
+        : root.tone == ToastTone.warning ? Icons.triangle-alert
+        : root.tone == ToastTone.danger ? Icons.circle-x
+        : root.tone == ToastTone.info ? Icons.info
+        : Icons.bell;
+
+    // Focus inside the toast, or the pointer over it: the countdown stops.
+    // The action button is created only when there is an action, so its hover and focus are copied here.
+    property <bool> action-busy: false;
+    out property <bool> paused: !root.entry.closing && (ta.has-hover || root.action-busy || cls.hovered || cls.has-focus);
+
+    // Counted up to move focus to the action button, which exists only when there is an action.
+    property <int> action-focus-tick: 0;
+
+    public function focus-first() {
+        if (root.entry.action-label != "") {
+            root.action-focus-tick += 1;
+        } else {
+            cls.focus-me();
+        }
+    }
+
+    changed focus-tick => {
+        if (root.newest) {
+            root.focus-first();
+        }
+    }
+
+    init => {
+        root.entered = true;
+    }
+
+    changed paused => {
+        root.paused-changed(root.entry.id, root.paused);
+    }
+
+    // Runs the exit animation, then reports it done. Reduced motion has a zero duration, so it fires at once.
+    exit := Timer {
+        interval: max(1ms, Tokens.motion-base);
+        running: root.entry.closing;
+        triggered => {
+            root.exit-done(root.entry.id);
+        }
+    }
+
+    x: 0px;
+    horizontal-stretch: 1;
+    height: content.preferred-height;
+    background: root.tone-surface;
+    border-color: root.tone-border;
+    border-width: 1px;
+    border-radius: Tokens.radius-surface;
+    drop-shadow-color: Tokens.shadow-overlay;
+    drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+    drop-shadow-blur: Tokens.shadow-overlay-blur;
+    opacity: (root.entered && !root.entry.closing) ? 1 : 0;
+    animate opacity { duration: Tokens.motion-base; }
+    accessible-role: none;
+
+    // Hover over the body pauses the countdown. The buttons' own hover is read by the paused expression.
+    ta := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+    }
+
+    content := VerticalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        padding: Tokens.space-4;
+        spacing: Tokens.space-1;
+
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+
+            Image {
+                width: 16px;
+                height: 16px;
+                y: 2px;
+                source: root.tone-icon;
+                colorize: root.tone-text;
+                accessible-role: none;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.entry.title;
+                color: root.tone-text;
+                font-family: Type.body-strong.family;
+                font-size: Type.body-strong.size;
+                font-weight: Type.body-strong.weight;
+                wrap: word-wrap;
+                accessible-role: text;
+                accessible-label: root.entry.title;
+            }
+
+            cls := IconButton {
+                icon: Icons.x;
+                label: root.entry.close-label;
+                tooltip: root.entry.close-label;
+                variant: ButtonVariant.ghost;
+                size: ButtonSize.sm;
+                clicked => {
+                    root.close-requested(root.entry.id);
+                }
+            }
+        }
+
+        if root.entry.description != "" : Text {
+            text: root.entry.description;
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            wrap: word-wrap;
+        }
+
+        if root.entry.action-label != "" : HorizontalLayout {
+            alignment: LayoutAlignment.end;
+
+            act := Button {
+                text: root.entry.action-label;
+                variant: ButtonVariant.secondary;
+                size: ButtonSize.sm;
+                property <int> seen-focus-tick: root.action-focus-tick;
+                changed seen-focus-tick => {
+                    act.focus-me();
+                }
+                changed has-focus => {
+                    root.action-busy = act.has-focus || act.hovered;
+                }
+                changed hovered => {
+                    root.action-busy = act.has-focus || act.hovered;
+                }
+                clicked => {
+                    root.action-clicked(root.entry.id);
+                }
+            }
+        }
+    }
+}
+
+export component ToastStack inherits Rectangle {
+    // The entries to show, newest first. The caller passes at most five.
+    in property <[ToastEntry]> toasts;
+    // The window's width. The stack is capped to it with a 16 px gutter on each side.
+    in property <length> host-width: 10000px;
+    // Accessible name of the stack's region.
+    in property <string> label: "Notifications";
+
+    callback action-clicked(int);
+    callback close-requested(int);
+    callback exit-done(int);
+    callback paused-changed(int, bool);
+
+    // Incremented by focus-newest(); see the header.
+    property <int> focus-tick: 0;
+
+    public function focus-newest() {
+        root.focus-tick += 1;
+    }
+
+    // Test hooks: the action button of toast `id` and its close control, each calling the same callback its button calls.
+    public function test-action(id: int) {
+        root.action-clicked(id);
+    }
+
+    public function test-close(id: int) {
+        root.close-requested(id);
+    }
+
+    // Zero-size anchor for the caller's placement: the stack is a column of toasts at its top left.
+    width: min(360px, root.host-width - 2 * Tokens.space-4);
+    height: column.preferred-height;
+    background: transparent;
+    accessible-role: none;
+
+    column := VerticalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        spacing: Tokens.space-2;
+
+        for entry[index] in root.toasts : ToastItem {
+            entry: entry;
+            newest: index == 0;
+            focus-tick: root.focus-tick;
+            action-clicked(id) => { root.action-clicked(id); }
+            close-requested(id) => { root.close-requested(id); }
+            exit-done(id) => { root.exit-done(id); }
+            paused-changed(id, paused) => { root.paused-changed(id, paused); }
+        }
+    }
+}

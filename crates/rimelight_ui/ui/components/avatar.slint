@@ -1,0 +1,129 @@
+﻿// Avatar and AvatarStack (S4). Own components drawn from the Tokens global.
+//
+// Dark-theme fix: the avatar fill was `surface.sunken`, which is 1.05:1 against the dark surface, so the circle was
+// invisible. The fill here is `border.strong` (component layer): 5.32:1 against the dark surface and 3.74:1 against the
+// light one (non-text, 3:1 required). Initials use `text.on-accent` in dark (5.63:1 on the fill) and `text.primary` in
+// light (5.07:1), so both pass 4.5:1.
+//
+// Initials are passed in: Slint 1.18.1 cannot take the first letter of each word, so `initials` in src/slint_ui/display.rs
+// computes them. Not interactive. The avatar's accessible name is its name.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export enum AvatarSize { sm, md, lg }
+export enum Presence { none, online, away, busy, offline }
+
+// One person in a stack. A stack shows initials, so an item has no image.
+export struct AvatarItem {
+    name: string,
+    initials: string,
+}
+
+export component Avatar inherits Rectangle {
+    in property <string> name;
+    in property <string> initials;
+    // Shown instead of the initials when set (its width is above zero).
+    in property <image> source;
+    in property <AvatarSize> size: AvatarSize.md;
+    in property <Presence> presence: Presence.none;
+
+    property <length> d: root.size == AvatarSize.sm ? Tokens.size-avatar-sm
+        : (root.size == AvatarSize.lg ? Tokens.size-avatar-lg : Tokens.size-avatar-md);
+    property <color> ink: Tokens.dark ? Tokens.text-on-accent : Tokens.text-primary;
+
+    accessible-role: image;
+    accessible-label: root.name;
+
+    // Whole-pixel size and a radius of exactly half the size, so the edge is a true circle.
+    width: round(root.d / 1px) * 1px;
+    height: round(root.d / 1px) * 1px;
+    border-radius: self.height / 2;
+    background: Tokens.border-strong;
+    // Clipping is only needed for a picture (it would otherwise cover the corners of the circle).
+    clip: root.source.width > 0;
+
+    if root.source.width > 0 : Image {
+        source: root.source;
+        width: parent.width;
+        height: parent.height;
+        image-fit: cover;
+    }
+    if root.source.width <= 0 : Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.initials;
+        color: root.ink;
+        font-family: Type.body-strong.family;
+        font-size: Type.body-strong.size;
+        font-weight: Type.body-strong.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // The presence dot sits on the bottom-right edge, with a ring in the raised surface colour.
+    if root.presence != Presence.none : Rectangle {
+        x: root.width - self.width;
+        y: root.height - self.height;
+        width: Tokens.size-presence-dot;
+        height: Tokens.size-presence-dot;
+        border-radius: Tokens.radius-pill;
+        background: root.presence == Presence.online ? Tokens.status-success
+            : (root.presence == Presence.away ? Tokens.status-warning
+            : (root.presence == Presence.busy ? Tokens.status-danger : Tokens.border-strong));
+        border-width: 2px;
+        border-color: Tokens.surface-raised;
+    }
+}
+
+// Overlapping avatars. With more people than `max` slots, the last slot is a "+N" chip with the people not shown.
+// `shown` and `overflow` are the same arithmetic as `avatar_overflow` in src/slint_ui/display.rs.
+export component AvatarStack inherits Rectangle {
+    in property <[AvatarItem]> people;
+    in property <int> max: 4;
+    in property <AvatarSize> size: AvatarSize.md;
+
+    out property <int> shown: root.people.length <= root.max ? root.people.length : Math.max(root.max - 1, 0);
+    out property <int> overflow: root.people.length - root.shown;
+
+    property <length> d: root.size == AvatarSize.sm ? Tokens.size-avatar-sm
+        : (root.size == AvatarSize.lg ? Tokens.size-avatar-lg : Tokens.size-avatar-md);
+    // Each avatar covers all but 8 px of the one before it.
+    property <length> step: root.d - Tokens.space-2;
+    property <int> slots: root.shown + (root.overflow > 0 ? 1 : 0);
+
+    width: root.slots > 0 ? root.d + (root.slots - 1) * root.step : 0px;
+    height: root.d;
+    background: transparent;
+
+    for person[i] in root.people : Avatar {
+        x: i * root.step;
+        name: person.name;
+        initials: person.initials;
+        size: root.size;
+        visible: i < root.shown;
+    }
+
+    if root.overflow > 0 : Rectangle {
+        x: root.shown * root.step;
+        width: root.d;
+        height: root.d;
+        border-radius: Tokens.radius-pill;
+        background: Tokens.surface-raised;
+        border-width: 1px;
+        border-color: Tokens.border-strong;
+        accessible-role: text;
+        accessible-label: "+\{root.overflow}";
+
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: "+\{root.overflow}";
+            color: Tokens.text-primary;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

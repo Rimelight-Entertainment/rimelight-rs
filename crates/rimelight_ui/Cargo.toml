@@ -9,3 +9,7 @@ description = "Rimelight Slint component library: markup only, compiled by the a
 
 [lints]
 workspace = true
+
+# Font tests (glyph coverage and family names), moved from Space with the fonts.
+[dev-dependencies]
+ttf-parser = "0.25.1"

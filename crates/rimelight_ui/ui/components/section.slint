@@ -1,0 +1,36 @@
+// Section (P0.17 batch 1). A titled group of content on the page: a heading, an optional description in muted
+// text, then the children. It draws no surface; use Card for a boxed group.
+//
+// Keyboard: no focus of its own. The heading is text, not a Tab stop. Children keep their own keys.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export component Section inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+
+    spacing: Tokens.space-3;
+    alignment: start;
+
+    if root.title != "" : Text {
+        text: root.title;
+        color: Tokens.text-primary;
+        font-family: Type.heading.family;
+        font-size: Type.heading.size;
+        font-weight: Type.heading.weight;
+        wrap: word-wrap;
+        accessible-role: text;
+        accessible-label: root.title;
+    }
+
+    if root.description != "" : Text {
+        text: root.description;
+        color: Tokens.text-muted;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        wrap: word-wrap;
+    }
+
+    @children
+}

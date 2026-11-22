@@ -1,0 +1,7 @@
+// Text field focus count (SF.4; IA section 8, OQ25). Each text field (Input, Textarea, NumberInput) adds 1 when it gains
+// keyboard focus and takes 1 away when it loses it. AppShell reads the count: on a phone the quick action hides while it
+// is above 0, so the button never covers a composer or form. A count, not a flag, so that focus moving from one field to
+// another never leaves the flag wrong.
+export global InputFocus {
+    in-out property <int> focused-count: 0;
+}

@@ -1,0 +1,81 @@
+// Bundled fonts (OFL 1.1, see fonts/README.md). Every component imports this file, so any app that uses the library
+// registers the faces here, and "Noto Sans" and "JetBrains Mono" resolve by family name without the app importing them.
+import "fonts/noto-sans/NotoSans-Regular.ttf";
+import "fonts/noto-sans/NotoSans-Medium.ttf";
+import "fonts/noto-sans/NotoSans-SemiBold.ttf";
+import "fonts/noto-sans/NotoSans-Bold.ttf";
+import "fonts/noto-sans/NotoSans-Italic.ttf";
+import "fonts/jetbrains-mono/JetBrainsMono-Regular.ttf";
+import "fonts/jetbrains-mono/JetBrainsMono-Bold.ttf";
+
+// Text styles. Sizes and line heights come from the shared Tokens global, scaled by the text-scale setting
+// (Tokens.text-factor). Each scaled length is rounded to half a pixel.
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export struct TextStyle {
+    family: string,
+    size: length,
+    line-height: length,
+    weight: int,
+}
+
+export global Type {
+    public pure function scaled(size: length) -> length {
+        return round(size / 1px * Tokens.text-factor * 2) * 0.5px;
+    }
+
+    out property <TextStyle> display: {
+        family: Tokens.type-display-family,
+        size: scaled(Tokens.type-display-size),
+        line-height: scaled(Tokens.type-display-line-height),
+        weight: Tokens.type-display-weight,
+    };
+    out property <TextStyle> title: {
+        family: Tokens.type-title-family,
+        size: scaled(Tokens.type-title-size),
+        line-height: scaled(Tokens.type-title-line-height),
+        weight: Tokens.type-title-weight,
+    };
+    out property <TextStyle> heading: {
+        family: Tokens.type-heading-family,
+        size: scaled(Tokens.type-heading-size),
+        line-height: scaled(Tokens.type-heading-line-height),
+        weight: Tokens.type-heading-weight,
+    };
+    out property <TextStyle> subheading: {
+        family: Tokens.type-subheading-family,
+        size: scaled(Tokens.type-subheading-size),
+        line-height: scaled(Tokens.type-subheading-line-height),
+        weight: Tokens.type-subheading-weight,
+    };
+    out property <TextStyle> body: {
+        family: Tokens.type-body-family,
+        size: scaled(Tokens.type-body-size),
+        line-height: scaled(Tokens.type-body-line-height),
+        weight: Tokens.type-body-weight,
+    };
+    out property <TextStyle> body-strong: {
+        family: Tokens.type-body-strong-family,
+        size: scaled(Tokens.type-body-strong-size),
+        line-height: scaled(Tokens.type-body-strong-line-height),
+        weight: Tokens.type-body-strong-weight,
+    };
+    out property <TextStyle> label: {
+        family: Tokens.type-label-family,
+        size: scaled(Tokens.type-label-size),
+        line-height: scaled(Tokens.type-label-line-height),
+        weight: Tokens.type-label-weight,
+    };
+    out property <TextStyle> caption: {
+        family: Tokens.type-caption-family,
+        size: scaled(Tokens.type-caption-size),
+        line-height: scaled(Tokens.type-caption-line-height),
+        weight: Tokens.type-caption-weight,
+    };
+    out property <TextStyle> code: {
+        family: Tokens.type-code-family,
+        size: scaled(Tokens.type-code-size),
+        line-height: scaled(Tokens.type-code-line-height),
+        weight: Tokens.type-code-weight,
+    };
+}

@@ -1,0 +1,70 @@
+// DateRangePicker (P0.17 batch 6). A button that shows the chosen range (or a placeholder), with a popover CalendarGrid.
+// The first pick sets the start and the second sets the end, so the popover stays open between the two picks; a third
+// pick starts a new range. The caller owns the selection (src/slint_ui/calendar.rs, `Selection::pick_range`) and passes
+// the cells back in with the range flags set.
+//
+// Keyboard: as DatePicker. Enter or Space on a day picks it; the popover closes after the end is picked, not the start.
+//
+// Limits: the caller formats `text` and passes `range-complete`, which closes the popover after an end is picked.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { Popover } from "popover.slint";
+import { CalendarGrid, CalendarDay } from "calendar-grid.slint";
+
+export component DateRangePicker inherits Rectangle {
+    // The range, formatted by the caller (for example "10 Nov 2026 to 20 Nov 2026"). Empty shows the placeholder.
+    in property <string> text;
+    in property <string> placeholder: "Pick a date range";
+    in property <string> accessible-name;
+    in property <bool> enabled: true;
+    // Set by the caller after each pick: true when the range has both ends, so the popover closes.
+    in property <bool> range-complete: false;
+    in property <[CalendarDay]> days;
+    in property <[string]> weekday-labels;
+    in property <string> title;
+    in-out property <int> focus-index: 0;
+    callback picked(int);
+    callback month-step(int);
+
+    height: Tokens.size-control-md;
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.text == "" ? root.placeholder : root.text;
+        accessible-name: root.accessible-name;
+        variant: ButtonVariant.secondary;
+        enabled: root.enabled;
+        pointer-pressed => { pop.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        x: 0px;
+        y: 0px;
+        accessible-name: root.accessible-name;
+        anchor-height: trig.height;
+        panel-width: 320px;
+
+        CalendarGrid {
+            width: 100%;
+            height: 304px;
+            days: root.days;
+            weekday-labels: root.weekday-labels;
+            title: root.title;
+            accessible-name: root.accessible-name;
+            focus-index <=> root.focus-index;
+            picked(index) => {
+                root.picked(index);
+                if (root.range-complete) {
+                    pop.close();
+                }
+            }
+            month-step(step) => { root.month-step(step); }
+        }
+    }
+}

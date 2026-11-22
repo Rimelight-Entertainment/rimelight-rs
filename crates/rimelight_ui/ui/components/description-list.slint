@@ -1,0 +1,74 @@
+// DescriptionList (P0.17 batch 4). Term and value pairs, in one column or in two. In two columns the first half of the
+// items fills the left column and the rest fill the right one, so the reading order runs down each column.
+//
+// Keyboard: none. The list is not interactive: it has no focus stop and handles no keys. A screen reader reads each term
+// and then its value, in item order.
+//
+// Limits: `columns` other than 2 is one column. The two-column split is by item count, not by measured height, so a
+// long value in the left column does not move items to the right.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export struct DescriptionItem {
+    term: string,
+    value: string,
+}
+
+// One term above its value.
+component DescriptionRow inherits VerticalLayout {
+    in property <DescriptionItem> item;
+    spacing: Tokens.space-1;
+    padding-bottom: Tokens.space-4;
+    alignment: start;
+
+    Text {
+        text: root.item.term;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+    Text {
+        text: root.item.value;
+        color: Tokens.text-primary;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        wrap: word-wrap;
+    }
+}
+
+export component DescriptionList inherits HorizontalLayout {
+    in property <[DescriptionItem]> items;
+    // 2 for two columns. Any other value gives one column.
+    in property <int> columns: 1;
+
+    property <bool> two: root.columns == 2;
+    // The first item index that goes in the right column.
+    property <int> split: root.two ? (root.items.length + 1) / 2 : root.items.length;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: start;
+        for entry[i] in root.items : VerticalLayout {
+            // An item outside this column has no child, so it takes no height.
+            if i < root.split : DescriptionRow {
+                item: entry;
+            }
+        }
+    }
+    VerticalLayout {
+        horizontal-stretch: root.two ? 1 : 0;
+        alignment: start;
+        visible: root.two;
+        for entry[i] in root.items : VerticalLayout {
+            if i >= root.split : DescriptionRow {
+                item: entry;
+            }
+        }
+    }
+}

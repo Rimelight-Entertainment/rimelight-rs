@@ -1,0 +1,283 @@
+// Sheet (S8). Own component, drawn from the Tokens global.
+// with the S8 fixes.
+//
+// Layer and focus: the same model as Dialog (ui/components/dialog.slint): a PopupWindow sized to the host window and
+// placed at its top left, a scrim over the window, a sentinel focus trap (`keys` first, `end` last) and focus returned
+// to the opener on close by core. Read the header of dialog.slint for why a popup.
+//
+// Placement. `right` (default), `left` and `bottom`. A side sheet is `size` wide and full height, with no top offset. A
+// bottom sheet is full width and `size` tall. Sizes come from the tokens (320, 400, 560 px). Each is capped to the window
+// (`host-width` for a side sheet, `host-height` for a bottom sheet), so a right sheet fits a 390 px phone.
+//
+// Slide. The panel moves from off-screen to its place over `motion-base` with ease-out. The duration is the Tokens motion
+// duration, which is 0 under reduced motion, so the slide is instant then. Closing is instant (no slide-out).
+//
+// Dismissal, focus and the close control are the same as Dialog: `dismissible: false` blocks Escape and a scrim click;
+// the close control is an IconButton with a caller-supplied label.
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+import { IconButton } from "icon-button.slint";
+import { DialogAction } from "dialog.slint";
+
+export enum SheetPlacement { right, left, bottom }
+export enum SheetSize { sm, md, lg }
+
+export component Sheet inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <SheetPlacement> placement: SheetPlacement.right;
+    in property <SheetSize> size: SheetSize.md;
+    // false blocks Escape and a scrim click. The close control still closes.
+    in property <bool> dismissible: true;
+    // Accessible name of the close control (it shows an icon).
+    in property <string> close-label: "Close";
+    in property <[DialogAction]> actions: [];
+    // Size of the window the sheet covers. The popup is clipped to the window (see dialog.slint).
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    callback opened();
+    callback closed();
+    callback action-clicked(int);
+    // true while an overlay opened over this sheet (its own popup, such as a row menu) is open. Android Back then goes to that
+    // overlay (`back-to-child`), not to the sheet: the sheet's focus scope keeps the keyboard focus, so the key reaches the sheet.
+    in property <bool> child-open: false;
+    callback back-to-child();
+
+    out property <bool> is-open: pop.is-open;
+    // Where focus is at the two ends of the trap (tests read them).
+    out property <bool> keys-focused: false;
+    out property <bool> end-focused: false;
+    // The panel's size and offset in the window, for tests and the captures.
+    out property <length> panel-width: root.panel-w;
+    out property <length> panel-height: root.panel-h;
+    // The slide duration in use: the motion token, 0 under reduced motion.
+    out property <duration> slide-duration: Tokens.motion-base;
+
+    // Incremented on each open: moves focus to `keys` once the popup is shown.
+    property <int> focus-request: 0;
+    // false while the panel is off-screen, true once it is in place (set on open, so the panel slides in).
+    property <bool> shown: false;
+
+    // The size for the placement, capped to the window.
+    property <length> nominal: root.size == SheetSize.sm
+        ? Tokens.size-sheet-sm
+        : (root.size == SheetSize.lg ? Tokens.size-sheet-lg : Tokens.size-sheet-md);
+    property <length> panel-w: root.placement == SheetPlacement.bottom ? root.host-width : min(root.nominal, root.host-width);
+    property <length> panel-h: root.placement == SheetPlacement.bottom ? min(root.nominal, root.host-height) : root.host-height;
+    // Where the panel rests, and where it starts (off-screen on its edge).
+    property <length> rest-x: root.placement == SheetPlacement.right
+        ? root.host-width - root.panel-w
+        : (root.placement == SheetPlacement.left ? 0px : 0px);
+    property <length> rest-y: root.placement == SheetPlacement.bottom ? root.host-height - root.panel-h : 0px;
+    property <length> start-x: root.placement == SheetPlacement.right
+        ? root.host-width
+        : (root.placement == SheetPlacement.left ? -root.panel-w : 0px);
+    property <length> start-y: root.placement == SheetPlacement.bottom ? root.host-height : 0px;
+
+    public function open() {
+        if (!pop.is-open) {
+            root.shown = true;
+            pop.show();
+            root.focus-request += 1;
+        }
+    }
+
+    public function close() {
+        if (pop.is-open) {
+            pop.close();
+            root.shown = false;
+        }
+    }
+
+    changed is-open => {
+        TooltipHub.popup-event();
+        if (root.is-open) {
+            root.opened();
+        } else {
+            root.closed();
+        }
+    }
+
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    accessible-role: none;
+
+    pop := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: root.host-width;
+        height: root.host-height;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        keys := FocusScope {
+            x: 0px;
+            y: 0px;
+            width: root.host-width;
+            height: root.host-height;
+
+            changed has-focus => {
+                root.keys-focused = self.has-focus;
+            }
+
+            key-pressed(event) => {
+                if (event.text == Key.Escape) {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                    return accept;
+                }
+                // Android Back does what Escape does (gaps D7): a dismissible sheet closes, and the key is taken either way.
+                // With an overlay open over the sheet, Back closes that overlay first (the order of AppShell's close-topmost-overlay).
+                if (event.text == Key.Back) {
+                    if (root.child-open) {
+                        root.back-to-child();
+                        return accept;
+                    }
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                    return accept;
+                }
+                if (event.text == Key.Tab && !event.modifiers.shift && end.has-focus) {
+                    keys.focus();
+                    return accept;
+                }
+                if ((event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift)) && keys.has-focus) {
+                    end.focus();
+                    return accept;
+                }
+                return reject;
+            }
+
+            property <int> seen-request: root.focus-request;
+            changed seen-request => {
+                keys.focus();
+            }
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                background: Tokens.scrim;
+            }
+
+            backdrop := TouchArea {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                clicked => {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                }
+            }
+
+            // The panel. It touches the window edge it is attached to, so only its free corners are rounded.
+            panel := Rectangle {
+                x: root.shown ? root.rest-x : root.start-x;
+                y: root.shown ? root.rest-y : root.start-y;
+                width: root.panel-w;
+                height: root.panel-h;
+                animate x, y { duration: root.slide-duration; easing: ease-out; }
+                background: Tokens.surface-base;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+                border-top-left-radius: root.placement == SheetPlacement.right || root.placement == SheetPlacement.bottom ? Tokens.radius-surface : 0px;
+                border-bottom-left-radius: root.placement == SheetPlacement.right ? Tokens.radius-surface : 0px;
+                border-top-right-radius: root.placement == SheetPlacement.left || root.placement == SheetPlacement.bottom ? Tokens.radius-surface : 0px;
+                border-bottom-right-radius: root.placement == SheetPlacement.left ? Tokens.radius-surface : 0px;
+                drop-shadow-color: Tokens.shadow-overlay;
+                drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+                drop-shadow-blur: Tokens.shadow-overlay-blur;
+                accessible-role: region;
+                accessible-label: root.title;
+
+                TouchArea {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                }
+
+                VerticalLayout {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    padding: Tokens.space-4;
+                    spacing: Tokens.space-3;
+
+                    HorizontalLayout {
+                        spacing: Tokens.space-3;
+
+                        Text {
+                            horizontal-stretch: 1;
+                            text: root.title;
+                            color: Tokens.text-primary;
+                            font-family: Type.heading.family;
+                            font-size: Type.heading.size;
+                            font-weight: Type.heading.weight;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+
+                        IconButton {
+                            icon: Icons.x;
+                            label: root.close-label;
+                            tooltip: root.close-label;
+                            variant: ButtonVariant.ghost;
+                            size: ButtonSize.sm;
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+
+                    if root.description != "" : Text {
+                        text: root.description;
+                        color: Tokens.text-muted;
+                        font-family: Type.body.family;
+                        font-size: Type.body.size;
+                        font-weight: Type.body.weight;
+                        wrap: word-wrap;
+                    }
+
+                    @children
+
+                    if root.actions.length > 0 : HorizontalLayout {
+                        alignment: LayoutAlignment.end;
+                        spacing: Tokens.space-2;
+
+                        for action[index] in root.actions : Button {
+                            text: action.text;
+                            variant: action.variant;
+                            clicked => {
+                                root.action-clicked(index);
+                            }
+                        }
+                    }
+                }
+            }
+
+            end := FocusScope {
+                x: 0px;
+                y: 0px;
+                width: 0px;
+                height: 0px;
+
+                changed has-focus => {
+                    root.end-focused = self.has-focus;
+                }
+            }
+        }
+    }
+}

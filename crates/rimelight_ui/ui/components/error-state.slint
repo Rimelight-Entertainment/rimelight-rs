@@ -1,0 +1,95 @@
+// ErrorState (S4). What a view shows when loading failed: an icon in the danger colour, a title, a
+// description, an optional retry button and optional technical details. Own component drawn from the Tokens global.
+// The details are in the mono style on a
+// sunken surface, so they can be copied. Every string is passed in.
+//
+// The retry button is shown only when `retry-label` is not empty; the details box only when `details` is not empty.
+// `retry` fires once per activation (click, Enter or Space).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant } from "button.slint";
+
+export component ErrorState inherits VerticalLayout {
+    // The icon, drawn in the danger colour. The caller picks it (for example Icons.triangle-alert).
+    in property <image> icon;
+    in property <string> title;
+    in property <string> description;
+    // Empty hides the retry button.
+    in property <string> retry-label;
+    // Empty hides the details box.
+    in property <string> details;
+
+    // Fired by a click, Enter or Space on the retry button.
+    callback retry();
+
+    padding-top: Tokens.space-8;
+    padding-bottom: Tokens.space-8;
+    padding-left: Tokens.space-4;
+    padding-right: Tokens.space-4;
+    spacing: Tokens.space-3;
+    alignment: center;
+
+    HorizontalLayout {
+        alignment: center;
+        Image {
+            source: root.icon;
+            colorize: Tokens.status-danger;
+            width: Icons.large-size;
+            height: Icons.large-size;
+        }
+    }
+
+    Text {
+        text: root.title;
+        color: Tokens.text-primary;
+        font-family: Type.subheading.family;
+        font-size: Type.subheading.size;
+        font-weight: Type.subheading.weight;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+        accessible-role: text;
+        accessible-label: root.title;
+    }
+
+    Text {
+        text: root.description;
+        color: Tokens.text-muted;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+        accessible-role: text;
+    }
+
+    if root.details != "" : Rectangle {
+        background: Tokens.surface-sunken;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        border-radius: Tokens.radius-control;
+        accessible-role: text;
+        accessible-label: root.details;
+
+        VerticalLayout {
+            padding: Tokens.space-3;
+            Text {
+                text: root.details;
+                color: Tokens.text-primary;
+                font-family: Type.code.family;
+                font-size: Type.code.size;
+                font-weight: Type.code.weight;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    if root.retry-label != "" : HorizontalLayout {
+        alignment: center;
+        Button {
+            text: root.retry-label;
+            variant: ButtonVariant.secondary;
+            clicked => { root.retry(); }
+        }
+    }
+}

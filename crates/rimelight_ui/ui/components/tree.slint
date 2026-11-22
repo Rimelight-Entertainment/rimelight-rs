@@ -1,0 +1,192 @@
+// Tree (P0.17 batch 3). Expandable nodes shown as rows. The caller passes only the visible rows (see
+// src/slint_ui/tree.rs, `visible_rows`), each with its depth, its expanded state and the row of its parent. The Tree does
+// not change the expanded state itself: it reports the request and the caller updates the rows.
+//
+// Keyboard (WAI-ARIA tree pattern, roving focus): the whole tree is ONE Tab stop. Tab lands on the focused row, which starts
+// on row 0. Down and Up move the focus to the next and previous row; Home and End go to the first and last row. Right on a
+// collapsed node asks for it to expand (`toggled(node, true)`); Right on an expanded node moves the focus to its first
+// child. Left on an expanded node asks for it to collapse (`toggled(node, false)`); Left on any other row moves the focus to
+// its parent row. Enter and Space select the focused row. Focus stays on the same row when the caller expands or collapses it.
+//
+// Callbacks. `selected(node)` fires on Enter, Space or a click on a row, with the node's index in the caller's list.
+// `selected-node` is set before it runs. `toggled(node, expanded)` fires on the chevron click and on Left and Right; the
+// Tree does not change `rows` itself.
+//
+// Limits. `focus-row` starts on row 0 and is not moved to the selected row. If the caller shrinks `rows` so that `focus-row`
+// is past the end, the focus is not moved; the caller should reset `focus-row`. There is no type-ahead.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export struct TreeRow {
+    label: string,
+    depth: int,
+    expanded: bool,
+    has-children: bool,
+    // The index of the parent row in `rows`, or -1 for a top-level row.
+    parent-row: int,
+    // The index of the node in the caller's flat list. Reported by `selected` and `toggled`.
+    node: int,
+}
+
+export component Tree inherits Rectangle {
+    in property <[TreeRow]> rows;
+    // Accessible name of the tree.
+    in property <string> accessible-name;
+    // The node that was last selected, or -1.
+    in-out property <int> selected-node: -1;
+    // The row that holds the roving focus, two-way.
+    in-out property <int> focus-row: 0;
+    // Forced look for captures: 2 shows the focus ring on the focused row. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the tree holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    callback selected(int);
+    callback toggled(int, bool);
+
+    property <int> count: root.rows.length;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+    property <length> indent: Tokens.space-4;
+
+    function focus-to(i: int) {
+        if (i >= 0 && i < root.count) {
+            root.focus-row = i;
+        }
+    }
+
+    function select(i: int) {
+        if (i >= 0 && i < root.count) {
+            root.focus-row = i;
+            root.selected-node = root.rows[i].node;
+            root.selected(root.rows[i].node);
+        }
+    }
+
+    function expand-or-enter(i: int) {
+        if (i >= 0 && i < root.count && root.rows[i].has-children) {
+            if (root.rows[i].expanded) {
+                root.focus-row = i + 1;
+            } else {
+                root.toggled(root.rows[i].node, true);
+            }
+        }
+    }
+
+    function collapse-or-parent(i: int) {
+        if (i >= 0 && i < root.count) {
+            if (root.rows[i].has-children && root.rows[i].expanded) {
+                root.toggled(root.rows[i].node, false);
+            } else if (root.rows[i].parent-row >= 0) {
+                root.focus-row = root.rows[i].parent-row;
+            }
+        }
+    }
+
+    // Test hooks. `test-row-click` is a press on row `i` (what its row TouchArea does); `test-toggle-click` is a press
+    // on its chevron. `test-row-label` and `test-row-count` report the rows drawn.
+    public function test-row-click(i: int) {
+        root.select(i);
+    }
+    public function test-toggle-click(i: int) {
+        root.focus-to(i);
+        root.toggled(root.rows[i].node, !root.rows[i].expanded);
+    }
+    public function test-row-label(i: int) -> string {
+        return root.rows[i].label;
+    }
+    public function test-row-count() -> int {
+        return root.count;
+    }
+
+    background: transparent;
+    min-width: 160px;
+    horizontal-stretch: 1;
+
+    VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        alignment: start;
+
+        for entry[i] in root.rows : Rectangle {
+            height: Tokens.size-tree-row-height;
+            background: entry.node == root.selected-node ? Tokens.selection : transparent;
+            border-radius: Tokens.radius-control;
+            border-width: root.ring-on && root.focus-row == i ? 2px : 0px;
+            border-color: Tokens.focus-ring;
+
+            if entry.has-children : Image {
+                x: root.indent * entry.depth + Tokens.space-1;
+                y: (parent.height - self.height) / 2;
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                source: entry.expanded ? Icons.chevron-down : Icons.chevron-right;
+                colorize: Tokens.text-muted;
+            }
+
+            Text {
+                x: root.indent * entry.depth + Tokens.space-6;
+                width: parent.width - self.x - Tokens.space-2;
+                height: parent.height;
+                text: entry.label;
+                color: Tokens.text-primary;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            row-ta := TouchArea {
+                accessible-role: button;
+                accessible-label: entry.label;
+                clicked => { root.select(i); }
+            }
+
+            if entry.has-children : TouchArea {
+                x: root.indent * entry.depth;
+                width: Tokens.space-6;
+                height: parent.height;
+                accessible-role: button;
+                accessible-label: "Toggle \{entry.label}";
+                clicked => { root.focus-to(i); root.toggled(entry.node, !entry.expanded); }
+            }
+        }
+    }
+
+    // The one Tab stop of the tree. It has no size: it takes focus and keys only.
+    fs := FocusScope {
+        enabled: root.count > 0;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.DownArrow) {
+                root.focus-to(root.focus-row + 1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                root.focus-to(root.focus-row - 1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.focus-to(0);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.focus-to(root.count - 1);
+                return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                root.expand-or-enter(root.focus-row);
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.collapse-or-parent(root.focus-row);
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.select(root.focus-row);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

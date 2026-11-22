@@ -1,0 +1,69 @@
+// Divider (S4). A horizontal or vertical rule, with an optional label on a horizontal rule. Own
+// component drawn from the Tokens global. the
+// rule uses the subtle border token, or the sidebar divider token on the navy sidebar (`on-sidebar`). The label sits in
+// the middle, between two halves of the rule, on any surface. Not interactive.
+//
+// Sizing (S4 fix): a horizontal rule is 1 px high, or one caption line high when labelled, so the label is not clipped.
+// A vertical rule is 1 px wide and stretches to the height of its parent. The min and max constraints do this; an
+// explicit `height` or `width` would pin the rule (the first version pinned a labelled rule to 1 px and a vertical one to 0).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export component Divider inherits Rectangle {
+    in property <bool> vertical: false;
+    in property <string> label;
+    in property <bool> on-sidebar: false;
+
+    property <color> rule: root.on-sidebar ? Tokens.sidebar-divider : Tokens.border-subtle;
+    property <color> label-ink: root.on-sidebar ? Tokens.sidebar-text-muted : Tokens.text-muted;
+
+    background: transparent;
+    accessible-role: none;
+
+    min-height: root.vertical ? 0px : (root.label != "" ? Type.caption.line-height : 1px);
+    max-height: root.vertical ? 100000px : (root.label != "" ? Type.caption.line-height : 1px);
+    min-width: root.vertical ? 1px : 0px;
+    max-width: root.vertical ? 1px : 100000px;
+    horizontal-stretch: root.vertical ? 0 : 1;
+    vertical-stretch: root.vertical ? 1 : 0;
+
+    // Horizontal, with or without a label. Each half of the rule is centred vertically in the line.
+    if !root.vertical : HorizontalLayout {
+        spacing: Tokens.space-3;
+        alignment: stretch;
+
+        Rectangle {
+            horizontal-stretch: 1;
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                width: parent.width;
+                height: 1px;
+                background: root.rule;
+            }
+        }
+        if root.label != "" : Text {
+            text: root.label;
+            color: root.label-ink;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            vertical-alignment: center;
+        }
+        if root.label != "" : Rectangle {
+            horizontal-stretch: 1;
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                width: parent.width;
+                height: 1px;
+                background: root.rule;
+            }
+        }
+    }
+
+    // Vertical: one pixel wide, filling the height of its parent.
+    if root.vertical : Rectangle {
+        width: 1px;
+        height: parent.height;
+        background: root.rule;
+    }
+}

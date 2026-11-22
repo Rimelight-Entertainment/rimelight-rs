@@ -1,0 +1,126 @@
+// MultiSelect: several choices from a list, shown in a popup with a checkbox per row (YouTrack's Area picker). The trigger
+// shows the chosen labels (`summary`, set by the caller) or the placeholder. The popup has a filter field, one row per
+// option with its letter badge.
+//
+// The caller owns the choices: `options` carries `checked`, and `toggled(value)` says which row was clicked. Rust answers by
+// setting new options. Filtering keeps the options whose label starts with the filter text (no substring search in Slint).
+//
+// Keyboard: the trigger is the one Tab stop for opening (Enter, Space, Alt+Down); the popup's rows are pointer targets and
+// the filter and add fields take the keyboard, as the Combobox does.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { Popover } from "popover.slint";
+import { Checkbox, CheckState } from "checkbox.slint";
+import { Input } from "input.slint";
+
+export struct MultiOption {
+    value: string,
+    label: string,
+    // The letter in the badge (the first letter of the label).
+    badge: string,
+    checked: bool,
+}
+
+// A letter in a rounded square, the badge of an option.
+component LetterBadge inherits Rectangle {
+    in property <string> text;
+    width: Tokens.icon-small;
+    height: Tokens.icon-small;
+    border-radius: Tokens.radius-control;
+    background: Tokens.accent-fill;
+
+    Text {
+        text: root.text;
+        color: Tokens.text-on-accent;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component MultiSelect inherits Rectangle {
+    in property <[MultiOption]> options;
+    // The chosen labels, joined by the caller. Empty shows the placeholder.
+    in property <string> summary;
+    in property <string> placeholder: "None";
+    in property <string> accessible-name;
+    in property <bool> enabled: true;
+    in-out property <string> query;
+
+    out property <bool> is-open: pop.is-open;
+
+    callback toggled(string);
+
+    height: Tokens.size-control-md;
+    horizontal-stretch: 1;
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.summary == "" ? root.placeholder : root.summary;
+        accessible-name: root.accessible-name;
+        variant: ButtonVariant.secondary;
+        enabled: root.enabled;
+        pointer-pressed => { pop.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        x: 0px;
+        y: 0px;
+        accessible-name: root.accessible-name;
+        anchor-height: trig.height;
+        panel-width: 280px;
+
+        VerticalLayout {
+            spacing: Tokens.space-2;
+
+            Input {
+                text <=> root.query;
+                placeholder: "Filter items";
+                accessible-name: "Filter " + root.accessible-name;
+            }
+
+            for option[index] in root.options : Rectangle {
+                property <bool> shown: root.query == "" || option.label.to-lowercase().starts-with(root.query.to-lowercase());
+                visible: self.shown;
+                height: self.shown ? Tokens.size-control-sm : 0px;
+                border-radius: Tokens.radius-r6;
+                background: row-touch.has-hover ? Tokens.button-ghost-bg-hover : transparent;
+
+                HorizontalLayout {
+                    x: Tokens.space-2;
+                    width: parent.width - 2 * Tokens.space-2;
+                    height: parent.height;
+                    spacing: Tokens.space-2;
+
+                    Checkbox {
+                        horizontal-stretch: 1;
+                        text: option.label;
+                        accessible-name: option.label;
+                        check-state: option.checked ? CheckState.checked : CheckState.unchecked;
+                        changed(checked) => { root.toggled(option.value); }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        LetterBadge {
+                        text: option.badge;
+                        }
+                    }
+                }
+
+                row-touch := TouchArea {
+                    z: -1;
+                    mouse-cursor: pointer;
+                }
+            }
+        }
+    }
+}

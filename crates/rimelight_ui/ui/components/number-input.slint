@@ -1,0 +1,199 @@
+// NumberInput (S5): a numeric field on Slint's TextInput, with labelled decrement and increment
+// buttons. minimum, maximum and step,
+// Up and Down step the value, and the value is clamped on Enter and on focus loss.
+//
+// Editing: TextInput does the caret, selection, clipboard, undo and IME. A key is rejected when the text would no longer be
+// a number (the edit is undone to the last good text), so only digits, one sign, one point and an exponent that
+// `is-float` accepts can be typed.
+//
+// Fixed: a click on the empty part of the field gives it focus (the frame's TouchArea calls `focus()`).
+//
+// Keyboard: Tab reaches the field, the decrement button and the increment button. Up and Down step the value from the
+// field. Enter clamps and commits. Space and Enter on a button step it. Disabled and read-only fields take no input.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { InputAction, InputSize } from "input.slint";
+import { InputFocus } from "input-focus.slint";
+
+export component NumberInput inherits Rectangle {
+    // The number. Changing it from outside updates the text too (see `init` and the sync below).
+    in-out property <float> value: 0;
+    in property <float> minimum: -1000000;
+    in property <float> maximum: 1000000;
+    in property <float> step: 1;
+    in property <string> accessible-name;
+    // Caller-supplied words for the buttons.
+    in property <string> increase-label: "Increase";
+    in property <string> decrease-label: "Decrease";
+    in property <InputSize> size: InputSize.md;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in property <bool> invalid: false;
+    // Forced look for captures: 0 none, 1 hover, 2 focus ring.
+    in property <int> forced-state: 0;
+    // The text shown in the field, as the user sees it.
+    in-out property <string> text;
+    out property <bool> has-focus: ti.has-focus;
+
+    callback changed(float);
+
+    property <string> last-good: "";
+    property <bool> editable: root.enabled && !root.read-only;
+    property <bool> hovered: (hover-area.has-hover && root.enabled && !root.read-only) || root.forced-state == 1;
+    property <bool> focused: ti.has-focus || root.forced-state == 2;
+    property <color> fg: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> muted: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+    property <length> control-height: root.size == InputSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == InputSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    property <length> icon-size: root.size == InputSize.lg ? Tokens.icon-medium : Tokens.icon-small;
+
+    function clamp-value(v: float) -> float {
+        return max(root.minimum, min(root.maximum, v));
+    }
+
+    // Stores `v` clamped, and shows it. Fires `changed` only when the value moves.
+    function commit(v: float) {
+        let next = root.clamp-value(v);
+        root.text = "\{next}";
+        root.last-good = root.text;
+        if (next != root.value) {
+            root.value = next;
+            root.changed(next);
+        }
+    }
+
+    // Enter and focus loss: parse the text, clamp it, and show the result. Empty or unparsable text goes back to the value.
+    function commit-text() {
+        if (root.text != "" && root.text.is-float()) {
+            root.commit(root.text.to-float());
+        } else {
+            root.text = "\{root.value}";
+            root.last-good = root.text;
+        }
+    }
+
+    function step-by(direction: float) {
+        if (root.editable) {
+            let base = root.text != "" && root.text.is-float() ? root.text.to-float() : root.value;
+            root.commit(base + direction * root.step);
+        }
+    }
+
+    init => {
+        root.text = "\{root.value}";
+        root.last-good = root.text;
+    }
+
+    // Test hooks: a click on the field focuses it; a click on the step buttons steps by `direction`.
+    // The caret goes to the end of the text, as a click past the text leaves it.
+    public function test-focus() {
+        ti.focus();
+        ti.set-selection-offsets(ti.text.character-count, ti.text.character-count);
+    }
+    public function test-step(direction: float) { root.step-by(direction); }
+
+    accessible-role: spinbox;
+    accessible-label: root.accessible-name;
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    forward-focus: ti;
+
+    height: root.control-height;
+    min-width: 120px;
+    horizontal-stretch: 1;
+    border-radius: Tokens.radius-control;
+    background: !root.enabled ? Tokens.disabled-surface : Tokens.surface-raised;
+    border-width: root.focused ? 2px : 1px;
+    border-color: root.focused ? Tokens.focus-ring
+        : (root.invalid ? Tokens.status-danger-border
+        : (!root.enabled ? Tokens.disabled-border
+        : (root.hovered ? Tokens.border-strong : Tokens.border-subtle)));
+
+    // Behind the children: a click on the frame, including the empty part past the text, focuses the field.
+    hover-area := TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.not-allowed;
+        clicked => { ti.focus(); }
+    }
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-1;
+        spacing: Tokens.space-2;
+
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 1px;
+            clip: true;
+
+            ti := TextInput {
+                width: parent.width;
+                height: parent.height;
+                vertical-alignment: center;
+                single-line: true;
+                text <=> root.text;
+                color: root.fg;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                selection-background-color: Tokens.accent-fill;
+                selection-foreground-color: Tokens.text-on-accent;
+                read-only: !root.editable;
+                enabled: root.enabled;
+                accessible-role: none;
+
+                key-pressed(event) => {
+                    if (event.text == Key.UpArrow) {
+                        root.step-by(1);
+                        return accept;
+                    }
+                    if (event.text == Key.DownArrow) {
+                        root.step-by(-1);
+                        return accept;
+                    }
+                    return reject;
+                }
+
+                // Keep only edits that leave a number-like text; anything else is undone.
+                edited => {
+                    if (self.text == "" || self.text == "-" || self.text == "." || self.text.is-float()) {
+                        root.last-good = self.text;
+                    } else {
+                        self.text = root.last-good;
+                    }
+                }
+
+                accepted => {
+                    root.commit-text();
+                }
+            }
+        }
+
+        InputAction {
+            label: root.decrease-label;
+            icon: Icons.minus;
+            ink: root.muted;
+            enabled: root.enabled && !root.read-only;
+            icon-size: root.icon-size;
+            activated => { root.step-by(-1); }
+        }
+
+        InputAction {
+            label: root.increase-label;
+            icon: Icons.plus;
+            ink: root.muted;
+            enabled: root.enabled && !root.read-only;
+            icon-size: root.icon-size;
+            activated => { root.step-by(1); }
+        }
+    }
+
+    // Losing focus clamps the value, like Enter.
+    changed has-focus => {
+        InputFocus.focused-count += self.has-focus ? 1 : -1;
+        if (!ti.has-focus) {
+            root.commit-text();
+        }
+    }
+}

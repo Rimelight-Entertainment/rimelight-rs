@@ -1,0 +1,76 @@
+// FilterBar (P0.17 batch 3). A search field, one removable Tag per active filter, and a "Clear all" button. The bar holds no
+// filter state of its own: the caller owns the chips and the query and reacts to the callbacks.
+//
+// Keyboard: Tab goes through the search field, its own clear button while there is text (a stop of SearchField), then each
+// chip's remove button in order, then "Clear all" (disabled, so not a stop, when there are no chips). Enter or Space on a remove button calls `chip-removed`. Typing in the search field
+// calls `query-changed` for each change.
+//
+// Callbacks. `query-changed(text)` fires for each edit of the search text, and `query` is set before it runs.
+// `chip-removed(key)` fires with the key of the chip whose remove button was pressed; the chip is not removed here.
+// `cleared()` fires for "Clear all"; the caller clears the chips and, if it wants, the query.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { SearchField } from "search-field.slint";
+import { Tag } from "tag.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+
+export struct FilterChip {
+    // The caller's identifier, returned by `chip-removed`.
+    key: string,
+    // The text shown on the tag. The remove button is named "Remove <label>".
+    label: string,
+}
+
+export component FilterBar inherits HorizontalLayout {
+    in property <[FilterChip]> chips;
+    // The search text, two-way.
+    in-out property <string> query;
+    in property <string> search-label: "Search";
+    in property <string> placeholder: "Search";
+    in property <string> clear-all-label: "Clear all";
+    callback query-changed(string);
+    callback chip-removed(string);
+    callback cleared();
+
+    // Test hooks. `test-chip-remove` is what chip `i`'s remove button does on a press; `test-remove-label` reads its
+    // accessible name; `test-clear-all` is a press on "Clear all" (the button is disabled with no chips).
+    public function test-chip-remove(i: int) {
+        root.chip-removed(root.chips[i].key);
+    }
+    public function test-remove-label(i: int) -> string {
+        return "Remove " + root.chips[i].label;
+    }
+    public function test-clear-all() {
+        if (root.chips.length > 0) {
+            root.cleared();
+        }
+    }
+    public function test-clear-all-label() -> string {
+        return root.clear-all-label;
+    }
+
+    spacing: Tokens.space-2;
+    alignment: start;
+
+    SearchField {
+        width: 240px;
+        text <=> root.query;
+        placeholder: root.placeholder;
+        accessible-name: root.search-label;
+        changed(text) => { root.query-changed(text); }
+    }
+
+    for chip in root.chips : Tag {
+        label: chip.label;
+        removable: true;
+        remove-label: "Remove \{chip.label}";
+        removed => { root.chip-removed(chip.key); }
+    }
+
+    Button {
+        text: root.clear-all-label;
+        variant: ButtonVariant.ghost;
+        size: ButtonSize.md;
+        enabled: root.chips.length > 0;
+        clicked => { root.cleared(); }
+    }
+}

@@ -1,0 +1,84 @@
+// Timeline (P0.17 batch 4). A vertical list of dated events. Each event has a dot, a time, a title and an optional body.
+// The dot takes the event's tone (the Badge tones); a neutral event has a grey dot. A line joins the dots.
+//
+// Keyboard: none. The timeline is not interactive: it has no focus stop and handles no keys. The text is read in order.
+// The caller passes the time as text, already formatted (for example "11 Nov, 09:40").
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { BadgeTone, ToneColours } from "badge.slint";
+
+export struct TimelineEvent {
+    when: string,
+    title: string,
+    // Empty hides the body.
+    body: string,
+    tone: BadgeTone,
+}
+
+// One event: the dot and the line below it (not on the last event), with the text to its right.
+component TimelineRow inherits HorizontalLayout {
+    in property <TimelineEvent> event;
+    in property <bool> last: false;
+
+    spacing: Tokens.space-3;
+    alignment: start;
+
+    VerticalLayout {
+        width: Tokens.size-badge-dot;
+        alignment: start;
+        Rectangle {
+            width: Tokens.size-badge-dot;
+            height: Tokens.size-badge-dot;
+            border-radius: Tokens.radius-pill;
+            background: root.event.tone == BadgeTone.neutral ? Tokens.border-strong : ToneColours.fill(root.event.tone);
+        }
+        if !root.last : Rectangle {
+            width: 2px;
+            vertical-stretch: 1;
+            background: Tokens.border-subtle;
+        }
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: start;
+        padding-bottom: Tokens.space-4;
+        spacing: Tokens.space-1;
+
+        Text {
+            text: root.event.when;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            wrap: word-wrap;
+        }
+        Text {
+            text: root.event.title;
+            color: Tokens.text-primary;
+            font-family: Type.body-strong.family;
+            font-size: Type.body-strong.size;
+            font-weight: Type.body-strong.weight;
+            wrap: word-wrap;
+        }
+        if root.event.body != "" : Text {
+            text: root.event.body;
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            wrap: word-wrap;
+        }
+    }
+}
+
+export component Timeline inherits VerticalLayout {
+    in property <[TimelineEvent]> events;
+
+    spacing: 0px;
+    alignment: start;
+
+    for entry[i] in root.events : TimelineRow {
+        event: entry;
+        last: i == root.events.length - 1;
+    }
+}

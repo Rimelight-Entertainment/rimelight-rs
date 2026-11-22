@@ -1,0 +1,123 @@
+// ResizablePanel (P0.17 batch 3). One panel whose width the user can change with a drag handle on one of its vertical edges.
+// The panel draws its content (children) and the handle. It has no state beyond its size, and it does not save the size: the
+// caller reads `resized` and stores the value if it wants it kept.
+//
+// Size. `size` is the requested width, two-way. The width shown is `shown`: `size` clamped to [`min-size`, `max-size`].
+// A drag or a key cannot go past the limits, and a size set from outside is clamped the same way.
+//
+// Edge. `edge: end` puts the handle on the right edge (dragging right widens the panel). `edge: start` puts it on the left
+// edge (dragging left widens it). Only the width is resizable; a vertical panel is not supported (see the README gaps).
+//
+// Keyboard (window splitter pattern): the handle is ONE Tab stop. Right widens the panel by space-4 and Left narrows it,
+// mirrored for `edge: start`. Home sets the panel to `min-size` and End to `max-size`. A key that does not change the size
+// still shows the focus ring.
+//
+// Pointer: press the handle and move. A click without a move does not change the size. `resized(width)` fires on each
+// change, from keys and drags alike, with the new width. `size` is set before it runs.
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export enum PanelEdge { start, end }
+
+export component ResizablePanel inherits Rectangle {
+    in property <PanelEdge> edge: PanelEdge.end;
+    // The requested width, two-way.
+    in-out property <length> size: 240px;
+    in property <length> min-size: 120px;
+    in property <length> max-size: 480px;
+    // Accessible name of the handle.
+    in property <string> accessible-name: "Resize panel";
+    // Forced look for captures: 2 shows the focus ring on the handle. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // The width shown: `size` clamped to the limits.
+    out property <length> shown: max(root.min-size, min(root.size, root.max-size));
+    // True while the handle holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    callback resized(length);
+
+    property <length> grab: Tokens.space-2;
+    property <length> step: Tokens.space-4;
+    property <length> drag-origin;
+    property <length> drag-start;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+    // +1 when moving the handle right widens the panel, -1 when it narrows it.
+    property <int> sign: root.edge == PanelEdge.end ? 1 : -1;
+
+    // Sets the size inside the limits. `resized` fires only when the size changes.
+    function set-size(s: length) {
+        let next = max(root.min-size, min(s, root.max-size));
+        if (next != root.size) {
+            root.size = next;
+            root.resized(next);
+        }
+    }
+
+    // dir is +1 for Right and -1 for Left; the handle's edge decides which way that widens.
+    function resize-by(dir: int) {
+        root.set-size(root.shown + root.step * (dir * root.sign));
+    }
+
+    // Test hooks: the handle's window geometry, so a test can press it with real pointer events.
+    out property <length> test-handle-x: handle.absolute-position.x;
+    out property <length> test-handle-y: handle.absolute-position.y;
+    out property <length> test-handle-width: handle.width;
+    out property <length> test-handle-height: handle.height;
+
+    width: root.shown;
+    clip: true;
+    background: Tokens.surface-raised;
+
+    @children
+
+    // The handle. Declared after the children, so it draws and takes pointer input above them.
+    handle := Rectangle {
+        x: root.edge == PanelEdge.end ? root.width - root.grab : 0px;
+        y: 0px;
+        width: root.grab;
+        height: root.height;
+        background: Tokens.border-subtle;
+        border-width: root.ring-on ? 2px : 0px;
+        border-color: Tokens.focus-ring;
+
+        // The one Tab stop of the handle: it takes focus and keys.
+        fs := FocusScope {
+            width: parent.width;
+            height: parent.height;
+            key-pressed(event) => {
+                if (event.text == Key.RightArrow) {
+                    root.resize-by(1);
+                    return accept;
+                }
+                if (event.text == Key.LeftArrow) {
+                    root.resize-by(-1);
+                    return accept;
+                }
+                if (event.text == Key.Home) {
+                    root.set-size(root.min-size);
+                    return accept;
+                }
+                if (event.text == Key.End) {
+                    root.set-size(root.max-size);
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        ta := TouchArea {
+            mouse-cursor: ew-resize;
+            accessible-role: button;
+            accessible-label: root.accessible-name;
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                    root.drag-origin = self.absolute-position.x + self.mouse-x;
+                    root.drag-start = root.shown;
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    root.set-size(root.drag-start + (self.absolute-position.x + self.mouse-x - root.drag-origin) * root.sign);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,305 @@
+// ImageViewer (new). A modal that shows one image of a list at a time, scaled to fit the window, over a dimmed backdrop.
+// Drawn from the Tokens global.
+//
+// Layer and focus: the same model as Dialog (ui/components/dialog.slint): a PopupWindow sized to the host window and
+// placed at its top left, so it covers the window and takes every press, with a focus scope as its first stop. Core
+// gives the focus back to the opener when it closes. Caller contract: focus the opener before `is-open` becomes true, as
+// the Dialog trigger does. A page can place one anywhere: the component is zero-sized in the layout and its popup covers
+// the window.
+//
+// Dismissal. Escape, Android Back, the close control and a backdrop click close it. Left and Right move to the previous
+// and next image. Those controls and the "n of m" counter are drawn only when there is more than one image.
+//
+// Open state. `is-open` is two-way: set it to true to show the viewer, read it back to see whether it is shown. (The
+// name is not `visible`, which every Element already has.) `current-index` is two-way too; `index-changed` fires when the
+// user moves to another image, and `closed` and `opened` fire on each change of `is-open`.
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { ButtonVariant, ButtonSize } from "button.slint";
+import { IconButton } from "icon-button.slint";
+
+// One image of the viewer. `image` is the decoded picture; `title` is shown above it (the file name, for example).
+export struct ImageViewerItem {
+    image: image,
+    title: string,
+}
+
+export component ImageViewer inherits Rectangle {
+    in property <[ImageViewerItem]> images: [];
+    // The image shown. Clamped to the list when read, so an out-of-range value shows the nearest image.
+    in-out property <int> current-index: 0;
+    // true shows the viewer; false closes it.
+    in-out property <bool> is-open: false;
+    // Accessible names of the controls (they show icons).
+    in property <string> close-label: "Close";
+    in property <string> previous-label: "Previous image";
+    in property <string> next-label: "Next image";
+    // Size of the window the viewer covers. The popup is clipped to the window (see dialog.slint).
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    callback opened();
+    callback closed();
+    // The index of the image the user moved to with the arrows (or the keys). Fires after current-index is set.
+    callback index-changed(int);
+
+    // The image actually shown: current-index clamped to the list (-1 when the list is empty).
+    out property <int> shown-index: max(-1, min(root.current-index, root.images.length - 1));
+    // Incremented on each open: moves focus to the key scope once the popup is shown.
+    property <int> focus-request: 0;
+    property <bool> multiple: root.images.length > 1;
+
+    // Moves by `delta` (-1 previous, 1 next), wrapping at both ends. Does nothing with fewer than two images.
+    function step(delta: int) {
+        if (root.images.length < 2) {
+            return;
+        }
+        let stepped = root.shown-index + delta;
+        root.current-index = stepped < 0
+            ? root.images.length - 1
+            : (stepped >= root.images.length ? 0 : stepped);
+        root.index-changed(root.current-index);
+    }
+
+    public function open() {
+        root.is-open = true;
+    }
+
+    public function close() {
+        root.is-open = false;
+    }
+
+    // Test hooks: the arrows, as their buttons run them.
+    public function test-step(delta: int) {
+        root.step(delta);
+    }
+
+    changed is-open => {
+        TooltipHub.popup-event();
+        if (root.is-open) {
+            pop.show();
+            root.focus-request += 1;
+            root.opened();
+        } else {
+            if (pop.is-open) {
+                pop.close();
+            }
+            root.closed();
+        }
+    }
+
+    // Zero-sized in the page. The popup it opens covers the window (see the header).
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    accessible-role: none;
+
+    pop := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: root.host-width;
+        height: root.host-height;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        keys := FocusScope {
+            x: 0px;
+            y: 0px;
+            width: root.host-width;
+            height: root.host-height;
+
+            key-pressed(event) => {
+                if (event.text == Key.Escape || event.text == Key.Back) {
+                    root.close();
+                    return accept;
+                }
+                if (event.text == Key.LeftArrow) {
+                    root.step(-1);
+                    return accept;
+                }
+                if (event.text == Key.RightArrow) {
+                    root.step(1);
+                    return accept;
+                }
+                return reject;
+            }
+
+            property <int> seen-request: root.focus-request;
+            changed seen-request => {
+                keys.focus();
+            }
+
+            // The dimmed backdrop. A press on it, outside the image and the controls, closes the viewer.
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                background: Tokens.scrim;
+            }
+
+            backdrop := TouchArea {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                clicked => {
+                    root.close();
+                }
+            }
+
+            // The picture, centred and scaled to fit, with room for the title above and the counter below.
+            if root.images.length > 0 : Image {
+                x: Tokens.space-12;
+                y: Tokens.space-12;
+                width: parent.width - 2 * Tokens.space-12;
+                height: parent.height - 2 * Tokens.space-12;
+                source: root.images[root.shown-index].image;
+                image-fit: contain;
+                accessible-role: image;
+                accessible-label: root.images[root.shown-index].title;
+            }
+
+            // Absorbs presses on the picture, so they do not reach the backdrop.
+            if root.images.length > 0 : TouchArea {
+                x: Tokens.space-12;
+                y: Tokens.space-12;
+                width: parent.width - 2 * Tokens.space-12;
+                height: parent.height - 2 * Tokens.space-12;
+            }
+
+            // The title, on a pill so it reads on either theme.
+            if root.images.length > 0 && root.images[root.shown-index].title != "" : Rectangle {
+                x: Tokens.space-4;
+                y: Tokens.space-4;
+                width: min(parent.width - 2 * Tokens.space-4 - 56px, title-text.preferred-width + 2 * Tokens.space-3);
+                height: Tokens.size-control-md;
+                background: Tokens.surface-overlay;
+                border-radius: Tokens.radius-surface;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+
+                title-text := Text {
+                    x: Tokens.space-3;
+                    width: parent.width - 2 * Tokens.space-3;
+                    height: parent.height;
+                    text: root.images[root.shown-index].title;
+                    color: Tokens.text-primary;
+                    font-family: Type.body-strong.family;
+                    font-size: Type.body-strong.size;
+                    font-weight: Type.body-strong.weight;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+
+            // The close control, top right.
+            close-pill := Rectangle {
+                x: parent.width - Tokens.size-control-md - Tokens.space-4;
+                y: Tokens.space-4;
+                width: Tokens.size-control-md;
+                height: Tokens.size-control-md;
+                background: Tokens.surface-overlay;
+                border-radius: Tokens.radius-pill;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+
+                IconButton {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    icon: Icons.x;
+                    label: root.close-label;
+                    tooltip: root.close-label;
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    clicked => {
+                        root.close();
+                    }
+                }
+            }
+
+            // The previous and next controls, at the middle of each side. Only with more than one image.
+            if root.multiple : Rectangle {
+                x: Tokens.space-4;
+                y: (parent.height - self.height) / 2;
+                width: Tokens.size-control-md;
+                height: Tokens.size-control-md;
+                background: Tokens.surface-overlay;
+                border-radius: Tokens.radius-pill;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+
+                IconButton {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    icon: Icons.chevron-left;
+                    label: root.previous-label;
+                    tooltip: root.previous-label;
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    clicked => {
+                        root.step(-1);
+                    }
+                }
+            }
+
+            if root.multiple : Rectangle {
+                x: parent.width - Tokens.size-control-md - Tokens.space-4;
+                y: (parent.height - self.height) / 2;
+                width: Tokens.size-control-md;
+                height: Tokens.size-control-md;
+                background: Tokens.surface-overlay;
+                border-radius: Tokens.radius-pill;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+
+                IconButton {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    icon: Icons.chevron-right;
+                    label: root.next-label;
+                    tooltip: root.next-label;
+                    variant: ButtonVariant.ghost;
+                    size: ButtonSize.sm;
+                    clicked => {
+                        root.step(1);
+                    }
+                }
+            }
+
+            // The "n of m" counter, bottom centre. Only with more than one image.
+            if root.multiple : Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: parent.height - Tokens.size-control-md - Tokens.space-4;
+                width: counter-text.preferred-width + 2 * Tokens.space-3;
+                height: Tokens.size-control-md;
+                background: Tokens.surface-overlay;
+                border-radius: Tokens.radius-surface;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+
+                counter-text := Text {
+                    x: Tokens.space-3;
+                    width: parent.width - 2 * Tokens.space-3;
+                    height: parent.height;
+                    text: "\{root.shown-index + 1} of \{root.images.length}";
+                    color: Tokens.text-muted;
+                    font-family: Type.caption.family;
+                    font-size: Type.caption.size;
+                    font-weight: Type.caption.weight;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

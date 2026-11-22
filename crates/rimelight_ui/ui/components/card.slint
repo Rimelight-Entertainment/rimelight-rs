@@ -1,0 +1,42 @@
+// Card (P0.17 batch 1). A surface that groups related content: an optional title, then its children.
+// Two surfaces: `raised` (the raised surface colour, the default) and `sunken` (the sunken surface colour, for a
+// well inside a raised area). Drawn from the Tokens global. A 1 px border-strong edge keeps the raised card apart from the section surface, which is close in value in the dark theme.
+//
+// Keyboard: a Card takes no focus of its own and is not a Tab stop. Interactive content (a Button or Link) inside the
+// card keeps its own Tab stop and keys. A whole-card click target is not part of this batch.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export enum CardSurface { raised, sunken }
+
+export component Card inherits Rectangle {
+    in property <string> title;
+    in property <CardSurface> surface: CardSurface.raised;
+
+    accessible-role: none;
+
+    background: root.surface == CardSurface.raised ? Tokens.surface-raised : Tokens.surface-sunken;
+    border-radius: Tokens.radius-surface;
+    border-width: 1px;
+    border-color: Tokens.border-strong;
+    clip: true;
+
+    VerticalLayout {
+        padding: Tokens.space-4;
+        spacing: Tokens.space-3;
+        alignment: start;
+
+        if root.title != "" : Text {
+            text: root.title;
+            color: Tokens.text-primary;
+            font-family: Type.subheading.family;
+            font-size: Type.subheading.size;
+            font-weight: Type.subheading.weight;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: root.title;
+        }
+
+        @children
+    }
+}

@@ -1,0 +1,426 @@
+// Tab strip (S9.2). One row of tabs: select, close, and reorder by drag. Drawn from the Tokens global
+// and the typography styles only. The Rust side (src/slint_ui/workspace.rs) owns the tab order and the active tab; this
+// component only draws and reports.
+//
+// Slots. An unpinned tab is `tab-width` wide, a pinned tab is `pinned-width` and draws a pin glyph and its first letter. The pinned
+// tabs are the first `pinned-count` tabs. `slot-x` sums the real widths before a slot, so the owner maps a pointer to an
+// insertion slot with the same widths (src/slint_ui/tile_drop.rs). The strip does no slot maths of its own for a drag.
+//
+// Drag. A press and a move of more than 4 px is a drag; the strip reports the pointer in strip-local px. `drag-moved(index,
+// x, y)` on each move of a drag and `drag-dropped(index, x, y)` on the release. The owner decides what the drop does (a
+// reorder, or a move to another group, see AppShell) and shows where it lands by setting `drop-mark` to an insertion slot
+// (-1 for none), drawn as a bar. The strip never changes its own tabs.
+//
+// Callbacks. `activated(index)` on a press and release without a drag, and on Enter or Space on the focused tab. `closed(index)`
+// when the close control is clicked, on a middle-button release on the tab (a pinned tab has no close control, so the middle
+// button is its close), and on Delete on the focused tab (not a pinned tab). `context-requested(index, x, y)` on a right press,
+// with the pointer in window coordinates, and on Shift+F10 or the Menu key on the focused tab, anchored at that tab's bottom
+// left; the owner opens the tab menu there (it owns the menu, see AppShell). The component does not change `active`; the caller
+// does, from `activated` or the drop.
+//
+// Keyboard (roving focus, as content-tabs.slint). The whole strip is ONE Tab stop. Tab from before the strip lands on the
+// focused tab, which starts on the active one. Right and Left move the focus to the next and previous tab and wrap at the
+// ends; they only move the focus, the active tab does not change. Home and End move the focus to the first and last tab.
+// Enter and Space activate the focused tab. Delete closes it (not a pinned one). Shift+F10 and the Menu key open its context
+// menu. Escape calls `leave-requested` (the owner gives the focus back to the content). The next Tab after the strip leaves it.
+// The focused tab shows a focus ring. `focus-changed(focused, index)` reports the focus and the focused tab (-1 when the
+// strip has no focus), so the owner can focus its own group.
+//
+// Pinned tooltip (gaps D4). A pinned tab is narrow, so its full title is a tooltip, shown on hover and on keyboard focus. The
+// strip's own clip would cut a bubble, so the strip does not draw it: `tip-changed(shown, text, x, y, w, h)` reports the tab
+// to show, in window px, and the owner (AppShell) draws the Tooltip at window level.
+//
+// Accessibility. The strip is a tab-list named by `accessible-name`. Each tab is a tab labelled with its title, checked when
+// it is active. Its close control is labelled "Close <title>". A pinned tab has no close control; its title is its label.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { TooltipHub } from "tooltip.slint";
+
+export struct TabItem {
+    label: string,
+    // The letter a pinned tab draws (the first letter of the title, in capitals).
+    short-label: string,
+    pinned: bool,
+}
+
+export component TabStrip inherits Rectangle {
+    in property <[TabItem]> tabs;
+    in-out property <int> active: 0;
+    // How many tabs at the left are pinned. The owner keeps the pinned tabs first in `tabs`.
+    in property <int> pinned-count: 0;
+    // The width of every tab. A drag maps the pointer distance to a number of slots with it.
+    out property <length> tab-width: Tokens.size-control-md * 4;
+    // The width of a pinned tab: one control height, enough for its letter.
+    out property <length> pinned-width: Tokens.size-control-md;
+    // The insertion slot where a drop lands, set by the owner while a drag is over this strip (-1 for none).
+    in property <int> drop-mark: -1;
+    // The height of the strip and its tabs. The page-tab strips use the control height; the workspace strip passes the sidebar
+    // context-header height so the two rows match.
+    in property <length> strip-height: Tokens.size-control-md;
+    // The close control's box: a small ghost icon button (its glyph sits centred in it).
+    out property <length> close-size: Tokens.size-control-sm;
+    // The strip's own fill. The workspace strip uses the base surface, so it reads apart from the page-tab strip below it.
+    in property <color> strip-background: Tokens.surface-sunken;
+    // A 2px accent line along the foot of the active tab (the workspace strip's selected treatment).
+    in property <bool> accent-underline: false;
+    // Accessible name of the tab list.
+    in property <string> accessible-name: "Tabs";
+    callback activated(int);
+    callback closed(int);
+    callback drag-moved(int, float, float);
+    callback drag-dropped(int, float, float);
+    callback context-requested(int, float, float);
+    // Escape on the strip: the owner moves the keyboard focus back to the content.
+    callback leave-requested();
+    // The strip's keyboard focus: whether it has it, and the focused tab (-1 when it has none).
+    callback focus-changed(bool, int);
+    // The pinned tooltip to show (false to hide), its text and the tab's window rectangle in px.
+    callback tip-changed(bool, string, float, float, float, float);
+
+    // Drag state: the tab pressed (-1 when none), whether the press became a drag, and the pointer when it was pressed.
+    property <int> drag-from: -1;
+    property <bool> dragging: false;
+    property <length> press-x;
+    property <length> press-y;
+
+    // Keyboard: the tab with the roving focus, and the tab under the pointer (-1 for none).
+    in-out property <int> focus-index: 0;
+    property <int> hover-index: -1;
+    // True while the strip holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // The width the tabs take together. The workspace strip is this wide so its "+" button sits right after the last tab.
+    out property <length> content-width: root.slot-x(root.tabs.length);
+
+    height: root.strip-height;
+    background: root.strip-background;
+    accessible-role: tab-list;
+    accessible-label: root.accessible-name;
+
+    // The x of tab `index`. Pinned tabs come first and are narrow; the others are `tab-width` each.
+    function slot-x(index: int) -> length {
+        return index < root.pinned-count
+            ? index * root.pinned-width
+            : root.pinned-count * root.pinned-width + (index - root.pinned-count) * root.tab-width;
+    }
+
+    // Test hook: the x of tab `index` in strip px (the same as slot-x), read by AppShell's test hooks for the workspace strip.
+    public function test-slot-x(index: int) -> length {
+        return root.slot-x(index);
+    }
+
+    function pinned-at(index: int) -> bool {
+        return index >= 0 && index < root.tabs.length && root.tabs[index].pinned;
+    }
+
+    // Moves the focus one tab forward (dir 1) or back (dir -1), wrapping at the ends. The active tab does not change.
+    function move-focus(dir: int) {
+        if (root.tabs.length > 0) {
+            if (dir > 0) {
+                root.focus-index = root.focus-index + 1 < root.tabs.length ? root.focus-index + 1 : 0;
+            } else {
+                root.focus-index = root.focus-index > 0 ? root.focus-index - 1 : root.tabs.length - 1;
+            }
+        }
+    }
+
+    // Drop indicator: a thin bar at the insertion slot the owner set. Hidden while no drop is previewed here.
+    // The tabs are clipped by their own area below, so the bar and the accent line stay inside the strip.
+    tabs-area := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        clip: true;
+
+    Rectangle {
+        x: root.slot-x(max(0, root.drop-mark));
+        y: 0px;
+        width: 2px;
+        height: parent.height;
+        z: 2;
+        visible: root.drop-mark >= 0;
+        background: Tokens.accent-default;
+    }
+
+    // Selected-tab accent: a 2px line along the foot of the active tab, drawn over it. Hidden unless `accent-underline`.
+    Rectangle {
+        x: root.slot-x(max(0, root.active));
+        y: parent.height - 2px;
+        width: (root.active >= 0 && root.active < root.tabs.length)
+            ? (root.tabs[max(0, min(root.active, root.tabs.length - 1))].pinned ? root.pinned-width : root.tab-width)
+            : 0px;
+        height: 2px;
+        z: 2;
+        visible: root.accent-underline && root.active >= 0 && root.active < root.tabs.length;
+        background: Tokens.accent-default;
+    }
+
+    for item[index] in root.tabs : Rectangle {
+        x: root.slot-x(index);
+        y: 0px;
+        width: item.pinned ? root.pinned-width : root.tab-width;
+        height: parent.height;
+        background: index == root.active ? Tokens.surface-raised : transparent;
+        // The keyboard focus ring: on the focused tab while the strip has the keyboard focus.
+        border-width: root.has-focus && root.focus-index == index ? 2px : 0px;
+        border-color: Tokens.focus-ring;
+        border-radius: Tokens.radius-none;
+
+        Text {
+            visible: !item.pinned;
+            x: Tokens.space-3;
+            y: 0px;
+            width: parent.width - Tokens.space-3 - root.close-size - Tokens.space-3 - Tokens.space-2;
+            height: parent.height;
+            text: item.label;
+            color: index == root.active ? Tokens.text-primary : Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            wrap: no-wrap;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+
+        // A pinned tab shows a small pin glyph and its first letter. Its full title is still the accessible label (the body
+        // TouchArea below), and the tab menu shows it too.
+        Image {
+            visible: item.pinned;
+            x: 5px;
+            y: (parent.height - self.height) / 2;
+            width: 12px;
+            height: 12px;
+            source: Icons.pin;
+            colorize: index == root.active ? Tokens.text-primary : Tokens.text-muted;
+            accessible-role: none;
+        }
+
+        Text {
+            visible: item.pinned;
+            x: 17px;
+            y: 0px;
+            width: parent.width - 17px - 5px;
+            height: parent.height;
+            text: item.short-label;
+            color: index == root.active ? Tokens.text-primary : Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+
+        // The tab body: a press selects it, a press with a move drags it to another slot, a right press asks for the
+        // tab menu and a middle-button release closes the tab. Its hover feeds the pinned tooltip.
+        TouchArea {
+            accessible-role: tab;
+            accessible-label: item.label;
+            accessible-checkable: true;
+            accessible-checked: index == root.active;
+            changed has-hover => {
+                if (self.has-hover) {
+                    root.hover-index = index;
+                } else if (root.hover-index == index) {
+                    root.hover-index = -1;
+                }
+            }
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    TooltipHub.pointer-down();
+                }
+                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                    root.drag-from = index;
+                    root.dragging = false;
+                    root.press-x = self.absolute-position.x + self.mouse-x;
+                    root.press-y = self.absolute-position.y + self.mouse-y;
+                } else if (event.kind == PointerEventKind.up && root.drag-from == index) {
+                    if (root.dragging) {
+                        root.drag-dropped(index,
+                            (self.absolute-position.x - root.absolute-position.x + self.mouse-x) / 1px,
+                            (self.absolute-position.y - root.absolute-position.y + self.mouse-y) / 1px);
+                    } else {
+                        root.activated(index);
+                    }
+                    root.drag-from = -1;
+                    root.dragging = false;
+                } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                    root.context-requested(index,
+                        (self.absolute-position.x + self.mouse-x) / 1px,
+                        (self.absolute-position.y + self.mouse-y) / 1px);
+                } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.middle) {
+                    root.closed(index);
+                }
+            }
+            moved => {
+                if (root.drag-from == index && self.pressed) {
+                    // A drag starts once the pointer has moved more than 4 px from the press.
+                    if (!root.dragging
+                        && ((self.absolute-position.x + self.mouse-x - root.press-x) > 4px
+                            || (self.absolute-position.x + self.mouse-x - root.press-x) < -4px
+                            || (self.absolute-position.y + self.mouse-y - root.press-y) > 4px
+                            || (self.absolute-position.y + self.mouse-y - root.press-y) < -4px)) {
+                        root.dragging = true;
+                    }
+                    if (root.dragging) {
+                        root.drag-moved(index,
+                            (self.absolute-position.x - root.absolute-position.x + self.mouse-x) / 1px,
+                            (self.absolute-position.y - root.absolute-position.y + self.mouse-y) / 1px);
+                    }
+                }
+            }
+        }
+
+        // The close control sits on top of the body (declared after it), so its click does not start a drag. A pinned tab
+        // has none: it closes from the tab menu (Close) or the middle button.
+        // Its look is the ghost IconButton's: the same hover and pressed fills, square corners. Only the visuals change here;
+        // the TouchArea and its press handling stay as they were. The tab's own focus ring covers the keyboard.
+        if !item.pinned : TouchArea {
+            x: parent.width - Tokens.space-3 - root.close-size;
+            y: (parent.height - root.close-size) / 2;
+            width: root.close-size;
+            height: root.close-size;
+            accessible-role: button;
+            accessible-label: "Close " + item.label;
+            clicked => {
+                root.closed(index);
+            }
+
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                border-radius: Tokens.radius-none;
+                background: parent.pressed ? Tokens.button-ghost-bg-active
+                    : (parent.has-hover ? Tokens.button-ghost-bg-hover : transparent);
+            }
+
+            Image {
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: Icons.x;
+                colorize: index == root.active ? Tokens.text-primary : Tokens.text-muted;
+            }
+        }
+    }
+    }
+
+    // The tab with the roving focus is the one the pinned tooltip shows for, when it is pinned: on keyboard focus, or else
+    // the pinned tab under the pointer. -1 for none.
+    // The TooltipHub rule applies (see tooltip.slint): a press, drag, key, popup or scroll since the trigger began hides it
+    // until the pointer re-enters a tab or the focus moves; a focus that came with the pointer shows nothing.
+    property <int> tip-epoch: 0;
+    property <bool> tip-live: root.tip-epoch == TooltipHub.dismiss-tick && root.drag-from < 0;
+    out property <int> tip-index: (root.tip-live && root.has-focus && !TooltipHub.mouse-mode && root.pinned-at(root.focus-index))
+        ? root.focus-index
+        : ((root.tip-live && root.pinned-at(root.hover-index)) ? root.hover-index : -1);
+
+    changed hover-index => { root.tip-epoch = TooltipHub.dismiss-tick; }
+
+    // Test hook: a tick from the app shell reports the tab 0 tooltip, as a hover over the pinned tab would.
+    in property <int> test-hover-tick: 0;
+    changed test-hover-tick => {
+        root.tip-changed(true, root.tabs[0].label,
+            (root.absolute-position.x + root.slot-x(0)) / 1px,
+            root.absolute-position.y / 1px,
+            root.pinned-width / 1px,
+            root.height / 1px);
+    }
+
+    changed tip-index => {
+        root.tip-changed(root.tip-index >= 0,
+            root.tabs[max(0, root.tip-index)].label,
+            (root.absolute-position.x + root.slot-x(max(0, root.tip-index))) / 1px,
+            root.absolute-position.y / 1px,
+            root.pinned-width / 1px,
+            root.height / 1px);
+    }
+
+    // Reports the focus: whether the strip has it, and the focused tab.
+    function report-focus() {
+        root.focus-changed(root.has-focus, root.has-focus ? root.focus-index : -1);
+    }
+
+    changed has-focus => {
+        root.tip-epoch = TooltipHub.dismiss-tick;
+        if (root.has-focus) {
+            // Tab enters the strip on its active tab.
+            root.focus-index = root.active;
+        }
+        root.report-focus();
+    }
+
+    changed focus-index => {
+        root.tip-epoch = TooltipHub.dismiss-tick;
+        root.report-focus();
+    }
+
+    // A menu this strip opened (Shift+F10, the Menu key or a right press) gives the focus back here when it closes: the
+    // menu's own focus restore goes to its target, not to this strip. `refocus` is set by the owner for the strip that opened
+    // the menu, and `refocus-tick` changes on each close.
+    in property <bool> refocus: false;
+    in property <int> refocus-tick: 0;
+    changed refocus-tick => {
+        if (root.refocus) {
+            fs.focus();
+        }
+    }
+
+    // A removed tab can leave the focus past the end; it moves to the last tab.
+    changed tabs => {
+        if (root.focus-index >= root.tabs.length) {
+            root.focus-index = max(0, root.tabs.length - 1);
+        }
+    }
+
+    // The one Tab stop of the strip. It has no size: it takes focus and keys only.
+    fs := FocusScope {
+        enabled: root.tabs.length > 0;
+        focus-on-click: false;
+        key-pressed(event) => {
+            // A navigation key re-arms the pinned tooltip for the tab it lands on (the window saw the key first and hid it).
+            if (event.text == Key.RightArrow || event.text == Key.LeftArrow || event.text == Key.Home || event.text == Key.End) {
+                root.tip-epoch = TooltipHub.dismiss-tick;
+            }
+            if (event.text == Key.RightArrow) {
+                root.move-focus(1);
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.move-focus(-1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.focus-index = 0;
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.focus-index = root.tabs.length - 1;
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.activated(root.focus-index);
+                return accept;
+            }
+            if (event.text == Key.Delete) {
+                if (!root.pinned-at(root.focus-index)) {
+                    root.closed(root.focus-index);
+                }
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                root.leave-requested();
+                return accept;
+            }
+            if (event.text == Key.Menu || (event.text == Key.F10 && event.modifiers.shift)) {
+                root.context-requested(root.focus-index,
+                    (root.absolute-position.x + root.slot-x(root.focus-index)) / 1px,
+                    (root.absolute-position.y + root.height) / 1px);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

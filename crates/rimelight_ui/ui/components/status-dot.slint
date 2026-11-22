@@ -1,0 +1,51 @@
+// StatusDot (P0.17 batch 1). A small coloured dot that shows a status, with an optional text label after it.
+// The colour comes from the tone (the Badge tones): success, warning, danger and info use the status tokens,
+// accent uses the accent fill, and neutral uses the strong border colour. The dot is the same size as a presence dot.
+//
+// The dot is never the only signal: pass `label` (for example "Synced") so the status is also text. With no label the
+// accessible name is `accessible-name`, which the caller should set.
+//
+// Keyboard: no focus stop and no keys. It is a read-only indicator.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { BadgeTone } from "badge.slint";
+
+export component StatusDot inherits HorizontalLayout {
+    in property <BadgeTone> tone: BadgeTone.neutral;
+    in property <string> label;
+    in property <string> accessible-name;
+
+    // The fill of the dot for the tone.
+    out property <color> dot-colour: root.tone == BadgeTone.neutral ? Tokens.border-strong
+        : root.tone == BadgeTone.accent ? Tokens.accent-fill
+        : root.tone == BadgeTone.success ? Tokens.status-success
+        : root.tone == BadgeTone.warning ? Tokens.status-warning
+        : root.tone == BadgeTone.danger ? Tokens.status-danger
+        : Tokens.status-info;
+
+    spacing: Tokens.space-2;
+    alignment: start;
+    accessible-role: text;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : root.label;
+
+    // The dot is centred on the label's line: the layout gives this slot the full height, and the dot sits in its middle.
+    Rectangle {
+        width: Tokens.size-presence-dot;
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: Tokens.size-presence-dot;
+            height: Tokens.size-presence-dot;
+            border-radius: Tokens.radius-pill;
+            background: root.dot-colour;
+        }
+    }
+
+    if root.label != "" : Text {
+        text: root.label;
+        color: Tokens.text-primary;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        vertical-alignment: center;
+    }
+}

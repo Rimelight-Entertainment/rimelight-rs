@@ -1,0 +1,219 @@
+// ViewSwitcher. A dropdown that picks one view of a page (Table, Board, and later more). The trigger shows the view on show:
+// its icon, its label and a chevron. Opening it shows a popover list of every view, each row with its icon and label, and
+// a check mark on the view on show. The caller passes the options and shows the body of `active` itself.
+//
+// Built from existing parts: the trigger is drawn from Tokens, the panel is a Popover (popover.slint), and each row is a
+// SelectRow (select.slint), so the rows look and mark the chosen one exactly as a Select does.
+//
+// Callbacks. `picked(index)` when a view is chosen, after `active` is set: by a click, or by the keyboard.
+// Keyboard. The trigger is the one focus stop. Enter, Space or Down opens the list. Inside the open list Down and Up move
+// the highlight, Home and End go to the first and last view, Enter or Space chooses the highlighted one and closes, and
+// Escape closes with no change (the popover handles Escape). Focus returns to the trigger when the list closes.
+// Accessibility. The trigger is a combobox named by `accessible-name` with the current view as its value. The list is a
+// region with the same name; each row is a list item and carries the checked state.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Popover } from "popover.slint";
+import { SelectRow } from "select.slint";
+
+export struct ViewOption {
+    label: string,
+    icon: image,
+}
+
+export component ViewSwitcher inherits Rectangle {
+    in property <[ViewOption]> options;
+    in-out property <int> active: 0;
+    in property <string> accessible-name: "View";
+    // The trigger's height. A caller that sits beside a row of small controls passes the small height so the two line up.
+    in property <length> trigger-height: Tokens.size-control-md;
+    callback picked(int);
+
+    // The row the keyboard highlight is on while the list is open. Set to `active` when the list opens.
+    property <int> highlight: 0;
+    property <bool> has-current: root.active >= 0 && root.active < root.options.length;
+    property <ViewOption> current: root.has-current ? root.options[root.active] : { label: "", icon: Icons.check };
+
+    function choose(i: int) {
+        if (i >= 0 && i < root.options.length) {
+            root.active = i;
+            root.picked(i);
+        }
+    }
+
+    function open-list() {
+        if (root.options.length > 0) {
+            root.highlight = root.has-current ? root.active : 0;
+            popover.open();
+        }
+    }
+
+    function toggle-list() {
+        if (popover.is-open) {
+            popover.close();
+        } else {
+            root.open-list();
+        }
+    }
+
+    accessible-role: combobox;
+    accessible-label: root.accessible-name;
+    accessible-value: root.current.label;
+    accessible-expandable: true;
+    accessible-expanded: popover.is-open;
+    accessible-action-default => { root.toggle-list(); }
+
+    horizontal-stretch: 0;
+    min-width: 140px;
+    height: root.trigger-height;
+    border-width: keys.has-focus || popover.is-open ? 2px : 1px;
+    border-color: keys.has-focus ? Tokens.focus-ring
+        : (popover.is-open ? Tokens.border-strong : Tokens.border-subtle);
+    border-radius: Tokens.radius-control;
+    background: Tokens.surface-raised;
+    clip: true;
+
+    // The trigger's keys. Enter, Space and Down open the list; the list itself takes the keys while it is open.
+    keys := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow) {
+                root.open-list();
+                return accept;
+            }
+            reject
+        }
+    }
+
+    // The trigger's pointer area. A press that closes an open list does not reopen it (see Popover.trigger-clicked).
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.down) {
+                popover.trigger-pressed();
+            }
+        }
+        clicked => {
+            keys.focus();
+            popover.trigger-clicked();
+            if (popover.is-open && !popover.press-was-open) {
+                root.highlight = root.has-current ? root.active : 0;
+            }
+        }
+    }
+
+    // The trigger content: icon and label on the left, chevron at the far right, the same order as a dropdown row. The label
+    // takes the free width, so the chevron sits at the trailing edge. Each child is a Rectangle of the full height so the
+    // icon and chevron centre on it, as the Select trigger does.
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        if root.has-current : Rectangle {
+            width: Tokens.icon-small;
+            Image {
+                source: root.current.icon;
+                colorize: Tokens.text-primary;
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            min-width: 1px;
+            text: root.current.label;
+            color: Tokens.text-primary;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.body-strong.weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            overflow: elide;
+            accessible-role: none;
+        }
+
+        Rectangle {
+            width: Tokens.icon-small;
+            Image {
+                source: Icons.chevron-down;
+                colorize: Tokens.text-muted;
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+
+    // The list. It is a Popover anchored to the trigger, opening below it (above when the caller has no room; it is not
+    // flipped here). Its only child is the key scope that the list focuses on open, so the keys reach the highlight.
+    popover := Popover {
+        accessible-name: root.accessible-name + " options";
+        anchor-width: root.width;
+        anchor-height: root.height;
+        panel-width: root.width;
+        content-padding: Tokens.space-1;
+        content-spacing: 0px;
+
+        list-keys := FocusScope {
+            width: 100%;
+            key-pressed(event) => {
+                if (event.text == Key.DownArrow) {
+                    root.highlight = min(root.options.length - 1, root.highlight + 1);
+                    return accept;
+                }
+                if (event.text == Key.UpArrow) {
+                    root.highlight = max(0, root.highlight - 1);
+                    return accept;
+                }
+                if (event.text == Key.Home) {
+                    root.highlight = 0;
+                    return accept;
+                }
+                if (event.text == Key.End) {
+                    root.highlight = root.options.length - 1;
+                    return accept;
+                }
+                if (event.text == Key.Return || event.text == Key.Space) {
+                    root.choose(root.highlight);
+                    popover.close();
+                    return accept;
+                }
+                reject
+            }
+
+            VerticalLayout {
+                spacing: 0px;
+
+                for item[index] in root.options : SelectRow {
+                    option: {
+                        value: item.label,
+                        label: item.label,
+                        icon: item.icon,
+                        badge: "",
+                        disabled: false,
+                        group: "",
+                    };
+                    selected: root.active == index;
+                    highlighted: root.highlight == index;
+                    heading-visible: false;
+                    row-height: Tokens.size-menu-row-height;
+                    text-size: Type.body.size;
+                    text-style: Type.body;
+                    picked => {
+                        root.choose(index);
+                        popover.close();
+                    }
+                    hovered => { root.highlight = index; }
+                }
+            }
+        }
+    }
+}

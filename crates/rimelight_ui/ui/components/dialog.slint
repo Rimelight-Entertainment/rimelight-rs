@@ -1,0 +1,350 @@
+// Dialog and ConfirmDialog (S8). Own components, drawn from the Tokens global.
+// with the S8 fixes listed in the README.
+//
+// Layer. The dialog is a PopupWindow sized to the host window and placed at its top left. Core clamps a popup to its
+// clip region (the window, window/popup.rs `place_popup`), so the popup covers the whole window and its scrim covers
+// everything behind it. Why a popup and not a layer inside the window: a popup is the only way to get a scrim over the
+// whole window that takes every pointer press, and the only focus chain that stops at its own edge (core's
+// `focus_next_item` starts from the active popup, so Tab cannot leave it for the page behind). Core also gives the focus
+// back to the opener when the popup closes (`close_popup_impl`, focus_item_in_parent). Caller contract: focus the opener
+// (`focus-me()` on a Button) before `open()`, as the Popover trigger does.
+//
+// Focus trap. `keys` is the popup's first focus stop (the focus-request moves focus to it on open). `end` is the last
+// stop, after the footer. Tab on `end` moves to `keys`; Shift+Tab on `keys` moves to `end`. Every other Tab falls through
+// to core, which walks the controls in order inside the popup. Escape and Tab are read on `keys`, which every key
+// bubbles up to; a key a control accepts never reaches it.
+//
+// Dismissal. `dismissible: false` blocks Escape and a scrim click (the popup's close policy is no-auto-close, so core
+// never closes it on its own). The close control always closes.
+//
+// Accessibility. Slint 1.18.1 has no dialog role. The panel is `region` labelled with the title (the closest landmark,
+// as Popover). The close control is an IconButton with a caller-supplied label (`close-label`, not text).
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+import { IconButton } from "icon-button.slint";
+
+export enum DialogSize { sm, md, lg }
+
+// One footer action. The Dialog draws it as a Button and reports its index through `action-clicked`.
+export struct DialogAction {
+    text: string,
+    variant: ButtonVariant,
+}
+
+export component Dialog inherits Rectangle {
+    in property <string> title;
+    // Optional body text under the title.
+    in property <string> description;
+    in property <DialogSize> size: DialogSize.md;
+    // false blocks Escape and a scrim click. The close control still closes.
+    in property <bool> dismissible: true;
+    // A key text that closes a dismissible dialog as well as Escape (for example "?" for the shortcuts list, which the
+    // same key opens). Empty means none.
+    in property <string> toggle-key: "";
+    // Accessible name of the close control. Required: the control shows an icon, not text.
+    in property <string> close-label: "Close";
+    // Footer actions, drawn right-aligned in order. Empty draws no footer.
+    in property <[DialogAction]> actions: [];
+    // Size of the window the dialog covers. The popup is clipped to the window, so a size at least as large as the window
+    // covers all of it; the default is larger than any window.
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    callback opened();
+    callback closed();
+    // The index of the footer action the user chose. The dialog stays open: the caller closes it.
+    callback action-clicked(int);
+
+    // True while the dialog is shown.
+    out property <bool> is-open: pop.is-open;
+    // Where focus is at the two ends of the trap: `keys-focused` is the first stop, `end-focused` the last (tests read them).
+    out property <bool> keys-focused: false;
+    out property <bool> end-focused: false;
+    // Incremented on each open: moves focus to `keys` once the popup is shown.
+    property <int> focus-request: 0;
+
+    // The panel width for the size, capped so it fits the window with a 16 px gutter on each side (phone width).
+    property <length> panel-width: root.size == DialogSize.sm
+        ? Tokens.size-dialog-sm
+        : (root.size == DialogSize.lg ? Tokens.size-dialog-lg : Tokens.size-dialog-md);
+
+    public function open() {
+        if (!pop.is-open) {
+            pop.show();
+            root.focus-request += 1;
+        }
+    }
+
+    public function close() {
+        if (pop.is-open) {
+            pop.close();
+        }
+    }
+
+    changed is-open => {
+        TooltipHub.popup-event();
+        if (root.is-open) {
+            root.opened();
+        } else {
+            root.closed();
+        }
+    }
+
+    // Zero-sized in the page. The popup it opens covers the window (see the header).
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    accessible-role: none;
+
+    pop := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: root.host-width;
+        height: root.host-height;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        keys := FocusScope {
+            x: 0px;
+            y: 0px;
+            width: root.host-width;
+            height: root.host-height;
+
+            changed has-focus => {
+                root.keys-focused = self.has-focus;
+            }
+
+            key-pressed(event) => {
+                if (event.text == Key.Escape) {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                    return accept;
+                }
+                if (root.toggle-key != "" && event.text == root.toggle-key) {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                    return accept;
+                }
+                // Android Back does what Escape does (gaps D7): a dismissible dialog closes, and the key is taken either way.
+                if (event.text == Key.Back) {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                    return accept;
+                }
+                // Tab on the last stop wraps to the first. Every other Tab goes to core (the next control).
+                if (event.text == Key.Tab && !event.modifiers.shift && end.has-focus) {
+                    keys.focus();
+                    return accept;
+                }
+                // Shift+Tab on the first stop wraps to the last. Every other Shift+Tab goes to core (the previous control).
+                if ((event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift)) && keys.has-focus) {
+                    end.focus();
+                    return accept;
+                }
+                return reject;
+            }
+
+            property <int> seen-request: root.focus-request;
+            changed seen-request => {
+                keys.focus();
+            }
+
+            // The scrim: it covers the window and takes every press that is not on the panel.
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                background: Tokens.scrim;
+            }
+
+            backdrop := TouchArea {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                clicked => {
+                    if (root.dismissible) {
+                        root.close();
+                    }
+                }
+            }
+
+            // The panel, centred in the window. Its height is its content's.
+            panel := Rectangle {
+                x: max(0px, (root.host-width - self.width) / 2);
+                y: max(0px, (root.host-height - self.height) / 2);
+                width: min(root.panel-width, root.host-width - 2 * Tokens.space-4);
+                height: content.preferred-height;
+                background: Tokens.surface-overlay;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+                border-radius: Tokens.radius-surface;
+                drop-shadow-color: Tokens.shadow-overlay;
+                drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+                drop-shadow-blur: Tokens.shadow-overlay-blur;
+                accessible-role: region;
+                accessible-label: root.title;
+
+                // Absorbs presses on the panel, so they do not reach the scrim.
+                TouchArea {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                }
+
+                content := VerticalLayout {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    padding: Tokens.space-6;
+                    spacing: Tokens.space-4;
+
+                    HorizontalLayout {
+                        spacing: Tokens.space-3;
+
+                        Text {
+                            horizontal-stretch: 1;
+                            text: root.title;
+                            color: Tokens.text-primary;
+                            font-family: Type.heading.family;
+                            font-size: Type.heading.size;
+                            font-weight: Type.heading.weight;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+
+                        IconButton {
+                            icon: Icons.x;
+                            label: root.close-label;
+                            tooltip: root.close-label;
+                            variant: ButtonVariant.ghost;
+                            size: ButtonSize.sm;
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+
+                    if root.description != "" : Text {
+                        text: root.description;
+                        color: Tokens.text-muted;
+                        font-family: Type.body.family;
+                        font-size: Type.body.size;
+                        font-weight: Type.body.weight;
+                        wrap: word-wrap;
+                    }
+
+                    @children
+
+                    if root.actions.length > 0 : HorizontalLayout {
+                        alignment: LayoutAlignment.end;
+                        spacing: Tokens.space-2;
+
+                        for action[index] in root.actions : Button {
+                            text: action.text;
+                            variant: action.variant;
+                            clicked => {
+                                root.action-clicked(index);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // The last focus stop. Zero-sized, and after every control of the panel.
+            end := FocusScope {
+                x: 0px;
+                y: 0px;
+                width: 0px;
+                height: 0px;
+
+                changed has-focus => {
+                    root.end-focused = self.has-focus;
+                }
+            }
+        }
+    }
+}
+
+// ConfirmDialog (S8): a small Dialog with a message and two actions, Cancel and Confirm. Confirm (and Danger) fires
+// `confirmed` once and closes. Cancel, the close control, Escape and a scrim click fire `cancelled` once and close.
+export component ConfirmDialog inherits Rectangle {
+    in property <string> title;
+    in property <string> message;
+    in property <string> confirm-label: "Confirm";
+    in property <string> cancel-label: "Cancel";
+    // true draws the Confirm action as a danger button (a destructive action).
+    in property <bool> danger: false;
+    in property <bool> dismissible: true;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    callback confirmed();
+    callback cancelled();
+
+    // True while the dialog is shown.
+    out property <bool> is-open: dlg.is-open;
+
+    // True once the user has chosen (so the close that follows does not also cancel).
+    property <bool> decided: false;
+
+    public function open() {
+        root.decided = false;
+        dlg.open();
+    }
+
+    public function close() {
+        dlg.close();
+    }
+
+    // Test hook: a click on footer action `index` (0 Cancel, 1 Confirm), as its Button runs it: the Dialog reports the index
+    // and this component decides.
+    public function test-choose(index: int) {
+        dlg.action-clicked(index);
+    }
+
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    dlg := Dialog {
+        title: root.title;
+        description: root.message;
+        size: DialogSize.sm;
+        dismissible: root.dismissible;
+        host-width: root.host-width;
+        host-height: root.host-height;
+        actions: [
+            { text: root.cancel-label, variant: ButtonVariant.secondary },
+            { text: root.confirm-label, variant: root.danger ? ButtonVariant.danger : ButtonVariant.primary },
+        ];
+
+        action-clicked(index) => {
+            root.decided = true;
+            dlg.close();
+            if (index == 0) {
+                root.cancelled();
+            } else {
+                root.confirmed();
+            }
+        }
+
+        closed => {
+            if (!root.decided) {
+                root.cancelled();
+            }
+            root.decided = true;
+        }
+    }
+}

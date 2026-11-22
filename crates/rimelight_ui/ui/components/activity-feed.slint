@@ -1,0 +1,85 @@
+// ActivityFeed (P0.17 batch 4). Rows of "who did what" with an avatar and a time. An optional "Load more" button at the end
+// asks the caller for the next page.
+//
+// Each row is an avatar (small, with initials), the actor's name and the action on one line, and the time below. The
+// caller formats the time (for example "2 min ago"); Slint 1.18.1 has no relative-time formatting. The actor's name is
+// not bold, because Slint 1.18.1 has no rich text in one Text.
+//
+// Keyboard: the feed has one Tab stop, the "Load more" button, shown only while `has-more` is true. Tab reaches it, and
+// Enter or Space calls `load-more()`. The rows are not focusable. A click on the button also calls `load-more()`. The
+// caller sets `has-more` to false when there is no next page, which removes the button.
+//
+// Limits: the caller appends the rows; the feed does not keep a page cursor or track which rows are new.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Avatar, AvatarSize } from "avatar.slint";
+import { Button } from "button.slint";
+
+export struct ActivityItem {
+    actor: string,
+    // The actor's initials, shown in the avatar.
+    initials: string,
+    // What the actor did, for example "moved DOC-12 to Done". The feed shows the actor's name before it.
+    action: string,
+    // The time, already formatted relative to now.
+    when: string,
+}
+
+// One row: the avatar, then the text beside it.
+component ActivityRow inherits HorizontalLayout {
+    in property <ActivityItem> item;
+
+    spacing: Tokens.space-3;
+    alignment: start;
+
+    Avatar {
+        name: root.item.actor;
+        initials: root.item.initials;
+        size: AvatarSize.sm;
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: start;
+        spacing: Tokens.space-1;
+
+        Text {
+            text: "\{root.item.actor} \{root.item.action}";
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            wrap: word-wrap;
+        }
+        Text {
+            text: root.item.when;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+        }
+    }
+}
+
+export component ActivityFeed inherits VerticalLayout {
+    in property <[ActivityItem]> items;
+    // True shows the "Load more" button at the end of the rows.
+    in property <bool> has-more: false;
+    // Asks the caller for the next page. Fires on a click, Enter or Space on the button.
+    callback load-more();
+
+    spacing: Tokens.space-4;
+    alignment: start;
+
+    for entry in root.items : ActivityRow {
+        item: entry;
+    }
+    if root.has-more : HorizontalLayout {
+        alignment: start;
+
+        Button {
+            text: "Load more";
+            accessible-name: "Load more activity";
+            clicked => { root.load-more(); }
+        }
+    }
+}

@@ -1,0 +1,131 @@
+// Tag (S4). A label chip, optionally with a remove button. Own component, drawn from the Tokens
+// global, with the tones of the Badge (ToneColours). 
+//
+// Keyboard: the remove button is a FocusScope, so Tab reaches it (after the chip, only when `removable`). Enter and Space
+// call `removed`. A pointer click calls `removed` too and does not move focus (focus-on-click is false).
+//
+// Focus ring: it is drawn around the whole tag, 2 px outside its edge, not around the 16 px remove icon. The icon sits on
+// the tag's own fill, and the focus colour equals the accent fill on accent tags (1:1 in the dark theme), so a ring on the
+// icon was invisible. Outside the tag it sits on the surface, where the focus colour has 3.8:1 (light) and 7.3:1 (dark).
+//
+// On the navy sidebar (`on-sidebar`), the tone's fill is 1.83:1 against the sidebar in the light theme, so the edge is
+// the muted sidebar text colour (5.9:1) instead of the fill.
+//
+// The remove button is labelled with `remove-label` (for example "Remove Design").
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { BadgeTone, ToneColours } from "badge.slint";
+import { Tooltip, TooltipHub } from "tooltip.slint";
+
+export component Tag inherits Rectangle {
+    in property <string> label;
+    in property <BadgeTone> tone: BadgeTone.neutral;
+    // true adds the remove button after the label.
+    in property <bool> removable: false;
+    // The remove button's accessible name, and the name a caller shows as its tooltip.
+    in property <string> remove-label;
+    // true draws the tag for the navy sidebar: the edge is the sidebar muted text colour.
+    in property <bool> on-sidebar: false;
+    // Forced look for captures: 3 draws the focus ring. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+
+    // Fired by a click, Enter or Space on the remove button.
+    callback removed();
+
+    height: Tokens.size-tag-height;
+    width: row.preferred-width;
+    border-radius: Tokens.radius-control;
+    background: ToneColours.fill(root.tone);
+    border-width: 1px;
+    border-color: root.on-sidebar ? Tokens.sidebar-text-muted : ToneColours.edge(root.tone);
+
+    accessible-role: text;
+    accessible-label: root.label;
+
+    row := HorizontalLayout {
+        padding-left: Tokens.space-2;
+        padding-right: root.removable ? Tokens.space-1 : Tokens.space-2;
+        spacing: Tokens.space-1;
+        alignment: center;
+
+        Text {
+            text: root.label;
+            color: ToneColours.ink(root.tone);
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            vertical-alignment: center;
+        }
+
+        // Always present so the focus scope exists for the ring below. Zero width when the tag is not removable.
+        rm-box := Rectangle {
+            visible: root.removable;
+            width: root.removable ? Icons.small-size : 0px;
+            height: parent.height;
+            background: transparent;
+
+            accessible-role: button;
+            accessible-label: root.remove-label;
+            accessible-enabled: root.removable;
+            accessible-action-default => { root.removed(); }
+
+            // The icon is centred in the tag's height. The slot is the full row height, so the icon is not pinned to the top edge.
+            Image {
+                source: Icons.x;
+                colorize: ToneColours.ink(root.tone);
+                width: Icons.small-size;
+                height: Icons.small-size;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+
+            rm-ta := TouchArea {
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down) {
+                        TooltipHub.pointer-down();
+                    }
+                }
+                enabled: root.removable;
+                clicked => {
+                    root.removed();
+                }
+            }
+
+            rm-fs := FocusScope {
+                enabled: root.removable;
+                focus-on-click: false;
+                key-pressed(event) => {
+                    if (event.text == Key.Space || event.text == Key.Return) {
+                        root.removed();
+                        return accept;
+                    }
+                    if (event.text == Key.Escape) {
+                        remove-tip.dismiss();
+                    }
+                    return reject;
+                }
+            }
+
+            // The remove button's tooltip is its label. Shown on hover and on keyboard focus.
+            remove-tip := Tooltip {
+                text: root.removable ? root.remove-label : "";
+                anchor-width: rm-box.width;
+                anchor-height: rm-box.height;
+                anchor-focused: rm-fs.has-focus;
+                anchor-hovered: rm-ta.has-hover;
+            }
+        }
+    }
+
+    // The focus ring, around the whole tag and outside its edge.
+    if root.removable && (rm-fs.has-focus || root.forced-state == 3) : Rectangle {
+        x: -3px;
+        y: -3px;
+        width: root.width + 6px;
+        height: root.height + 6px;
+        border-width: 2px;
+        border-color: Tokens.focus-ring;
+        border-radius: Tokens.radius-control + 3px;
+    }
+}

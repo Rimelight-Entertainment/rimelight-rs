@@ -1,0 +1,25 @@
+// PresenceDot (P0.17 batch 1). A dot that shows whether a person is online, away, busy or offline. It uses the same
+// presence states as Avatar (the `Presence` enum in avatar.slint) and the same colours: online is success, away is
+// warning, busy is danger, offline is the strong border colour. `none` draws nothing and takes no space.
+//
+// The colour is never the only signal: set `accessible-name` to the text a screen reader should read, for example
+// "Ana, busy". A caller that shows the state as text should put the text next to the dot as well.
+//
+// Keyboard: no focus stop and no keys. It is a read-only indicator.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Presence } from "avatar.slint";
+
+export component PresenceDot inherits Rectangle {
+    in property <Presence> presence: Presence.online;
+    in property <string> accessible-name;
+
+    width: root.presence == Presence.none ? 0px : Tokens.size-presence-dot;
+    height: root.presence == Presence.none ? 0px : Tokens.size-presence-dot;
+    border-radius: Tokens.radius-pill;
+    background: root.presence == Presence.online ? Tokens.status-success
+        : (root.presence == Presence.away ? Tokens.status-warning
+        : (root.presence == Presence.busy ? Tokens.status-danger : Tokens.border-strong));
+
+    accessible-role: text;
+    accessible-label: root.accessible-name;
+}

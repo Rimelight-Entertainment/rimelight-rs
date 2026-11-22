@@ -1,0 +1,429 @@
+// Combobox (S6): one choice from a list that a filter field narrows. The menu is a PopupWindow
+// like Select's: it opens below the trigger, or above it when there is no room below (`bottom-limit`), and its rows are
+// Select's SelectRow. The filter field at the top of the menu is our Input (tokens, not the std LineEdit).
+//
+// a trigger that shows the chosen label, a
+// search box at the top of the menu, and a no-results line. The search box is styled here (S6).
+//
+// Keyboard. Focus moves into the filter field when the menu opens (Input forwards focus to its text field), so typing goes
+// to the filter. The popup's own FocusScope captures the list keys before the text field sees them (capture-key-pressed
+// runs from the window down to the focused item), so:
+//   - Down and Up move the highlight through the results and skip disabled rows (SelectNav.next-enabled);
+//   - Enter chooses the highlighted row and closes (with no results it does nothing and the menu stays open);
+//   - Escape closes with no change, and focus returns to the trigger (Slint restores the focus the popup took);
+//   - Tab closes with no change and lets focus move on;
+//   - every other key (letters, Backspace, Left, Right, Home, End) is the text field's: typing filters, and Home and End
+//     move the caret, not the highlight (Select uses them for the list; here they edit the filter).
+// Closed: Enter, Space and Alt+Down open. Clicking the trigger opens it too.
+//
+// Filtering runs in Rust (SelectNav.filter-options) because Slint 1.18.1 has no loops in functions. The results are a
+// model of the matching options; the highlight and the search helpers run on that model.
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type, TextStyle } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Input, InputSize } from "input.slint";
+import { SelectOption, SelectSize, SelectNav, SelectRow } from "select.slint";
+
+export component Combobox inherits Rectangle {
+    // The value of the chosen option, two-way. Empty means nothing is chosen.
+    in-out property <string> value;
+    in property <[SelectOption]> options;
+    // Shown on the trigger while nothing is chosen.
+    in property <string> placeholder: "Select an option";
+    // Placeholder of the filter field at the top of the menu.
+    in property <string> filter-placeholder: "Search";
+    // Shown in the menu when the filter matches nothing. The caller supplies the words.
+    in property <string> no-results-text: "No results";
+    // Accessible name of the control. Required when no visible label sits next to it.
+    in property <string> accessible-name;
+    in property <SelectSize> size: SelectSize.md;
+    in property <bool> enabled: true;
+    in property <bool> invalid: false;
+    // Largest number of result rows the menu shows before it scrolls.
+    in property <int> max-visible: 8;
+    // Window y the menu must stay above; the menu opens upward when there is no room below. 0 disables the flip.
+    in property <length> bottom-limit: 0px;
+    // Forced look for captures: 0 none, 1 hover, 2 focus ring. Real input takes precedence.
+    in property <int> forced-state: 0;
+    // Opens the menu when the component is first shown (captures and the open variants of the stories).
+    in property <bool> forced-open: false;
+    // With forced-open: the text in the filter when it opens, and the result row to highlight (-1: the chosen row or the first).
+    in property <string> forced-filter: "";
+    in property <int> forced-highlight: -1;
+    // Highlight of the open menu among the results, or -1. Read by tests.
+    out property <int> highlight: -1;
+    // True while the menu is shown.
+    out property <bool> menu-open: popup.is-open;
+    // True while the trigger holds keyboard focus (the menu is closed and the trigger is the focus stop).
+    out property <bool> has-focus: fs.has-focus;
+    // Number of options that match the filter now. Read by tests.
+    out property <int> result-count: root.shown.length;
+
+    callback changed(string);
+    callback opened();
+    callback closed();
+
+    property <bool> hovered: (hover-area.has-hover && root.enabled) || root.forced-state == 1;
+    property <bool> focused: fs.has-focus || root.forced-state == 2;
+    // True when the press now being released began with the menu open (see Select).
+    property <bool> pressed-open: false;
+
+    // The filter text, two-way with the filter field in the menu. It lives here because a PopupWindow's children cannot be
+    // reached from outside it (Slint: "Cannot access property or callback inside of a PopupWindow").
+    property <string> query;
+    // Counts up each time the menu opens, so the filter field (inside the popup) takes keyboard focus.
+    property <int> focus-tick: 0;
+
+    // The options that match the filter, in order. Set by refresh-shown() rather than bound: a binding evaluated before the
+    // host wires the SelectNav callbacks keeps the empty list it got then, and nothing re-evaluates it until the query
+    // changes. refresh-shown runs at init, on open, on each filter edit and when the options change.
+    property <[SelectOption]> shown: [];
+
+    function refresh-shown() {
+        root.shown = SelectNav.filter-options(root.options, root.query);
+    }
+
+    property <length> control-height: root.size == SelectSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == SelectSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    property <length> menu-row-height: root.size == SelectSize.lg ? 32px : Tokens.size-menu-row-height;
+    // The large size is the subheading size at regular weight, as in Select.
+    property <TextStyle> text-style: root.size == SelectSize.sm ? Type.label
+        : (root.size == SelectSize.lg
+            ? { family: Type.subheading.family, size: Type.subheading.size, line-height: Type.subheading.line-height, weight: Type.body.weight }
+            : Type.body);
+    property <length> text-size: root.text-style.size;
+    property <length> icon-size: root.size == SelectSize.lg ? Tokens.icon-medium : Tokens.icon-small;
+    property <color> fg: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> muted: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+
+    property <bool> has-choice: SelectNav.index-of(root.options, root.value) >= 0;
+    property <string> shown-label: root.has-choice ? root.options[SelectNav.index-of(root.options, root.value)].label : "";
+    property <image> shown-icon: root.has-choice ? root.options[SelectNav.index-of(root.options, root.value)].icon : Icons.check;
+
+    // The menu: the filter field, then the result rows (or the no-results line), with a little padding.
+    property <length> heading-h: Tokens.size-menu-row-height * 0.75;
+    property <length> list-h: root.shown.length == 0
+        ? root.menu-row-height
+        : min(root.max-visible * root.menu-row-height,
+            root.shown.length * root.menu-row-height + SelectNav.heading-count(root.shown) * root.heading-h);
+    property <length> menu-h: Tokens.size-control-sm + list-h + 16px;
+    property <bool> menu-above: root.bottom-limit > 0px
+        && root.absolute-position.y + root.height + Tokens.space-1 + root.menu-h > root.bottom-limit
+        && root.absolute-position.y - Tokens.space-1 - root.menu-h >= 0px;
+
+    function open-menu() {
+        if (root.enabled && root.options.length > 0 && !popup.is-open) {
+            root.query = root.forced-filter;
+            root.refresh-shown();
+            let chosen = SelectNav.index-of(root.shown, root.value);
+            root.highlight = chosen >= 0 ? chosen : SelectNav.next-enabled(root.shown, -1, 1);
+            popup.show();
+            // The filter field takes keyboard focus when this changes (see `changed focus-tick` below), so typing goes to it.
+            root.focus-tick += 1;
+            if (root.forced-highlight >= 0) {
+                root.highlight = root.forced-highlight;
+            }
+        }
+    }
+
+    function close-menu() {
+        if (popup.is-open) {
+            popup.close();
+        }
+    }
+
+    // Chooses result row i (an index into `shown`), unless it is out of range or disabled.
+    function choose(i: int) {
+        if (i >= 0 && i < root.shown.length && !root.shown[i].disabled) {
+            root.value = root.shown[i].value;
+            root.changed(root.value);
+        }
+    }
+
+    // Moves the highlight by one enabled result in direction dir.
+    function step(dir: int) {
+        root.highlight = SelectNav.next-enabled(root.shown, root.highlight, dir);
+    }
+
+    changed menu-open => {
+        TooltipHub.popup-event();
+        if (root.menu-open) {
+            root.opened();
+        } else {
+            root.closed();
+        }
+    }
+
+    // Gives keyboard focus to the trigger, for tests and for a caller that moves focus in code.
+    public function focus-trigger() {
+        fs.focus();
+    }
+
+    // Test hook: a click on the trigger, as its pointer area does. A press closes an open menu; otherwise the menu opens.
+    public function test-click() {
+        if (popup.is-open) {
+            root.close-menu();
+        } else {
+            root.open-menu();
+        }
+    }
+
+    accessible-role: combobox;
+    accessible-label: root.accessible-name;
+    accessible-value: root.shown-label;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: popup.is-open;
+    accessible-action-default => { root.open-menu(); }
+
+    changed options => {
+        root.refresh-shown();
+    }
+
+    init => {
+        root.refresh-shown();
+        if (root.forced-open) {
+            root.open-menu();
+        }
+    }
+
+    forward-focus: fs;
+    height: root.control-height;
+    min-width: 160px;
+    horizontal-stretch: 1;
+    border-radius: Tokens.radius-control;
+    background: !root.enabled ? Tokens.disabled-surface : Tokens.surface-raised;
+    border-width: root.focused ? 2px : 1px;
+    border-color: root.focused ? Tokens.focus-ring
+        : (root.invalid ? Tokens.status-danger-border
+        : (!root.enabled ? Tokens.disabled-border
+        : (root.hovered || popup.is-open ? Tokens.border-strong : Tokens.border-subtle)));
+
+    // The trigger's pointer area: a press opens the menu, which moves focus into the filter.
+    hover-area := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.not-allowed;
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.down) {
+                root.pressed-open = popup.is-open;
+            }
+        }
+        clicked => {
+            if (root.pressed-open) {
+                root.pressed-open = false;
+            } else {
+                root.open-menu();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        if root.has-choice && root.shown-icon.width > 0 : Rectangle {
+            width: root.icon-size;
+            Image {
+                source: root.shown-icon;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            min-width: 1px;
+            text: root.has-choice ? root.shown-label : root.placeholder;
+            color: root.has-choice ? root.fg : root.muted;
+            font-family: root.text-style.family;
+            font-size: root.text-size;
+            font-weight: root.text-style.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+
+        Rectangle {
+            width: root.icon-size;
+            Image {
+                source: Icons.chevrons-up-down;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+
+    fs := FocusScope {
+        // The trigger takes focus in its own click handler (hover-area), so the scope itself must not swallow the press.
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (!root.enabled) {
+                return reject;
+            }
+            // The menu is closed here: the trigger is the focus stop, and these keys open it.
+            if (event.text == Key.Return || event.text == Key.Space
+                || (event.text == Key.DownArrow && event.modifiers.alt)) {
+                root.open-menu();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // The popup menu. It is a child of the trigger, so its x and y are relative to the trigger's top left.
+    popup := PopupWindow {
+        x: 0px;
+        y: root.menu-above ? -(root.menu-h + Tokens.space-1) : root.height + Tokens.space-1;
+        width: root.width;
+        height: root.menu-h;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        Rectangle {
+            background: Tokens.surface-overlay;
+            border-color: Tokens.border-subtle;
+            border-width: 1px;
+            border-radius: Tokens.radius-surface;
+            drop-shadow-color: Tokens.shadow-overlay;
+            drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+            drop-shadow-blur: Tokens.shadow-overlay-blur;
+            clip: true;
+            accessible-role: list;
+            accessible-label: root.accessible-name + " options";
+
+            // Captures the list keys before the filter's text field sees them. Declared as an ancestor of the field.
+            kb := FocusScope {
+                width: parent.width;
+                height: parent.height;
+                // Mirrors the open counter and moves focus into the filter each time the menu opens.
+                property <int> tick: root.focus-tick;
+                changed tick => { filter.focus(); }
+                capture-key-pressed(event) => {
+                    if (event.text == Key.DownArrow) {
+                        root.step(1);
+                        return accept;
+                    }
+                    if (event.text == Key.UpArrow) {
+                        root.step(-1);
+                        return accept;
+                    }
+                    if (event.text == Key.Return) {
+                        if (root.highlight >= 0 && root.highlight < root.shown.length) {
+                            root.choose(root.highlight);
+                            root.close-menu();
+                        }
+                        return accept;
+                    }
+                    if (event.text == Key.Escape) {
+                        root.close-menu();
+                        return accept;
+                    }
+                    if (event.text == Key.Tab) {
+                        root.close-menu();
+                        return reject;
+                    }
+                    return reject;
+                }
+
+                VerticalLayout {
+                    padding: 4px;
+                    spacing: 4px;
+
+                    filter := Input {
+                        horizontal-stretch: 1;
+                        size: InputSize.sm;
+                        leading-icon: Icons.search;
+                        placeholder: root.filter-placeholder;
+                        accessible-name: root.accessible-name + " filter";
+                        text <=> root.query;
+                        changed(text) => {
+                            // A new filter starts the highlight at the first result again.
+                            root.refresh-shown();
+                            root.highlight = SelectNav.next-enabled(root.shown, -1, 1);
+                        }
+                    }
+
+                    list-box := Rectangle {
+                        height: root.list-h;
+                        clip: true;
+
+                        // A thin scroll thumb from the tokens (as in Select), shown only when the results overflow.
+                        if popup-flick.content-height > popup-flick.height : Rectangle {
+                            x: parent.width - 6px;
+                            width: 4px;
+                            height: max(24px, popup-flick.height * popup-flick.height / popup-flick.content-height);
+                            y: (popup-flick.height - self.height) * (-popup-flick.content-y) / (popup-flick.content-height - popup-flick.height);
+                            border-radius: Tokens.radius-pill;
+                            background: Tokens.border-strong;
+                        }
+
+                        if root.shown.length == 0 : Text {
+                            x: Tokens.space-2;
+                            width: parent.width - Tokens.space-4;
+                            height: parent.height;
+                            text: root.no-results-text;
+                            color: Tokens.text-muted;
+                            font-family: root.text-style.family;
+                            font-size: root.text-size;
+                            font-weight: root.text-style.weight;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                            // Labelled so a test or a screen reader finds the words the caller supplied.
+                            accessible-label: root.no-results-text;
+                        }
+
+                        popup-flick := Flickable {
+                            x: 0px;
+                            y: 0px;
+                            width: parent.width - 12px;
+                            height: parent.height;
+                            content-height: popup-list.preferred-height;
+                            interactive: true;
+
+                            popup-list := VerticalLayout {
+                                width: parent.width;
+                                spacing: 0px;
+
+                                for opt[i] in root.shown : SelectRow {
+                                    option: opt;
+                                    selected: root.value == opt.value;
+                                    highlighted: root.highlight == i;
+                                    heading-visible: opt.group != "" && (i == 0 || opt.group != root.shown[max(0, i - 1)].group);
+                                    row-height: root.menu-row-height;
+                                    text-size: root.text-size;
+                                    text-style: root.text-style;
+                                    list-top: popup-list.absolute-position.y;
+                                    picked => {
+                                        root.choose(i);
+                                        root.close-menu();
+                                    }
+                                    hovered => { root.highlight = i; }
+                                    revealed(top, h) => {
+                                        if (top < -popup-flick.content-y) {
+                                            popup-flick.content-y = -top;
+                                        } else if (top + h > -popup-flick.content-y + popup-flick.height) {
+                                            popup-flick.content-y = -(top + h - popup-flick.height);
+                                        }
+                                        popup-flick.content-y = max(min(0px, popup-flick.content-y),
+                                            popup-flick.height - popup-list.preferred-height);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

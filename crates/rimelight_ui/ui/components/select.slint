@@ -1,0 +1,580 @@
+// Select (S6): one choice from a list, shown in a popup menu. Own component: the std ComboBox is
+// coloured from FluentPalette, which Tokens cannot reach (checked in widgets/fluent/combobox.slint), so the trigger, the
+// menu and its rows are drawn here from Tokens. The menu is a PopupWindow (Slint 1.18.1 positions it at a fixed point
+// inside the window and clamps it to the window; it does not flip, so the flip is computed here).
+//
+// placeholder, sizes 28, 34 and 40 px, text size that
+// follows the size, states default, hover, focus, open, disabled and invalid, clearable, groups, and a check mark on the
+// selected row.
+//
+// Keyboard. The trigger is the one focus stop and it owns every key, also while the menu is open (a popup does not take
+// keyboard focus in Slint). Closed: Enter, Space and Alt+Down open; a letter selects the next option that starts with it
+// (typeahead, changes the value); Backspace and Delete clear a clearable select. Open: Down and Up move the highlight and
+// skip disabled options; Home and End go to the first and last enabled option; Enter and Space choose the highlighted
+// option and close; Escape closes with no change; Tab closes with no change; a letter moves the highlight (typeahead).
+// Focus stays on the trigger the whole time, so Escape leaves focus where it was.
+//
+// Search. Slint 1.18.1 has no loops in functions, so next-enabled, typeahead and index-of are callbacks on `SelectNav`. The
+// host must wire them (see src/slint_ui/select.rs). A window that uses Select declares it as `SelectNav`.
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type, TextStyle } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export struct SelectOption {
+    value: string,
+    label: string,
+    // Optional leading icon. A zero-width image means no icon.
+    icon: image,
+    // Initials drawn in a square where the icon would be (a project with no picture). Empty means none.
+    badge: string,
+    disabled: bool,
+    // Optional group heading. Shown above the first option of each run of options with the same group.
+    group: string,
+}
+
+export enum SelectSize { sm, md, lg }
+
+// Search helpers that need loops (see src/slint_ui/select.rs for the rules and tests).
+export global SelectNav {
+    // The next enabled option from `from` in direction `dir` (1 or -1); -1 from nothing. Returns `from` at either end.
+    pure callback next-enabled(options: [SelectOption], from: int, dir: int) -> int;
+    // The next enabled option after `from` (wrapping) whose label starts with `text`, or -1.
+    pure callback typeahead(options: [SelectOption], from: int, text: string) -> int;
+    // The index of the option with value `value`, or -1.
+    pure callback index-of(options: [SelectOption], value: string) -> int;
+    // How many group headings the options show: one for each option that starts a new non-empty group.
+    pure callback heading-count(options: [SelectOption]) -> int;
+    // The options whose label contains `query` (case-insensitive), in their order. An empty query keeps all of them.
+    // The Combobox filter uses it (src/slint_ui/select.rs).
+    pure callback filter-options(options: [SelectOption], query: string) -> [SelectOption];
+}
+
+// A square with initials, drawn where an icon would be.
+// A project's initials on a rounded tile, as the sidebar draws them. The row stretches to the height of its line; the tile
+// is centred in it.
+component SelectBadge inherits Rectangle {
+    in property <string> text;
+    in property <length> badge-size;
+    width: root.badge-size;
+
+    Rectangle {
+        width: root.badge-size;
+        height: root.badge-size;
+        y: (parent.height - self.height) / 2;
+        border-radius: Tokens.radius-r4;
+        background: Tokens.sidebar-hover-bg;
+
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: root.text;
+            color: Tokens.sidebar-text;
+            font-family: Type.caption.family;
+            font-size: Type.scaled(10px);
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// One menu row, with its group heading above when it starts a new group.
+export component SelectRow inherits Rectangle {
+    in property <SelectOption> option;
+    in property <bool> selected;
+    in property <bool> highlighted;
+    in property <bool> heading-visible;
+    in property <length> row-height;
+    in property <length> text-size;
+    // Top of the list in window coordinates, so the row can ask for itself to be scrolled into view.
+    in property <length> list-top;
+    in property <TextStyle> text-style;
+    callback picked();
+    callback hovered();
+    callback revealed(top: length, height: length);
+
+    background: transparent;
+    height: (root.heading-visible ? Tokens.size-menu-row-height * 0.75 : 0px) + root.row-height;
+
+    changed highlighted => {
+        if (root.highlighted) {
+            root.revealed(bar.absolute-position.y - root.list-top, bar.height);
+        }
+    }
+
+    VerticalLayout {
+        if root.heading-visible : Text {
+            height: Tokens.size-menu-row-height * 0.75;
+            text: root.option.group;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            vertical-alignment: bottom;
+            accessible-role: none;
+        }
+
+        // The highlight is the subtle hover tint of the component layer; the chosen row is marked by a
+        // check mark at the trailing edge,.
+        bar := Rectangle {
+            height: root.row-height;
+            background: root.highlighted ? Tokens.button-ghost-bg-hover : transparent;
+            border-radius: Tokens.radius-control;
+
+            HorizontalLayout {
+                padding-left: Tokens.space-2;
+                padding-right: Tokens.space-2;
+                spacing: Tokens.space-2;
+
+                if root.option.icon.width <= 0 && root.option.badge != "" : SelectBadge {
+                    text: root.option.badge;
+                    badge-size: Tokens.icon-medium;
+                }
+                if root.option.icon.width > 0 : Rectangle {
+                    width: Tokens.icon-small;
+                    Image {
+                        source: root.option.icon;
+                        colorize: root.option.disabled ? Tokens.disabled-text : Tokens.text-muted;
+                        width: Tokens.icon-small;
+                        height: Tokens.icon-small;
+                        y: (parent.height - self.height) / 2;
+                    }
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.option.label;
+                    color: root.option.disabled ? Tokens.disabled-text : Tokens.text-primary;
+                    font-family: root.text-style.family;
+                    font-size: root.text-size;
+                    font-weight: root.text-style.weight;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+
+                // The check mark slot at the trailing edge: drawn only on the selected row, but the slot keeps the labels aligned.
+                Rectangle {
+                    width: Tokens.icon-small;
+                    if root.selected : Image {
+                        source: Icons.check;
+                        colorize: root.option.disabled ? Tokens.disabled-text : Tokens.accent-text;
+                        width: Tokens.icon-small;
+                        height: Tokens.icon-small;
+                        y: (parent.height - self.height) / 2;
+                    }
+                }
+            }
+        }
+    }
+
+    accessible-role: list-item;
+    accessible-label: root.option.label;
+    accessible-checked: root.selected;
+    accessible-enabled: !root.option.disabled;
+
+    ta := TouchArea {
+        enabled: !root.option.disabled;
+        clicked => { root.picked(); }
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.move && !root.option.disabled) {
+                root.hovered();
+            }
+        }
+    }
+}
+
+export component Select inherits Rectangle {
+    // The value of the chosen option, two-way. Empty means nothing is chosen.
+    in-out property <string> value;
+    in property <[SelectOption]> options;
+    // Shown on the trigger while nothing is chosen.
+    in property <string> placeholder: "Select an option";
+    // Accessible name of the control. Required when no visible label sits next to it.
+    in property <string> accessible-name;
+    in property <SelectSize> size: SelectSize.md;
+    in property <bool> enabled: true;
+    in property <bool> invalid: false;
+    // Adds a clear control to the trigger and lets Backspace and Delete clear the value.
+    in property <bool> clearable: false;
+    // Largest number of rows the menu shows before it scrolls.
+    in property <int> max-visible: 8;
+    // Window y (in window coordinates) that the menu must stay above. The menu opens upward when there is no room below
+    // the trigger and there is room above it. 0 disables the flip (the menu always opens below).
+    in property <length> bottom-limit: 0px;
+    // Forced look for captures: 0 none, 1 hover, 2 focus ring. Real input takes precedence.
+    in property <int> forced-state: 0;
+    // Opens the menu when the component is first shown (captures and the open variants of the stories).
+    in property <bool> forced-open: false;
+    // With forced-open: the row to highlight instead of the chosen one (-1 keeps the chosen row). For the open variants.
+    in property <int> forced-highlight: -1;
+    // Highlight of the open menu, or -1. Read by tests.
+    out property <int> highlight: -1;
+    // True while the menu is shown.
+    out property <bool> menu-open: popup.is-open;
+    // True while the trigger holds keyboard focus (the one focus stop of the component).
+    out property <bool> has-focus: fs.has-focus;
+    // The index of the chosen option, or -1.
+    out property <int> selected-index: SelectNav.index-of(root.options, root.value);
+
+    callback changed(string);
+    callback opened();
+    callback closed();
+
+    property <bool> hovered: (hover-area.has-hover && root.enabled) || root.forced-state == 1;
+    property <bool> focused: fs.has-focus || root.forced-state == 2;
+    // True when the press now being released began with the menu open. That press closed the menu (a press outside the
+    // menu closes it, and the trigger is outside), so its click must not open the menu again.
+    property <bool> pressed-open: false;
+
+    property <length> control-height: root.size == SelectSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == SelectSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    property <length> menu-row-height: root.size == SelectSize.lg ? 32px : Tokens.size-menu-row-height;
+    // The large size is the subheading size at regular weight.
+    property <TextStyle> text-style: root.size == SelectSize.sm ? Type.label
+        : (root.size == SelectSize.lg
+            ? { family: Type.subheading.family, size: Type.subheading.size, line-height: Type.subheading.line-height, weight: Type.body.weight }
+            : Type.body);
+    property <length> text-size: root.text-style.size;
+    property <length> icon-size: root.size == SelectSize.lg ? Tokens.icon-medium : Tokens.icon-small;
+    property <color> fg: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> muted: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+
+    // The label and icon of the chosen option, read from the options by index.
+    property <bool> has-choice: root.selected-index >= 0;
+    property <string> shown-label: root.has-choice ? root.options[max(0, root.selected-index)].label : "";
+    property <image> shown-icon: root.has-choice ? root.options[max(0, root.selected-index)].icon : Icons.check;
+    property <string> shown-badge: root.has-choice ? root.options[max(0, root.selected-index)].badge : "";
+
+    // Menu height: the visible rows (with a little room for the group headings), plus the menu's own padding.
+    property <length> heading-h: Tokens.size-menu-row-height * 0.75;
+    property <length> menu-h: min(root.max-visible * root.menu-row-height,
+        root.options.length * root.menu-row-height + SelectNav.heading-count(root.options) * root.heading-h) + 8px;
+    property <bool> menu-above: root.bottom-limit > 0px
+        && root.absolute-position.y + root.height + Tokens.space-1 + root.menu-h > root.bottom-limit
+        && root.absolute-position.y - Tokens.space-1 - root.menu-h >= 0px;
+
+    function open-menu() {
+        if (root.enabled && root.options.length > 0 && !popup.is-open) {
+            let chosen = SelectNav.index-of(root.options, root.value);
+            root.highlight = chosen >= 0 ? chosen : SelectNav.next-enabled(root.options, -1, 1);
+            popup.show();
+            // Showing a popup takes focus from the trigger. The trigger owns the keys while the menu is open, so it takes focus back.
+            fs.focus();
+        }
+    }
+
+    function close-menu() {
+        if (popup.is-open) {
+            popup.close();
+        }
+    }
+
+    function choose(i: int) {
+        if (i >= 0 && i < root.options.length && !root.options[i].disabled) {
+            root.value = root.options[i].value;
+            root.changed(root.value);
+        }
+    }
+
+    function clear-value() {
+        if (root.clearable && root.enabled && root.value != "") {
+            root.value = "";
+            root.changed("");
+        }
+    }
+
+    // Moves the highlight by one enabled option in direction dir, and scrolls it into view.
+    function step(dir: int) {
+        root.highlight = SelectNav.next-enabled(root.options, root.highlight, dir);
+    }
+
+    changed menu-open => {
+        TooltipHub.popup-event();
+        if (root.menu-open) {
+            root.opened();
+        } else {
+            root.closed();
+        }
+    }
+
+    // Gives keyboard focus to the trigger (the one focus stop), for tests and for a caller that moves focus in code.
+    public function focus-trigger() {
+        fs.focus();
+    }
+
+    // Test hook: a click on the trigger, as its pointer area does. A press closes an open menu; otherwise the menu opens.
+    public function test-click() {
+        if (root.enabled) {
+            if (popup.is-open) {
+                root.close-menu();
+            } else {
+                fs.focus();
+                root.open-menu();
+            }
+        }
+    }
+
+    // Test hook: a click on option i, as its row does. A disabled row takes no click, and an enabled one chooses and closes.
+    public function test-pick(i: int) {
+        if (!root.options[i].disabled) {
+            root.choose(i);
+            root.close-menu();
+        }
+    }
+
+    accessible-role: combobox;
+    accessible-label: root.accessible-name;
+    accessible-value: root.shown-label;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: popup.is-open;
+    accessible-action-default => { root.open-menu(); }
+
+    init => {
+        if (root.forced-open) {
+            root.open-menu();
+            if (root.forced-highlight >= 0) {
+                root.highlight = root.forced-highlight;
+            }
+        }
+    }
+
+    forward-focus: fs;
+    height: root.control-height;
+    min-width: 160px;
+    horizontal-stretch: 1;
+    border-radius: Tokens.radius-control;
+    background: !root.enabled ? Tokens.disabled-surface : Tokens.surface-raised;
+    border-width: root.focused ? 2px : 1px;
+    border-color: root.focused ? Tokens.focus-ring
+        : (root.invalid ? Tokens.status-danger-border
+        : (!root.enabled ? Tokens.disabled-border
+        : (root.hovered || popup.is-open ? Tokens.border-strong : Tokens.border-subtle)));
+
+    // The trigger's pointer area. It is declared before the content, so the clear control, which sits on top of it, gets
+    // its own clicks. It covers the whole trigger.
+    hover-area := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.not-allowed;
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.down) {
+                root.pressed-open = popup.is-open;
+            }
+        }
+        clicked => {
+            if (root.pressed-open) {
+                root.pressed-open = false;
+            } else {
+                fs.focus();
+                root.open-menu();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        if root.has-choice && root.shown-icon.width <= 0 && root.shown-badge != "" : SelectBadge {
+            text: root.shown-badge;
+            badge-size: Tokens.icon-medium;
+        }
+        if root.has-choice && root.shown-icon.width > 0 : Rectangle {
+            width: root.icon-size;
+            Image {
+                source: root.shown-icon;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            min-width: 1px;
+            text: root.has-choice ? root.shown-label : root.placeholder;
+            color: root.has-choice ? root.fg : root.muted;
+            font-family: root.text-style.family;
+            font-size: root.text-size;
+            font-weight: root.text-style.weight;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+
+        if root.clearable && root.has-choice && root.enabled : Rectangle {
+            width: root.control-height - 8px;
+            clear-touch := TouchArea {
+                clicked => { root.clear-value(); }
+            }
+            Image {
+                source: Icons.x;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        Rectangle {
+            width: root.icon-size;
+            Image {
+                source: Icons.chevrons-up-down;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+
+    fs := FocusScope {
+        // The trigger takes focus in its own click handler (hover-area), so the scope itself must not swallow the press.
+        focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (!root.enabled) {
+                return reject;
+            }
+            if (popup.is-open) {
+                if (event.text == Key.DownArrow) {
+                    root.step(1);
+                    return accept;
+                }
+                if (event.text == Key.UpArrow) {
+                    root.step(-1);
+                    return accept;
+                }
+                if (event.text == Key.Home) {
+                    root.highlight = SelectNav.next-enabled(root.options, -1, 1);
+                    return accept;
+                }
+                if (event.text == Key.End) {
+                    root.highlight = SelectNav.next-enabled(root.options, root.options.length, -1);
+                    return accept;
+                }
+                if (event.text == Key.Return || event.text == Key.Space) {
+                    root.choose(root.highlight);
+                    root.close-menu();
+                    return accept;
+                }
+                if (event.text == Key.Escape) {
+                    root.close-menu();
+                    return accept;
+                }
+                if (event.text == Key.Tab) {
+                    root.close-menu();
+                    return reject;
+                }
+                if (event.text.character-count == 1) {
+                    let found = SelectNav.typeahead(root.options, root.highlight, event.text);
+                    if (found >= 0) {
+                        root.highlight = found;
+                        return accept;
+                    }
+                }
+                return reject;
+            }
+            if (event.text == Key.Return || event.text == Key.Space
+                || (event.text == Key.DownArrow && event.modifiers.alt)) {
+                root.open-menu();
+                return accept;
+            }
+            if (event.text == Key.Backspace || event.text == Key.Delete) {
+                root.clear-value();
+                return accept;
+            }
+            if (event.text.character-count == 1 && !event.modifiers.control && !event.modifiers.meta) {
+                let found = SelectNav.typeahead(root.options, root.selected-index, event.text);
+                if (found >= 0) {
+                    root.choose(found);
+                    return accept;
+                }
+            }
+            return reject;
+        }
+    }
+    // The popup menu. It is a child of the trigger, so its x and y are relative to the trigger's top left.
+    popup := PopupWindow {
+        x: 0px;
+        y: root.menu-above ? -(root.menu-h + Tokens.space-1) : root.height + Tokens.space-1;
+        width: root.width;
+        height: root.menu-h;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        Rectangle {
+            background: Tokens.surface-overlay;
+            border-color: Tokens.border-subtle;
+            border-width: 1px;
+            border-radius: Tokens.radius-surface;
+            drop-shadow-color: Tokens.shadow-overlay;
+            drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+            drop-shadow-blur: Tokens.shadow-overlay-blur;
+            clip: true;
+            accessible-role: list;
+            accessible-label: root.accessible-name + " options";
+
+            // The right gutter of 12 px holds the scroll thumb, so a highlighted row never sits under it.
+            popup-flick := Flickable {
+                x: 4px;
+                y: 4px;
+                width: parent.width - 16px;
+                height: parent.height - 8px;
+                content-height: popup-list.preferred-height;
+                interactive: true;
+
+                popup-list := VerticalLayout {
+                    width: parent.width;
+                    spacing: 0px;
+
+                    for opt[i] in root.options : SelectRow {
+                        option: opt;
+                        selected: root.selected-index == i;
+                        highlighted: root.highlight == i;
+                        heading-visible: opt.group != "" && (i == 0 || opt.group != root.options[max(0, i - 1)].group);
+                        row-height: root.menu-row-height;
+                        text-size: root.text-size;
+                        text-style: root.text-style;
+                        list-top: popup-list.absolute-position.y;
+                        picked => {
+                            root.choose(i);
+                            root.close-menu();
+                        }
+                        hovered => { root.highlight = i; }
+                        // Scrolls the list (inside the popup, so its ids are in scope) to keep the row in view.
+                        revealed(top, h) => {
+                            if (top < -popup-flick.content-y) {
+                                popup-flick.content-y = -top;
+                            } else if (top + h > -popup-flick.content-y + popup-flick.height) {
+                                popup-flick.content-y = -(top + h - popup-flick.height);
+                            }
+                            popup-flick.content-y = max(min(0px, popup-flick.content-y),
+                                popup-flick.height - popup-list.preferred-height);
+                        }
+                    }
+                }
+            }
+
+            // A thin scroll thumb, drawn from the tokens. It shows only when the list overflows the menu.
+            if popup-flick.content-height > popup-flick.height : Rectangle {
+                x: parent.width - 6px;
+                width: 4px;
+                height: max(24px, popup-flick.height * popup-flick.height / popup-flick.content-height);
+                y: 4px + (popup-flick.height - self.height) * (-popup-flick.content-y) / (popup-flick.content-height - popup-flick.height);
+                border-radius: Tokens.radius-pill;
+                background: Tokens.border-strong;
+            }
+        }
+    }
+
+}

@@ -1,0 +1,642 @@
+// Menu and ContextMenu (S7). A list of actions in a popup, drawn from the Tokens global. Own
+// components: the std-widgets have no menu (Slint's Menu and MenuItem are internal to the std library, and ContextMenuArea
+// opens a native popup that cannot be themed or captured).
+//
+// Model. One flat list of MenuItem. A submenu's children are the items whose `parent` is the submenu's `id` (one level
+// only). A row is an item of the list, or a child of an expanded submenu; MenuNav.flatten turns the list into rows.
+// Slint 1.18.1 has no recursive structs and no loops in functions, so the searches are pure callbacks on MenuNav
+// (src/slint_ui/menu.rs holds the rules and their tests).
+//
+// Keyboard (the list has the focus while the menu is open; a popup does not take focus by itself, see Popover).
+//   Down and Up move the highlight and skip disabled rows, separators and headings. Home and End go to the first and last
+//   selectable row. Right opens a submenu and highlights its first child. Left on a child closes its submenu and
+//   highlights the submenu row; Left on an open submenu row closes it. Enter and Space activate the highlighted row: a
+//   submenu toggles, an item fires `activated` once and the menu closes. Escape closes an open submenu first, and
+//   otherwise closes the menu. Tab closes the menu and lets the focus move on.
+//   The trigger (a Button, see Menu.trigger-clicked) opens the menu on Enter, Space and Down. On close the focus returns
+//   to the trigger (the core restores it; the trigger gives itself focus first, as in Popover).
+//
+// Highlight. The row chosen on open is the first selectable row, so a disabled first item is not highlighted.
+//
+// Submenu. The children expand inline under their submenu row (indented one step), not in a second popup. A second
+// PopupWindow nested in a popup is not supported by the fixed layout of this port; it is a documented gap (README S7).
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Popover } from "popover.slint";
+
+export enum MenuKind { item, separator, heading, submenu }
+// none: no check mark slot is shown; off: the slot is empty (an unchecked item); on: a check mark.
+export enum MenuChecked { none, off, on }
+
+export struct MenuItem {
+    // Unique within the list. Reported by `selected`.
+    id: string,
+    kind: MenuKind,
+    label: string,
+    // Optional leading icon. A zero-width image means no icon.
+    icon: image,
+    // Shortcut text shown at the trailing edge, for example "Ctrl+N". Empty means none.
+    shortcut: string,
+    disabled: bool,
+    // Drawn in the status danger colour (a destructive action).
+    danger: bool,
+    checked: MenuChecked,
+    // The id of the submenu this item belongs to, or empty for a top-level item.
+    parent: string,
+}
+
+// One visible row: the index of its MenuItem, its depth (0 top level, 1 a child of an expanded submenu) and whether it is
+// an expanded submenu.
+export struct MenuRow {
+    index: int,
+    depth: int,
+    expanded: bool,
+}
+
+// The search helpers that need loops (see src/slint_ui/menu.rs for the rules).
+export global MenuNav {
+    // The visible rows of the list: every top-level item, and the children of the submenu whose id is `expanded`.
+    pure callback flatten(items: [MenuItem], expanded: string) -> [MenuRow];
+    // The next selectable row (an item or a submenu, not disabled) from `from` in direction `dir`. Returns `from` at either end.
+    pure callback next-row(items: [MenuItem], rows: [MenuRow], from: int, dir: int) -> int;
+    // The row of the item with this id, or -1.
+    pure callback row-of-id(items: [MenuItem], rows: [MenuRow], id: string) -> int;
+    // The first child row directly under the submenu row `parent-row` that is selectable, or -1 when there is none.
+    pure callback first-child-row(items: [MenuItem], rows: [MenuRow], parent-row: int) -> int;
+    // The height of the rows: items and submenus are `item-height`, headings three quarters of it, separators `rule-height`.
+    pure callback list-height(items: [MenuItem], rows: [MenuRow], item-height: length, rule-height: length) -> length;
+    // True when some item has an icon or a check mark. Only then the list keeps its leading column (one slot for all rows).
+    pure callback has-leading(items: [MenuItem]) -> bool;
+    // The width the widest row needs: its label (with the leading slot, submenu chevron and indent) plus its shortcut text,
+    // plus the chrome. Estimated from the character count; the owner clamps it to its minimum and maximum.
+    pure callback fit-width(items: [MenuItem], leading: bool, label-size: length, shortcut-size: length, slot: length, chrome: length, indent: length) -> length;
+}
+
+// One row of the list. A heading and a separator are not selectable; a disabled row is drawn in the disabled colours.
+component MenuRowView inherits Rectangle {
+    in property <MenuItem> item;
+    in property <int> depth;
+    in property <bool> expanded;
+    in property <bool> highlighted;
+    // The menu has a leading column (see MenuNav.has-leading): one slot, filled by a check mark or an icon when the row has one.
+    in property <bool> leading;
+    in property <length> item-height;
+    in property <length> rule-height;
+    callback picked();
+    callback hovered();
+
+    property <bool> is-rule: root.item.kind == MenuKind.separator;
+    property <bool> is-heading: root.item.kind == MenuKind.heading;
+    out property <bool> selectable: (root.item.kind == MenuKind.item || root.item.kind == MenuKind.submenu) && !root.item.disabled;
+    property <color> label-color: root.item.disabled ? Tokens.disabled-text
+        : (root.item.danger ? Tokens.status-danger : Tokens.text-primary);
+    property <color> muted: root.item.disabled ? Tokens.disabled-text : Tokens.text-muted;
+
+    height: root.is-rule ? root.rule-height : (root.is-heading ? root.item-height * 0.75 : root.item-height);
+    background: transparent;
+    accessible-role: list-item;
+    accessible-label: root.item.label;
+    accessible-checked: root.item.checked == MenuChecked.on;
+    accessible-enabled: !root.item.disabled;
+
+    if root.is-rule : Rectangle {
+        x: Tokens.space-2;
+        width: parent.width - 2 * Tokens.space-2;
+        height: 1px;
+        y: (parent.height - self.height) / 2;
+        background: Tokens.border-subtle;
+    }
+
+    if root.is-heading : Text {
+        x: Tokens.space-2;
+        width: parent.width - 2 * Tokens.space-2;
+        text: root.item.label;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        vertical-alignment: bottom;
+        overflow: elide;
+        accessible-role: none;
+    }
+
+    if !root.is-rule && !root.is-heading : Rectangle {
+        // The highlight is the subtle hover tint of the component layer, as the Select highlight.
+        background: root.highlighted ? Tokens.button-ghost-bg-hover : transparent;
+        border-radius: Tokens.radius-control;
+
+        HorizontalLayout {
+            padding-left: Tokens.space-2 + root.depth * Tokens.space-4;
+            padding-right: Tokens.space-2;
+            spacing: Tokens.space-2;
+
+            // One leading slot for the whole menu, only when some row has an icon or a check mark, so the labels line up.
+            if root.leading : Rectangle {
+                width: Tokens.icon-small;
+                if root.item.checked == MenuChecked.on : Image {
+                    source: Icons.check;
+                    colorize: root.label-color;
+                    width: Tokens.icon-small;
+                    height: Tokens.icon-small;
+                    y: (parent.height - self.height) / 2;
+                }
+                if root.item.checked != MenuChecked.on && root.item.icon.width > 0 : Image {
+                    source: root.item.icon;
+                    colorize: root.muted;
+                    width: Tokens.icon-small;
+                    height: Tokens.icon-small;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.label;
+                color: root.label-color;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+
+            if root.item.shortcut != "" : Text {
+                text: root.item.shortcut;
+                color: root.muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+
+            if root.item.kind == MenuKind.submenu : Rectangle {
+                width: Tokens.icon-small;
+                Image {
+                    source: root.expanded ? Icons.chevron-down : Icons.chevron-right;
+                    colorize: root.muted;
+                    width: Tokens.icon-small;
+                    height: Tokens.icon-small;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+
+    ta := TouchArea {
+        enabled: root.selectable;
+        clicked => { root.picked(); }
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.move) {
+                root.hovered();
+            }
+        }
+    }
+}
+
+// The list of rows with its keyboard. Shared by Menu (in a Popover) and ContextMenu (in its own PopupWindow).
+export component MenuList inherits Rectangle {
+    in property <[MenuItem]> items;
+    // The visible rows, computed by the owner (MenuNav.flatten of its items and expanded submenu).
+    in property <[MenuRow]> rows;
+    // The submenu that is open, or empty. Two-way with the owner, which computes the rows from it.
+    in-out property <string> expanded-id: "";
+    // The highlighted row (an index into rows), or -1. Two-way with the owner, which sets it when it opens.
+    in-out property <int> highlight: -1;
+    // Incremented by the owner to move the keyboard focus into the list once its popup is shown.
+    in property <int> focus-request: 0;
+    in property <length> item-height: Tokens.size-menu-row-height;
+    in property <length> rule-height: Tokens.space-2 * 2 + 1px;
+    // True when some item has an icon or a check mark: the rows then keep one leading column.
+    property <bool> leading: MenuNav.has-leading(root.items);
+
+    // An item was chosen (Enter, Space or a click on an enabled item). The owner closes the menu and reports it.
+    callback activated(id: string);
+    // Escape, or Tab, with no submenu open: the owner closes the menu.
+    callback close-requested();
+
+    height: MenuNav.list-height(root.items, root.rows, root.item-height, root.rule-height);
+    horizontal-stretch: 1;
+    background: transparent;
+
+    changed focus-request => {
+        fs.focus();
+    }
+
+    function step(dir: int) {
+        root.highlight = MenuNav.next-row(root.items, root.rows, root.highlight, dir);
+    }
+
+    function edge(first: bool) {
+        root.highlight = first
+            ? MenuNav.next-row(root.items, root.rows, -1, 1)
+            : MenuNav.next-row(root.items, root.rows, root.rows.length, -1);
+    }
+
+    // Opens the highlighted submenu and highlights its first selectable child.
+    function right() {
+        if (root.highlight < 0) {
+            return;
+        }
+        let it = root.items[root.rows[root.highlight].index];
+        if (it.kind == MenuKind.submenu && root.expanded-id != it.id) {
+            let parent-row = root.highlight;
+            root.expanded-id = it.id;
+            let child = MenuNav.first-child-row(root.items, root.rows, parent-row);
+            if (child >= 0) {
+                root.highlight = child;
+            }
+        }
+    }
+
+    // On a child: closes its submenu and highlights the submenu row. On an open submenu row: closes it.
+    function left() {
+        if (root.highlight < 0) {
+            return;
+        }
+        let row = root.rows[root.highlight];
+        let it = root.items[row.index];
+        if (row.depth > 0) {
+            let parent-row = MenuNav.row-of-id(root.items, root.rows, it.parent);
+            root.expanded-id = "";
+            if (parent-row >= 0) {
+                root.highlight = parent-row;
+            }
+        } else if (it.kind == MenuKind.submenu && root.expanded-id == it.id) {
+            root.expanded-id = "";
+        }
+    }
+
+    // Escape: closes an open submenu (its child stays out of focus), otherwise asks the owner to close the menu.
+    function escape() {
+        if (root.expanded-id != "") {
+            let parent-row = MenuNav.row-of-id(root.items, root.rows, root.expanded-id);
+            if (root.highlight >= 0 && root.rows[root.highlight].depth > 0 && parent-row >= 0) {
+                root.highlight = parent-row;
+            }
+            root.expanded-id = "";
+        } else {
+            root.close-requested();
+        }
+    }
+
+    // Enter, Space, or a click on the highlighted row: a submenu toggles, an enabled item is chosen.
+    function activate() {
+        if (root.highlight < 0) {
+            return;
+        }
+        let it = root.items[root.rows[root.highlight].index];
+        if (it.kind == MenuKind.submenu) {
+            if (root.expanded-id == it.id) {
+                root.expanded-id = "";
+            } else {
+                root.right();
+            }
+        } else if (it.kind == MenuKind.item && !it.disabled) {
+            root.activated(it.id);
+        }
+    }
+
+    fs := FocusScope {
+        // The list is focused by its owner on open, and a pointer click on a row does not need it to take focus.
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.DownArrow) {
+                root.step(1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                root.step(-1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.edge(true);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.edge(false);
+                return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                root.right();
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.left();
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.activate();
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                root.escape();
+                return accept;
+            }
+            // Android Back does what Escape does (gaps D7): the same escape path closes the menu.
+            if (event.text == Key.Back) {
+                root.escape();
+                return accept;
+            }
+            if (event.text == Key.Tab) {
+                root.close-requested();
+                return reject;
+            }
+            return reject;
+        }
+    }
+
+    VerticalLayout {
+        spacing: 0px;
+
+        for row[ri] in root.rows : MenuRowView {
+            item: root.items[row.index];
+            depth: row.depth;
+            expanded: row.expanded;
+            highlighted: root.highlight == ri;
+            leading: root.leading;
+            item-height: root.item-height;
+            rule-height: root.rule-height;
+            picked => {
+                root.highlight = ri;
+                root.activate();
+            }
+            hovered => {
+                if (self.selectable) {
+                    root.highlight = ri;
+                }
+            }
+        }
+    }
+}
+
+// A menu opened from a trigger. The owner places a trigger (a Button) next to it and forwards the trigger's presses
+// (see Menu.trigger-pressed, Menu.trigger-clicked and Menu.open), as Popover does.
+export component Menu inherits Rectangle {
+    in property <[MenuItem]> items;
+    // Accessible name of the menu panel.
+    in property <string> accessible-name;
+    in property <length> anchor-height: Tokens.size-control-md;
+    // The minimum width of the panel. The panel grows to fit its widest row, up to menu-max-width.
+    in property <length> menu-width: 220px;
+    in property <length> menu-max-width: 360px;
+    // The width the panel takes: the widest row (MenuNav.fit-width) clamped to [menu-width, menu-max-width].
+    out property <length> panel-width: max(root.menu-width, min(root.menu-max-width, MenuNav.fit-width(root.items,
+        MenuNav.has-leading(root.items), Type.body.size, Type.caption.size, Tokens.icon-small + Tokens.space-2,
+        2 * Tokens.space-2 + 2 * Tokens.space-1 + 2px + Tokens.space-2, Tokens.space-4)));
+    // Window y the panel must stay above: the menu opens upward when there is no room below. 0 disables the flip.
+    in property <length> bottom-limit: 0px;
+    // The submenu that is open, or empty. Two-way with the list.
+    in-out property <string> expanded-id: "";
+    out property <bool> menu-open: pop.is-open;
+    changed menu-open => { TooltipHub.popup-event(); }
+
+    // The chosen item's id. Fires once per choice; a disabled item never fires it.
+    callback selected(id: string);
+    callback opened();
+    callback closed();
+
+    // True while the trigger's press was on a trigger whose menu was open (see trigger-pressed).
+    property <bool> press-was-open: false;
+    // The highlighted row. The state lives here, not in the list: Slint does not let the markup read into a popup's children.
+    in-out property <int> highlight: -1;
+    // Moves the keyboard focus into the list when it changes (incremented on each open, as ContextMenu).
+    property <int> focus-request: 0;
+    // The visible rows and the height they take, computed here from the items and the open submenu.
+    out property <[MenuRow]> rows: MenuNav.flatten(root.items, root.expanded-id);
+    out property <length> content-height: MenuNav.list-height(root.items, root.rows,
+        Tokens.size-menu-row-height, Tokens.space-2 * 2 + 1px);
+
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    // Opens the menu with the first selectable row highlighted. Does nothing when it is open or has no items.
+    public function open() {
+        if (!pop.is-open && root.items.length > 0) {
+            root.highlight = MenuNav.next-row(root.items, root.rows, -1, 1);
+            pop.open();
+            root.focus-request += 1;
+        }
+    }
+
+    public function close() {
+        pop.close();
+    }
+
+    public function toggle() {
+        if (pop.is-open) {
+            pop.close();
+        } else {
+            root.open();
+        }
+    }
+
+    // Test hook: a click on item `index` of items, as its row does. A disabled item takes no click; an enabled one closes the menu.
+    public function test-click-item(index: int) {
+        let it = root.items[index];
+        if (it.kind == MenuKind.item && !it.disabled) {
+            pop.close();
+            root.selected(it.id);
+        }
+    }
+
+    // Called by the trigger on press, before its click. Records whether the menu is open at that moment.
+    public function trigger-pressed() {
+        root.press-was-open = pop.is-open;
+    }
+
+    // Called by the trigger on click. A click whose press closed the menu does not reopen it (as Popover).
+    public function trigger-clicked() {
+        if (root.press-was-open) {
+            root.press-was-open = false;
+        } else {
+            root.toggle();
+        }
+    }
+
+    accessible-role: none;
+
+    pop := Popover {
+        accessible-name: root.accessible-name;
+        anchor-height: root.anchor-height;
+        panel-width: root.panel-width;
+        content-padding: Tokens.space-1;
+        bottom-limit: root.bottom-limit;
+        opened => { root.opened(); }
+        // A menu opens with its submenus collapsed.
+        closed => {
+            root.expanded-id = "";
+            root.closed();
+        }
+
+        MenuList {
+            items: root.items;
+            rows: root.rows;
+            highlight <=> root.highlight;
+            focus-request: root.focus-request;
+            expanded-id <=> root.expanded-id;
+            activated(id) => {
+                pop.close();
+                root.selected(id);
+            }
+            close-requested => { pop.close(); }
+        }
+    }
+}
+
+// A context menu: opened by a right press on the target (at the pointer), or by the Menu key or Shift+F10 while the target
+// has keyboard focus (at the target's bottom left). Its own PopupWindow (the native context menu of ContextMenuArea cannot
+// be themed or captured). The target is the children. The popup is placed at the pointer and kept inside the window by
+// Slint (it does not flip above the pointer).
+export component ContextMenu inherits Rectangle {
+    in property <[MenuItem]> items;
+    // Accessible name of the menu panel.
+    in property <string> accessible-name;
+    // The minimum width of the panel. The panel grows to fit its widest row, up to menu-max-width.
+    in property <length> menu-width: 220px;
+    in property <length> menu-max-width: 360px;
+    // The submenu that is open, or empty. Two-way with the list.
+    in-out property <string> expanded-id: "";
+    out property <bool> menu-open: pop.is-open;
+    // The width the panel takes: the widest row (MenuNav.fit-width) clamped to [menu-width, menu-max-width].
+    out property <length> panel-width: max(root.menu-width, min(root.menu-max-width, MenuNav.fit-width(root.items,
+        MenuNav.has-leading(root.items), Type.body.size, Type.caption.size, Tokens.icon-small + Tokens.space-2,
+        2 * Tokens.space-2 + 2 * Tokens.space-1 + 2px + Tokens.space-2, Tokens.space-4)));
+
+    callback selected(id: string);
+    callback opened();
+    callback closed();
+
+    // Room around the panel inside the popup window, for the overlay shadow (blur plus offset), as Popover.
+    property <length> room: Tokens.shadow-overlay-blur + Tokens.shadow-overlay-offset-y;
+    // Where the panel's top left is, in this element's coordinates.
+    property <length> at-x: 0px;
+    property <length> at-y: 0px;
+    // The highlighted row and the visible rows: state of this element, not of the list (see Menu).
+    in-out property <int> highlight: -1;
+    // Moves the keyboard focus into the list when it changes (incremented on each open).
+    property <int> focus-request: 0;
+    out property <[MenuRow]> rows: MenuNav.flatten(root.items, root.expanded-id);
+    out property <length> content-height: MenuNav.list-height(root.items, root.rows,
+        Tokens.size-menu-row-height, Tokens.space-2 * 2 + 1px);
+    property <length> panel-height: root.content-height + 2 * Tokens.space-1;
+
+    // Opens the menu with its top left at (x, y) in this element's coordinates, and the first selectable row highlighted.
+    public function open-at(x: length, y: length) {
+        if (!pop.is-open && root.items.length > 0) {
+            root.at-x = x;
+            root.at-y = y;
+            root.highlight = MenuNav.next-row(root.items, root.rows, -1, 1);
+            // The target takes the focus first, so the focus the core restores on close is the target's (as Popover's trigger).
+            tfs.focus();
+            pop.show();
+            root.focus-request += 1;
+        }
+    }
+
+    public function close() {
+        if (pop.is-open) {
+            pop.close();
+        }
+    }
+
+    changed menu-open => {
+        TooltipHub.popup-event();
+        if (root.menu-open) {
+            root.opened();
+        } else {
+            // A menu opens with its submenus collapsed.
+            root.expanded-id = "";
+            root.closed();
+        }
+    }
+
+    // The target: the children, inside a focus scope so the Menu key and Shift+F10 reach it. A right press on the target opens
+    // the menu at the pointer. The right-press area is declared after the children, so it covers them.
+    tfs := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        key-pressed(event) => {
+            if (event.text == Key.Menu || (event.text == Key.F10 && event.modifiers.shift)) {
+                root.open-at(Tokens.space-2, root.height);
+                return accept;
+            }
+            return reject;
+        }
+
+        @children
+
+        ta := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            pointer-event(pe) => {
+                if (pe.kind == PointerEventKind.down && pe.button == PointerEventButton.right) {
+                    root.open-at(self.mouse-x, self.mouse-y);
+                }
+            }
+        }
+    }
+
+    // Gives the target keyboard focus (for tests and for a caller that moves focus in code).
+    public function focus-target() {
+        tfs.focus();
+    }
+
+    // Test hook: a click on item `index` of items, as its row does. A disabled item takes no click; an enabled one closes the menu.
+    public function test-click-item(index: int) {
+        let it = root.items[index];
+        if (it.kind == MenuKind.item && !it.disabled) {
+            root.close();
+            root.selected(it.id);
+        }
+    }
+
+    // True while the target holds keyboard focus (it has it again once the menu closes).
+    out property <bool> target-has-focus: tfs.has-focus;
+
+    pop := PopupWindow {
+        x: root.at-x - root.room;
+        y: root.at-y - root.room;
+        width: root.panel-width + 2 * root.room;
+        height: root.panel-height + 2 * root.room;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        Rectangle {
+            x: root.room;
+            y: root.room;
+            width: root.panel-width;
+            height: root.panel-height;
+            background: Tokens.surface-overlay;
+            border-color: Tokens.border-subtle;
+            border-width: 1px;
+            border-radius: Tokens.radius-surface;
+            drop-shadow-color: Tokens.shadow-overlay;
+            drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+            drop-shadow-blur: Tokens.shadow-overlay-blur;
+            clip: true;
+            accessible-role: AccessibleRole.list;
+            accessible-label: root.accessible-name;
+
+            MenuList {
+                x: Tokens.space-1;
+                y: Tokens.space-1;
+                width: parent.width - 2 * Tokens.space-1;
+                items: root.items;
+                rows: root.rows;
+                highlight <=> root.highlight;
+                focus-request: root.focus-request;
+                expanded-id <=> root.expanded-id;
+                activated(id) => {
+                    root.close();
+                    root.selected(id);
+                }
+                close-requested => { root.close(); }
+            }
+        }
+    }
+}

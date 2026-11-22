@@ -1,0 +1,172 @@
+// Toolbar (P0.17 batch 3). A row of icon buttons with a thin separator between groups. Each button is an icon with an
+// accessible label. The component draws no tooltip and no text; the caller's labels are the only names.
+//
+// Overflow. The toolbar does not collapse into a "more" menu when it is too narrow. Items past the right edge are clipped.
+// A caller that needs overflow must split the items itself (see the README gaps).
+//
+// Keyboard (roving focus, as Tabs): the whole toolbar is ONE Tab stop. Tab lands on the focused item, which starts on
+// item 0. Right and Left move the focus to the next and previous item that can take it and wrap at the ends. Separators
+// and disabled items are skipped; at most two of them in a row are skipped. Home and End move to the first and last item
+// that can take focus. Enter and Space activate the focused item. Arrow keys only move the focus.
+//
+// Callbacks. `activated(index)` fires on Enter, Space or a click on an enabled item. `index` is the item's index in
+// `items`, separators included. `focus-index` is set before the callback runs.
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export struct ToolbarItem {
+    // The accessible name of the button. Ignored for a separator.
+    label: string,
+    icon: image,
+    enabled: bool,
+    // true draws a separator at this position. Separators take no focus.
+    separator: bool,
+}
+
+export component Toolbar inherits Rectangle {
+    in property <[ToolbarItem]> items;
+    // Accessible name of the toolbar as a whole.
+    in property <string> accessible-name;
+    // Forced look for captures: 2 shows the focus ring on the focused item. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // The item that holds the roving focus, two-way.
+    in-out property <int> focus-index: 0;
+    // True while the toolbar holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    callback activated(int);
+
+    property <int> count: root.items.length;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+
+    pure function focusable(i: int) -> bool {
+        if (i < 0 || i >= root.count) {
+            return false;
+        }
+        return !root.items[i].separator && root.items[i].enabled;
+    }
+
+    pure function wrap(i: int) -> int {
+        if (i < 0) {
+            return root.count - 1;
+        }
+        if (i >= root.count) {
+            return 0;
+        }
+        return i;
+    }
+
+    // Moves the focus to the next focusable item in direction dir (1 or -1), wrapping at the ends.
+    function move(dir: int) {
+        let a = root.wrap(root.focus-index + dir);
+        let b = root.wrap(a + dir);
+        let c = root.wrap(b + dir);
+        if (root.focusable(a)) {
+            root.focus-index = a;
+        } else if (root.focusable(b)) {
+            root.focus-index = b;
+        } else if (root.focusable(c)) {
+            root.focus-index = c;
+        }
+    }
+
+    function activate(i: int) {
+        if (root.focusable(i)) {
+            root.focus-index = i;
+            root.activated(i);
+        }
+    }
+
+    // Test hooks. `test-click` is what an item's TouchArea does on a click (only an enabled item activates, as the
+    // TouchArea is disabled otherwise); `test-label` reads an item's label.
+    public function test-click(i: int) {
+        root.activate(i);
+    }
+    public function test-label(i: int) -> string {
+        return root.items[i].label;
+    }
+
+    height: Tokens.size-control-md;
+    min-width: 120px;
+    horizontal-stretch: 1;
+    background: transparent;
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        for entry[i] in root.items : Rectangle {
+            width: entry.separator ? Tokens.space-2 : root.height;
+            height: root.height;
+            background: transparent;
+
+            if entry.separator : Rectangle {
+                x: (parent.width - 1px) / 2;
+                y: Tokens.space-2;
+                width: 1px;
+                height: parent.height - Tokens.space-4;
+                background: Tokens.border-strong;
+            }
+
+            if !entry.separator : Rectangle {
+                width: parent.width;
+                height: parent.height;
+                border-radius: Tokens.radius-control;
+                background: !entry.enabled ? transparent : (ta.pressed ? Tokens.button-ghost-bg-active : (ta.has-hover ? Tokens.button-ghost-bg-hover : transparent));
+                border-width: root.ring-on && root.focus-index == i ? 2px : 0px;
+                border-color: Tokens.focus-ring;
+
+                Image {
+                    width: Tokens.icon-medium;
+                    height: Tokens.icon-medium;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    source: entry.icon;
+                    colorize: entry.enabled ? Tokens.text-primary : Tokens.disabled-text;
+                }
+
+                ta := TouchArea {
+                    enabled: entry.enabled;
+                    accessible-role: button;
+                    accessible-label: entry.label;
+                    clicked => { root.activate(i); }
+                }
+            }
+        }
+    }
+
+    // The one Tab stop of the toolbar. It has no size: it takes focus and keys only.
+    fs := FocusScope {
+        enabled: root.count > 0;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.RightArrow) {
+                root.move(1);
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.move(-1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.focus-index = 0;
+                if (!root.focusable(0)) {
+                    root.move(1);
+                }
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.focus-index = root.count - 1;
+                if (!root.focusable(root.count - 1)) {
+                    root.move(-1);
+                }
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.activate(root.focus-index);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

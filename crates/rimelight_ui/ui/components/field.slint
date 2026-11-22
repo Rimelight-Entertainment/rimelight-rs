@@ -1,0 +1,73 @@
+// Field and Form (S5). Field stacks a label, the control (its children), and a help or error line.
+// Form is a plain column of fields with the spacing of the design system.
+//
+// label, required mark, help text, and error text.
+//
+// Error and the child's own flag: Field does not change the child. It publishes `invalid` (true while `error` is set),
+// and the caller ORs it with the child's own flag, so the child reads `invalid: field.invalid || own-flag`. The child's own
+// flag is never overwritten, so clearing the error restores the child's own state.
+// A field error never replaces the child's invalid flag.
+//
+// Layout: vertical only (label above the control). A horizontal label-left layout would need the same children in two
+// different layouts, which Slint does not allow with @children; it is not built (README, "Slint port" S5).
+// Text wraps, so the field fits a 390 px phone width.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export component Field inherits VerticalLayout {
+    in property <string> label;
+    in property <bool> required: false;
+    in property <string> help;
+    in property <string> error;
+    // The `invalid` value a child should OR with its own flag.
+    out property <bool> invalid: root.error != "";
+
+    spacing: Tokens.space-1;
+
+    HorizontalLayout {
+        spacing: Tokens.space-1;
+        alignment: start;
+        Text {
+            text: root.label;
+            color: Tokens.text-primary;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            wrap: word-wrap;
+        }
+        if root.required : Text {
+            text: "*";
+            color: Tokens.status-danger-text-on-surface;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            accessible-role: none;
+        }
+    }
+
+    @children
+
+    if root.error != "" : Text {
+        text: root.error;
+        color: Tokens.status-danger-text-on-surface;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+    if root.error == "" && root.help != "" : Text {
+        text: root.help;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+        accessible-role: none;
+    }
+}
+
+// A column of fields, with the form spacing between them.
+export component Form inherits VerticalLayout {
+    spacing: Tokens.space-4;
+    alignment: start;
+}

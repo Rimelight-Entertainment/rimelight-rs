@@ -1,0 +1,255 @@
+// Input (S5): single-line text field. Own component built on Slint's low-level `TextInput`
+// element, which supplies the caret, selection, clipboard (Ctrl+C, X, V), undo and redo, and IME. This file draws the
+// frame, placeholder, icons, clear and password buttons from the Tokens global, and nothing else. It does not
+// re-implement any editing. The std LineEdit is not used because its style cannot be themed (README, "Slint port" S5).
+//
+// sizes 28, 34 and 40 px, leading icon, trailing
+// addon, clearable, password with show and hide, states default, hover, focus, disabled, read-only and invalid,
+// changed and submitted callbacks.
+//
+// Keyboard: Tab reaches the text field, then the clear button (when shown), then the password toggle (when shown). Enter
+// on the field calls `submitted`. Space and Enter on the clear or password button activate it. Disabled and read-only
+// fields ignore typing (TextInput does this itself). The focus ring is 2 px `focus-ring` while the field has focus.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { InputFocus } from "input-focus.slint";
+
+export enum InputSize { sm, md, lg }
+
+// A clear or password button at the trailing edge of the field. Its own FocusScope makes it a Tab stop.
+export component InputAction inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <color> ink;
+    in property <length> icon-size;
+    callback activated();
+
+    width: root.height;
+    border-radius: Tokens.radius-control;
+    border-width: fs.has-focus ? 2px : 0px;
+    border-color: Tokens.focus-ring;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.activated(); }
+
+    Image {
+        source: root.icon;
+        colorize: root.ink;
+        width: root.icon-size;
+        height: root.icon-size;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.activated(); }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component Input inherits Rectangle {
+    // The text, two-way: the field edits it and the caller can set it.
+    in-out property <string> text <=> ti.text;
+    in property <string> placeholder;
+    // Accessible name of the field (not accessible-label, which Slint already defines). Required when there is no visible label next to it.
+    in property <string> accessible-name;
+    in property <InputSize> size: InputSize.md;
+    in property <image> leading-icon;
+    // Text shown after the field, for example a unit or a domain. Empty hides it.
+    in property <string> trailing-addon;
+    in property <bool> clearable: false;
+    // Labelled clear button: the caller supplies the words ("Clear", "Clear search").
+    in property <string> clear-label: "Clear";
+    // Password mode: the characters are masked. The toggle (shown in password mode) switches to plain text.
+    in property <bool> password: false;
+    in property <string> show-label: "Show password";
+    in property <string> hide-label: "Hide password";
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in property <bool> invalid: false;
+    // Forced look for captures: 0 none, 1 hover, 2 focus ring. Real input takes precedence.
+    in property <int> forced-state: 0;
+    // true while the password is shown as plain text.
+    in-out property <bool> revealed: false;
+    // True while the text field holds keyboard focus.
+    out property <bool> has-focus: ti.has-focus;
+    changed has-focus => { InputFocus.focused-count += self.has-focus ? 1 : -1; }
+    // True while the password is masked.
+    out property <bool> masked: root.password && !root.revealed;
+
+    callback changed(string);
+    callback submitted(string);
+
+    property <bool> can-clear: root.clearable && root.enabled && !root.read-only && root.text != "";
+    property <bool> hovered: (hover-area.has-hover && root.enabled && !root.read-only) || root.forced-state == 1;
+    property <bool> focused: ti.has-focus || root.forced-state == 2;
+    property <color> fg: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> muted: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+    property <length> control-height: root.size == InputSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == InputSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    property <length> icon-size: root.size == InputSize.lg ? Tokens.icon-medium : Tokens.icon-small;
+
+    function clear-text() {
+        if (root.can-clear) {
+            root.text = "";
+            root.changed("");
+            ti.focus();
+        }
+    }
+
+    function toggle-reveal() {
+        if (root.password && root.enabled) {
+            root.revealed = !root.revealed;
+        }
+    }
+
+    // Test hooks: the actions a click on the field, its clear button and its reveal toggle run.
+    public function test-focus() { ti.focus(); }
+    public function test-clear() { root.clear-text(); }
+    public function test-reveal() { root.toggle-reveal(); }
+
+    accessible-role: text-input;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : root.placeholder;
+    accessible-enabled: root.enabled;
+    accessible-value: root.masked ? "" : root.text;
+    accessible-placeholder-text: root.placeholder;
+    forward-focus: ti;
+
+    height: root.control-height;
+    min-width: 120px;
+    horizontal-stretch: 1;
+    border-radius: Tokens.radius-control;
+    background: !root.enabled ? Tokens.disabled-surface : Tokens.surface-raised;
+    border-width: root.focused ? 2px : 1px;
+    border-color: root.focused ? Tokens.focus-ring
+        : (root.invalid ? Tokens.status-danger-border
+        : (!root.enabled ? Tokens.disabled-border
+        : (root.hovered ? Tokens.border-strong : Tokens.border-subtle)));
+
+    // Pointer hover is tracked on the whole frame, not the text field alone.
+    // A click anywhere on the frame, including the empty part past the text, gives the field focus.
+    hover-area := TouchArea {
+        mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.not-allowed;
+        clicked => { ti.focus(); }
+    }
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-2;
+        spacing: Tokens.space-2;
+
+        if root.leading-icon.width > 0 : Rectangle {
+            width: root.icon-size;
+            height: parent.height;
+            Image {
+                source: root.leading-icon;
+                colorize: root.muted;
+                width: root.icon-size;
+                height: root.icon-size;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        // The text area clips the TextInput, which scrolls inside it to keep the caret in view (the same scheme as the
+        // std LineEdit, which is the only part of it copied here).
+        field := Rectangle {
+            horizontal-stretch: 1;
+            min-width: 1px;
+            clip: true;
+
+            placeholder := Text {
+                width: 100%;
+                height: 100%;
+                vertical-alignment: center;
+                text: (root.text == "" && root.placeholder != "") ? root.placeholder : "";
+                color: root.muted;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                accessible-role: none;
+            }
+
+            ti := TextInput {
+                property <length> computed-x;
+                x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
+                width: max(parent.width - self.text-cursor-width, self.preferred-width);
+                height: parent.height;
+                vertical-alignment: center;
+                single-line: true;
+                color: root.fg;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                selection-background-color: Tokens.accent-fill;
+                selection-foreground-color: Tokens.text-on-accent;
+                input-type: root.masked ? InputType.password : InputType.text;
+                read-only: root.read-only;
+                enabled: root.enabled;
+                // The Input's own accessible role and label cover the field; the TextInput's role would duplicate it.
+                accessible-role: none;
+
+                cursor-position-changed(cursor-position) => {
+                    if (cursor-position.x + self.computed-x < 0px) {
+                        self.computed-x = -cursor-position.x;
+                    } else if (cursor-position.x + self.computed-x > parent.width - self.text-cursor-width) {
+                        self.computed-x = parent.width - cursor-position.x - self.text-cursor-width;
+                    }
+                }
+
+                accepted => {
+                    root.submitted(self.text);
+                }
+
+                edited => {
+                    root.changed(self.text);
+                }
+            }
+        }
+
+        // Layouts position their children, so the vertical centre comes from the height and alignment, not from `y`.
+        if root.trailing-addon != "" : Text {
+            height: parent.height;
+            vertical-alignment: center;
+            text: root.trailing-addon;
+            color: root.muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            accessible-role: none;
+        }
+
+        if root.can-clear : InputAction {
+            label: root.clear-label;
+            icon: Icons.x;
+            ink: root.muted;
+            icon-size: root.icon-size;
+            activated => { root.clear-text(); }
+        }
+
+        if root.password : InputAction {
+            label: root.revealed ? root.hide-label : root.show-label;
+            icon: root.revealed ? Icons.eye-off : Icons.eye;
+            ink: root.enabled ? root.muted : Tokens.disabled-text;
+            enabled: root.enabled;
+            icon-size: root.icon-size;
+            activated => { root.toggle-reveal(); }
+        }
+    }
+}

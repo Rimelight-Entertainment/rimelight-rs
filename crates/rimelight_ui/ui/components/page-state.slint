@@ -1,0 +1,65 @@
+// PageState (SP.3b). What a page shows in place of its data: a spinner while it loads, an error with Try again, or an empty
+// message. A loaded page draws its own content instead, so the caller draws this only when `state` is not `loaded`. Every
+// page that loads from the API uses it (the page data pattern, src/slint_ui/page_data.rs).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { EmptyState } from "empty-state.slint";
+import { ErrorState } from "error-state.slint";
+import { Spinner, SpinnerSize } from "spinner.slint";
+
+export enum PageLoadState { loading, loaded, empty, error }
+
+export component PageState inherits VerticalLayout {
+    in property <PageLoadState> state: PageLoadState.loading;
+    // The page's icon, drawn by the empty message.
+    in property <image> icon;
+    in property <string> loading-text: "Loading...";
+    in property <string> empty-title;
+    in property <string> empty-description;
+    in property <string> error-title: "Could not load";
+    in property <string> error-description;
+    // The error's own message, in the mono style under the description (empty hides it).
+    in property <string> error-details;
+    in property <string> retry-label: "Try again";
+    callback retry();
+
+    alignment: start;
+    spacing: Tokens.space-3;
+
+    if root.state == PageLoadState.loading : VerticalLayout {
+        alignment: center;
+        spacing: Tokens.space-3;
+        HorizontalLayout {
+            alignment: center;
+            Spinner {
+                size: SpinnerSize.md;
+            }
+        }
+        Text {
+            text: root.loading-text;
+            horizontal-alignment: center;
+            color: Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+        }
+    }
+
+    if root.state == PageLoadState.error : ErrorState {
+        icon: Icons.triangle-alert;
+        title: root.error-title;
+        description: root.error-description;
+        details: root.error-details;
+        retry-label: root.retry-label;
+        retry => {
+            root.retry();
+        }
+    }
+
+    if root.state == PageLoadState.empty : EmptyState {
+        icon: root.icon;
+        title: root.empty-title;
+        description: root.empty-description;
+    }
+}

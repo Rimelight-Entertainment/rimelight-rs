@@ -1,0 +1,39 @@
+// SearchField (S5): an Input preset for search. A search icon before the text, the clear button
+// while there is text, and an optional keyboard-shortcut hint drawn inside the field, at its right end (the Input's
+// trailing addon). The caller binds the key.
+//
+// Keyboard: as Input. The shortcut hint is not a Tab stop.
+import { Icons } from "../icons.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Input, InputSize } from "input.slint";
+
+export component SearchField inherits HorizontalLayout {
+    in-out property <string> text <=> field.text;
+    in property <string> placeholder: "Search";
+    in property <string> accessible-name: "Search";
+    in property <string> clear-label: "Clear search";
+    in property <InputSize> size: InputSize.md;
+    // Shortcut hint shown inside the field, right-aligned, for example "Ctrl K". Empty means no hint.
+    in property <string> shortcut-hint: "";
+    in property <bool> enabled: true;
+    in property <int> forced-state: 0;
+
+    callback changed(string);
+    callback submitted(string);
+
+    spacing: Tokens.space-2;
+
+    field := Input {
+        placeholder: root.placeholder;
+        accessible-name: root.accessible-name;
+        size: root.size;
+        leading-icon: Icons.search;
+        trailing-addon: root.shortcut-hint;
+        clearable: true;
+        clear-label: root.clear-label;
+        enabled: root.enabled;
+        forced-state: root.forced-state;
+        changed(value) => { root.changed(value); }
+        submitted(value) => { root.submitted(value); }
+    }
+}

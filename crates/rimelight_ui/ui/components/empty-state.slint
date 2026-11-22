@@ -1,0 +1,77 @@
+// EmptyState (S4). What a view shows when it has nothing yet: an icon, a title, a description and an
+// optional action button. Own component drawn from the Tokens global.
+// The title is the heading, every string is passed in, and the action
+// is the only control (a tab stop, Enter and Space through Button).
+//
+// The action is shown only when `action-label` is not empty. `action` fires once per activation.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+import { Button, ButtonVariant } from "button.slint";
+
+export component EmptyState inherits VerticalLayout {
+    // The icon, drawn in the muted text colour.
+    in property <image> icon;
+    in property <string> title;
+    in property <string> description;
+    // Empty hides the action button.
+    in property <string> action-label;
+    // The compact variant, for a space too short for the full card (a short tile group): the icon and the title only, the
+    // title on one elided line, and no description or action. The caller decides from the space it has.
+    in property <bool> compact: false;
+
+    // Fired by a click, Enter or Space on the action button.
+    callback action();
+
+    padding-top: root.compact ? Tokens.space-2 : Tokens.space-8;
+    padding-bottom: root.compact ? Tokens.space-2 : Tokens.space-8;
+    padding-left: Tokens.space-4;
+    padding-right: Tokens.space-4;
+    spacing: root.compact ? Tokens.space-2 : Tokens.space-3;
+    // A compact card starts at the top of its body, so it stays in view when the body is short.
+    alignment: root.compact ? start : center;
+
+    HorizontalLayout {
+        alignment: center;
+        Image {
+            source: root.icon;
+            colorize: Tokens.text-muted;
+            width: root.compact ? Icons.medium-size : Icons.large-size;
+            height: root.compact ? Icons.medium-size : Icons.large-size;
+        }
+    }
+
+    Text {
+        text: root.title;
+        color: Tokens.text-primary;
+        font-family: Type.subheading.family;
+        font-size: Type.subheading.size;
+        font-weight: Type.subheading.weight;
+        horizontal-alignment: center;
+        wrap: root.compact ? no-wrap : word-wrap;
+        overflow: root.compact ? elide : clip;
+        accessible-role: text;
+        accessible-label: root.title;
+    }
+
+    // An empty description takes no space: the layout spacing is only added around a drawn Text.
+    if !root.compact && root.description != "" : Text {
+        text: root.description;
+        color: Tokens.text-muted;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+        accessible-role: text;
+    }
+
+    if root.action-label != "" && !root.compact : HorizontalLayout {
+        alignment: center;
+        Button {
+            text: root.action-label;
+            variant: ButtonVariant.primary;
+            clicked => { root.action(); }
+        }
+    }
+}

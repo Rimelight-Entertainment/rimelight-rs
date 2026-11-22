@@ -1,0 +1,612 @@
+// ColorPicker and ColorField. ColorPicker is the full picker: a saturation and value square, a hue bar, a live preview,
+// tabs for the Hex, RGB, HSL and OKLCH notations with one field per channel, and an optional row of preset swatches.
+// ColorField is the form control: a swatch and the hex value on a button, which opens a Popover holding a ColorPicker.
+//
+// The colour is `color`, two-way, and the picker never assigns it. The caller binds it and writes it back in `changed`.
+// `changed(color)` fires when the user has finished a change: on release of a square or hue drag, on a preset, or on Enter
+// in a field. A drag in progress only moves the preview, so a caller that saves on `changed` saves once per gesture.
+//
+// Colour maths. HSV (the picker's state) is Slint's own `hsv()` and `to-hsv()`. OKLCH is Slint's `oklch()` and
+// `to-oklch()`. HSL is converted from HSV in `ColorMath`. Slint cannot read the characters of a string, so the Hex
+// field parses its text through `ColorHex.parse-hex`, a callback the Rust side answers (src/slint_ui/color.rs). Text
+// that is not a hex colour (`#RGB` or `#RRGGBB`, the `#` optional) is refused and the fields show the current value again.
+// Text that is not a number in range is refused the same way.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { Input } from "input.slint";
+import { Popover } from "popover.slint";
+
+// The hex parser. Rust answers `parse-hex` (src/slint_ui/color.rs) and wires it at startup in every window that shows a
+// ColorPicker or ColorField. Unwired, it returns a transparent colour, which the picker treats as "not a colour".
+// A parsed colour is always opaque, so a colour with alpha 0 means the text was refused.
+export global ColorHex {
+    pure callback parse-hex(text: string) -> color;
+}
+
+// The colour maths the picker uses. Pure: no state.
+export global ColorMath {
+    public pure function clamp01(x: float) -> float {
+        return max(0, min(1, x));
+    }
+
+    // Two hex digits of a byte, `00` to `FF`.
+    public pure function hex-byte(v: int) -> string {
+        let digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"];
+        return digits[Math.floor(v / 16)] + digits[Math.mod(v, 16)];
+    }
+
+    // The six hex digits of a colour, without the `#`.
+    public pure function hex-body(c: color) -> string {
+        return root.hex-byte(c.red) + root.hex-byte(c.green) + root.hex-byte(c.blue);
+    }
+
+    // `#RRGGBB` of a colour, upper case.
+    public pure function color-to-hex(c: color) -> string {
+        return "#" + root.hex-body(c);
+    }
+
+    // HSL lightness of an HSV colour (saturation and value in 0 to 1).
+    public pure function hsl-lightness(sv: float, v: float) -> float {
+        return v * (1 - sv / 2);
+    }
+
+    // HSL saturation of an HSV colour (saturation and value in 0 to 1).
+    public pure function hsl-saturation(sv: float, v: float) -> float {
+        let l = root.hsl-lightness(sv, v);
+        let d = min(l, 1 - l);
+        if (d <= 0) {
+            return 0;
+        }
+        return (v - l) / d;
+    }
+
+    // HSV value of an HSL colour (saturation and lightness in 0 to 1).
+    public pure function hsv-value(sl: float, l: float) -> float {
+        return l + sl * min(l, 1 - l);
+    }
+
+    // HSV saturation of an HSL colour (saturation and lightness in 0 to 1).
+    public pure function hsv-saturation(sl: float, l: float) -> float {
+        let v = root.hsv-value(sl, l);
+        if (v <= 0) {
+            return 0;
+        }
+        return 2 * (1 - l / v);
+    }
+}
+
+// One channel's caption above its field.
+component ChannelCaption inherits Text {
+    color: Tokens.text-muted;
+    font-family: Type.caption.family;
+    font-size: Type.caption.size;
+    font-weight: Type.caption.weight;
+}
+
+// One notation tab: its name, underlined when it is the open one.
+component NotationTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+    height: Tokens.size-control-md;
+    horizontal-stretch: 1;
+    background: transparent;
+
+    Text {
+        text: root.label;
+        color: root.selected ? Tokens.text-primary : Tokens.text-muted;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        font-weight: Type.body.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: root.selected ? Tokens.focus-ring : transparent;
+    }
+
+    TouchArea {
+        accessible-role: button;
+        accessible-label: root.label;
+        clicked => {
+            root.activated();
+        }
+    }
+}
+
+export component ColorPicker inherits FocusScope {
+    // A container with no focus stop of its own: the controls inside take focus.
+    enabled: false;
+    // The colour. Two-way: set it from the caller, read it back here. The picker never assigns it itself.
+    in-out property <color> color;
+    // Preset swatches, shown as a small row. Picking one sets the colour.
+    in property <[color]> presets;
+    // Accessible name of the picker.
+    in property <string> accessible-name;
+    // Fires when the user has finished a change (see the header).
+    callback changed(color);
+
+    // The picker's state in HSV. It is kept here, not read back from `color`, so the hue survives a grey (saturation 0)
+    // and a drag does not snap.
+    property <float> hue: 0;
+    property <float> sat: 0;
+    property <float> val: 1;
+    // The notation shown: 0 Hex, 1 RGB, 2 HSL, 3 OKLCH.
+    property <int> mode: 1;
+    // The text of the fields of the notation shown. Refreshed from the state; Enter in a field commits it.
+    property <string> field-1;
+    property <string> field-2;
+    property <string> field-3;
+
+    out property <color> current: hsv(root.hue, root.sat, root.val);
+
+    width: 240px;
+    height: layout.preferred-height;
+
+    // Takes a colour into the state and refreshes the fields. Does not emit; the caller does.
+    function take(c: color) {
+        let h = c.to-hsv();
+        root.hue = h.hue;
+        root.sat = h.saturation;
+        root.val = h.value;
+        root.refresh();
+    }
+
+    // Loads the state from `color`, unless the state already is that colour (so a hue kept on a grey is not lost).
+    function load() {
+        if (root.color != root.current) {
+            root.take(root.color);
+        } else {
+            root.refresh();
+        }
+    }
+
+    // Writes the field texts from the state, in the notation shown.
+    function refresh() {
+        if (root.mode == 0) {
+            root.field-1 = ColorMath.hex-body(root.current);
+            root.field-2 = "";
+            root.field-3 = "";
+        } else if (root.mode == 1) {
+            root.field-1 = "" + root.current.red;
+            root.field-2 = "" + root.current.green;
+            root.field-3 = "" + root.current.blue;
+        } else if (root.mode == 2) {
+            root.field-1 = "" + Math.round(root.hue);
+            root.field-2 = "" + Math.round(ColorMath.hsl-saturation(root.sat, root.val) * 100);
+            root.field-3 = "" + Math.round(ColorMath.hsl-lightness(root.sat, root.val) * 100);
+        } else {
+            let o = root.current.to-oklch();
+            root.field-1 = "" + Math.round(o.lightness * 1000) / 1000;
+            root.field-2 = "" + Math.round(o.chroma * 1000) / 1000;
+            root.field-3 = "" + Math.round(o.hue);
+        }
+    }
+
+    // Commits the fields of the notation shown, then emits. Text that is not a number in range changes nothing.
+    function commit() {
+        if (root.mode == 0) {
+            let typed = ColorHex.parse-hex(root.field-1);
+            if (typed.alpha > 0) {
+                root.take(typed);
+            }
+        } else if (root.field-1.is-float() && root.field-2.is-float() && root.field-3.is-float()) {
+            if (root.mode == 1) {
+                root.take(rgb(
+                    ColorMath.clamp01(root.field-1.to-float() / 255) * 255,
+                    ColorMath.clamp01(root.field-2.to-float() / 255) * 255,
+                    ColorMath.clamp01(root.field-3.to-float() / 255) * 255));
+            } else if (root.mode == 2) {
+                let s = ColorMath.clamp01(root.field-2.to-float() / 100);
+                let l = ColorMath.clamp01(root.field-3.to-float() / 100);
+                root.hue = Math.max(0, Math.min(359.99, root.field-1.to-float()));
+                root.sat = ColorMath.hsv-saturation(s, l);
+                root.val = ColorMath.hsv-value(s, l);
+            } else if (root.mode == 3) {
+                root.take(oklch(
+                    ColorMath.clamp01(root.field-1.to-float()),
+                    Math.max(0, Math.min(0.4, root.field-2.to-float())),
+                    Math.max(0, root.field-3.to-float())));
+            }
+        }
+        root.refresh();
+        root.changed(root.current);
+    }
+
+    changed color => {
+        root.load();
+    }
+
+    init => {
+        root.load();
+    }
+
+    layout := VerticalLayout {
+        width: parent.width;
+        spacing: Tokens.space-3;
+
+    // The saturation and value square. The hue sets its base colour.
+    Rectangle {
+        height: 144px;
+        border-radius: Tokens.radius-r4;
+        clip: true;
+        background: hsv(root.hue, 1, 1);
+
+        Rectangle {
+            background: @linear-gradient(90deg, #ffffff 0%, #ffffff00 100%);
+        }
+
+        Rectangle {
+            background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+        }
+
+        Rectangle {
+            x: root.sat * parent.width - 7px;
+            y: (1 - root.val) * parent.height - 7px;
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            border-width: 2px;
+            border-color: #ffffff;
+            background: root.current;
+        }
+
+        TouchArea {
+            accessible-role: slider;
+            accessible-label: "Saturation and value";
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down) {
+                    root.sat = ColorMath.clamp01(self.mouse-x / parent.width);
+                    root.val = 1 - ColorMath.clamp01(self.mouse-y / parent.height);
+                } else if (ev.kind == PointerEventKind.up) {
+                    root.refresh();
+                    root.changed(root.current);
+                }
+            }
+            moved => {
+                root.sat = ColorMath.clamp01(self.mouse-x / parent.width);
+                root.val = 1 - ColorMath.clamp01(self.mouse-y / parent.height);
+                root.refresh();
+            }
+        }
+    }
+
+    // The hue bar.
+    Rectangle {
+        height: 14px;
+        border-radius: 7px;
+        background: @linear-gradient(90deg, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%);
+
+        Rectangle {
+            x: root.hue / 360 * parent.width - 7px;
+            y: -1px;
+            width: 14px;
+            height: 16px;
+            border-radius: 7px;
+            border-width: 2px;
+            border-color: #ffffff;
+            background: hsv(root.hue, 1, 1);
+        }
+
+        TouchArea {
+            accessible-role: slider;
+            accessible-label: "Hue";
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down) {
+                    root.hue = ColorMath.clamp01(self.mouse-x / parent.width) * 359.99;
+                } else if (ev.kind == PointerEventKind.up) {
+                    root.refresh();
+                    root.changed(root.current);
+                }
+            }
+            moved => {
+                root.hue = ColorMath.clamp01(self.mouse-x / parent.width) * 359.99;
+                root.refresh();
+            }
+        }
+    }
+
+    // The live preview: the colour the state holds, beside its hex value.
+    HorizontalLayout {
+        spacing: Tokens.space-2;
+        Rectangle {
+            width: 40px;
+            height: Tokens.size-control-md;
+            border-radius: Tokens.radius-r4;
+            background: root.current;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: ColorMath.color-to-hex(root.current);
+            color: Tokens.text-primary;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+        }
+    }
+
+    // The notation tabs.
+    HorizontalLayout {
+        NotationTab {
+            label: "Hex";
+            selected: root.mode == 0;
+            activated => {
+                root.mode = 0;
+                root.refresh();
+            }
+        }
+        NotationTab {
+            label: "RGB";
+            selected: root.mode == 1;
+            activated => {
+                root.mode = 1;
+                root.refresh();
+            }
+        }
+        NotationTab {
+            label: "HSL";
+            selected: root.mode == 2;
+            activated => {
+                root.mode = 2;
+                root.refresh();
+            }
+        }
+        NotationTab {
+            label: "OKLCH";
+            selected: root.mode == 3;
+            activated => {
+                root.mode = 3;
+                root.refresh();
+            }
+        }
+    }
+
+    // The fields of the notation shown. Hex is one field; the others take a number each. All commit on Enter, and the
+    // Hex field also commits when it loses focus.
+    if root.mode == 0 : VerticalLayout {
+        spacing: Tokens.space-1;
+        ChannelCaption {
+            text: "Hex";
+        }
+        Input {
+            text <=> root.field-1;
+            accessible-name: "Hex value";
+            submitted => {
+                root.commit();
+            }
+            changed has-focus => {
+                if (!self.has-focus) {
+                    root.commit();
+                }
+            }
+        }
+    }
+
+    if root.mode == 1 : HorizontalLayout {
+        spacing: Tokens.space-2;
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Red";
+            }
+            Input {
+                text <=> root.field-1;
+                accessible-name: "Red";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Green";
+            }
+            Input {
+                text <=> root.field-2;
+                accessible-name: "Green";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Blue";
+            }
+            Input {
+                text <=> root.field-3;
+                accessible-name: "Blue";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+    }
+
+    if root.mode == 2 : HorizontalLayout {
+        spacing: Tokens.space-2;
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Hue";
+            }
+            Input {
+                text <=> root.field-1;
+                accessible-name: "Hue";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Saturation %";
+            }
+            Input {
+                text <=> root.field-2;
+                accessible-name: "Saturation";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Lightness %";
+            }
+            Input {
+                text <=> root.field-3;
+                accessible-name: "Lightness";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+    }
+
+    if root.mode == 3 : HorizontalLayout {
+        spacing: Tokens.space-2;
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Lightness";
+            }
+            Input {
+                text <=> root.field-1;
+                accessible-name: "OKLCH lightness";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Chroma";
+            }
+            Input {
+                text <=> root.field-2;
+                accessible-name: "OKLCH chroma";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            horizontal-stretch: 1;
+            ChannelCaption {
+                text: "Hue";
+            }
+            Input {
+                text <=> root.field-3;
+                accessible-name: "OKLCH hue";
+                submitted => {
+                    root.commit();
+                }
+            }
+        }
+    }
+
+    // The presets, when there are any.
+    if root.presets.length > 0 : HorizontalLayout {
+        spacing: Tokens.space-2;
+        for preset in root.presets : Rectangle {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            background: preset;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+            TouchArea {
+                accessible-role: button;
+                accessible-label: ColorMath.color-to-hex(preset);
+                clicked => {
+                    root.take(preset);
+                    root.changed(root.current);
+                }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+    }
+    }
+}
+
+// The form control: a swatch and the hex value on a button. Pressing it opens a popover with a ColorPicker.
+export component ColorField inherits FocusScope {
+    // A container with no focus stop of its own: the trigger takes focus.
+    enabled: false;
+    // The colour. Two-way: set it from the caller and write it back in `changed`.
+    in-out property <color> color;
+    in property <[color]> presets;
+    // Accessible name of the trigger and of the picker.
+    in property <string> accessible-name;
+    callback changed(color);
+
+    height: Tokens.size-control-md;
+
+    Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: Tokens.radius-r4;
+        background: root.color;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+    }
+
+    trig := Button {
+        x: 16px + Tokens.space-2;
+        y: 0px;
+        width: root.width - self.x;
+        text: ColorMath.color-to-hex(root.color);
+        accessible-name: root.accessible-name;
+        variant: ButtonVariant.secondary;
+        pointer-pressed => {
+            pop.trigger-pressed();
+        }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        x: trig.x;
+        y: trig.y;
+        accessible-name: root.accessible-name;
+        anchor-height: trig.height;
+        panel-width: 256px;
+
+        ColorPicker {
+            color <=> root.color;
+            presets: root.presets;
+            accessible-name: root.accessible-name;
+            changed(c) => {
+                root.changed(c);
+            }
+        }
+    }
+}

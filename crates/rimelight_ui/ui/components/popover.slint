@@ -1,0 +1,201 @@
+// Popover (S7): an anchored panel with arbitrary content (@children), shown in a PopupWindow.
+// Own component, drawn from the Tokens global (surface.overlay, border.subtle, the overlay shadow, radius.surface).
+// anchored below the trigger, closed by an
+// outside click and by Escape, focus moved into the panel on open and back to the trigger on close.
+//
+// Placement. The popover is zero-sized and sits at the trigger's top left (the caller puts it there, next to the
+// trigger, in the same parent). The panel is a PopupWindow child of the popover, so its position is relative to the
+// trigger. It opens below the trigger, `gap` px under it. Slint 1.18.1 does not flip a popup, so the flip is computed
+// here (as in Select): the panel opens above when `bottom-limit` is set and there is no room below.
+//
+// Trigger. The trigger is a sibling (usually our Button). It wires three calls:
+//   - `pointer-pressed` of the trigger -> `trigger-pressed()`. Core closes a popup on the press that lands outside it,
+//     after the trigger has received the press, so `trigger-pressed` still sees the panel open. It records that.
+//   - `clicked` of the trigger -> `trigger-clicked()`. It toggles, except when the press just closed the panel: the
+//     click then does not reopen it.
+//   - Before `trigger-clicked()` the trigger gives itself focus (`focus-me()`), so the focus that Slint hands back on
+//     close is the trigger.
+// `open()`, `close()` and `toggle()` are for markup and Rust. A caller that is not a trigger never needs the press calls.
+//
+// Focus. Slint focuses no popup content by itself, so on open a zero-sized FocusScope (`probe`) inside the panel is
+// focused with `focus()`. Its focus is refused (it is disabled), so Slint walks on to the first focusable child, as
+// Tab would. Core restores the focus the trigger had when the panel closes (Window::close_popup_impl).
+//
+// Keyboard and pointer, all handled by core. Escape closes the top popup when the focused item does not accept it
+// (Window::process_key_input). An outside press closes it (close-policy close-on-click-outside). Keys inside the panel
+// go to the focused control first, so a control that uses Escape must reject it.
+//
+// Accessibility. Slint 1.18.1 has no dialog role. The panel is `region` with the caller's label (the closest landmark).
+import { TooltipHub } from "tooltip.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export component Popover inherits Rectangle {
+    // Accessible name of the panel. Required: it is what a screen reader announces on open.
+    in property <string> accessible-name;
+    // Height of the trigger the popover sits on. The panel opens `gap` px below it.
+    in property <length> anchor-height: Tokens.size-control-md;
+    in property <length> gap: Tokens.space-1;
+    in property <length> panel-width: 280px;
+    // The panel's height is its content's height (set inside the popup, see the panel). Nothing here states it. The
+    // height is written back here once the popup has laid out, so the placement above the trigger can use it. It is 0
+    // until then, so an upward placement on the very first open can sit a little off until the next layout.
+    out property <length> effective-panel-height: 0px;
+    // Panel right edge on the trigger's right edge (the menu opens leftward). anchor-width is the trigger's width.
+    in property <bool> align-end: false;
+    in property <length> anchor-width: Tokens.size-control-md;
+    // Window width the panel is kept inside (0 disables the clamp): the panel stays inside the window on both sides.
+    in property <length> bounds-width: 0px;
+    // The one inset every popover uses: the panel's content sits this far from its edges on all sides. A caller that
+    // needs a different inset states it; it does not add its own padding inside the content (that doubled the gap).
+    // The panel's height follows its content (see panel-height), so the caller never states a formula.
+    in property <length> content-padding: Tokens.space-2;
+    // The gap between the children of the panel.
+    in property <length> content-spacing: Tokens.space-1;
+    // Window y the panel must stay above. The panel opens upward when there is no room below and room above. 0 disables.
+    in property <length> bottom-limit: 0px;
+    // Incremented on each open: moves the focus into the panel once the popup is shown.
+    property <int> focus-request: 0;
+    // True while the panel is shown.
+    out property <bool> is-open: pop.is-open;
+    // True while the trigger's press was on a trigger whose panel was open (see trigger-pressed).
+    out property <bool> press-was-open: false;
+
+    callback opened();
+    callback closed();
+
+    // Room around the panel inside the popup window, for the overlay shadow (blur plus offset).
+    property <length> shadow-room: Tokens.shadow-overlay-blur + Tokens.shadow-overlay-offset-y;
+
+    // Panel left edge relative to the trigger, clamped to the window when bounds-width is set.
+    property <length> panel-rel-x: root.align-end ? root.anchor-width - root.panel-width : 0px;
+    property <length> panel-clamped-x: root.bounds-width > 0px
+        ? max(-root.absolute-position.x, min(root.panel-rel-x, root.bounds-width - root.absolute-position.x - root.panel-width))
+        : root.panel-rel-x;
+
+    out property <bool> menu-above: root.bottom-limit > 0px
+        && root.absolute-position.y + root.anchor-height + root.gap + root.effective-panel-height > root.bottom-limit
+        && root.absolute-position.y - root.gap - root.effective-panel-height >= 0px;
+
+    public function open() {
+        if (!pop.is-open) {
+            pop.show();
+            root.focus-request += 1;
+        }
+    }
+
+    public function close() {
+        if (pop.is-open) {
+            pop.close();
+        }
+    }
+
+    public function toggle() {
+        if (pop.is-open) {
+            root.close();
+        } else {
+            root.open();
+        }
+    }
+
+    // Called by the trigger on press, before its click. Records whether the panel is open at that moment.
+    public function trigger-pressed() {
+        root.press-was-open = pop.is-open;
+    }
+
+    // Called by the trigger on click. A click whose press closed the panel does not reopen it.
+    public function trigger-clicked() {
+        if (root.press-was-open) {
+            root.press-was-open = false;
+        } else {
+            root.toggle();
+        }
+    }
+
+    changed is-open => {
+        TooltipHub.popup-event();
+        if (root.is-open) {
+            root.opened();
+        } else {
+            root.closed();
+        }
+    }
+
+    // The trigger is the top left of this element: the panel is placed from it (see the header).
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    accessible-role: none;
+
+    // The panel. It is a PopupWindow child of this zero-sized element, so x and y are relative to the trigger. The popup
+    // has no size of its own: its layout takes the panel's height, and Slint sizes the window from that layout.
+    out property <length> dbg-panel-h: 0px;
+    out property <length> dbg-content-h: 0px;
+    out property <length> dbg-pop-y: root.menu-above ? -(root.gap + root.effective-panel-height + root.shadow-room) : root.anchor-height;
+    pop := PopupWindow {
+        x: root.panel-clamped-x - root.shadow-room;
+        y: root.menu-above ? -(root.gap + root.effective-panel-height + root.shadow-room) : root.anchor-height;
+        width: root.panel-width + 2 * root.shadow-room;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        // The window has room for the shadow on the sides and on the far side (the window is cut at its own edge). On the
+        // trigger side it stops at the trigger, so the window never covers the trigger (a click on it must still reach it).
+        VerticalLayout {
+            padding-left: root.shadow-room;
+            padding-right: root.shadow-room;
+            padding-top: root.menu-above ? root.shadow-room : root.gap;
+            padding-bottom: root.menu-above ? root.gap : root.shadow-room;
+
+            panel := Rectangle {
+                width: root.panel-width;
+                background: Tokens.surface-overlay;
+                border-color: Tokens.border-subtle;
+                border-width: 1px;
+                border-radius: Tokens.radius-surface;
+                drop-shadow-color: Tokens.shadow-overlay;
+                drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+                drop-shadow-blur: Tokens.shadow-overlay-blur;
+                clip: true;
+                accessible-role: region;
+                accessible-label: root.accessible-name;
+
+                changed height => { root.effective-panel-height = self.height; root.dbg-panel-h = self.height; }
+
+                // Android Back closes the popover (gaps D7). A popup is its own item tree, so the window's key scope never sees the key
+                // while focus is in here. Back bubbles from the focused child up to this scope, so it is the ancestor of the content.
+                // It comes before the probe in the tree, so the focus the probe passes on still lands on the first focusable child.
+                back-scope := FocusScope {
+                    width: 100%;
+                    key-pressed(event) => {
+                        if (event.text == Key.Back) {
+                            root.close();
+                            return accept;
+                        }
+                        return reject;
+                    }
+
+                    // A focus target that refuses focus (disabled), so focusing it moves on to the first focusable child.
+                    probe := FocusScope {
+                        enabled: false;
+                        width: 0px;
+                        height: 0px;
+                    }
+
+                    property <int> seen-request: root.focus-request;
+                    changed seen-request => {
+                        probe.focus();
+                    }
+
+                    content := VerticalLayout {
+                        padding: root.content-padding;
+                        spacing: root.content-spacing;
+                        changed preferred-height => { root.dbg-content-h = self.preferred-height; }
+
+                        @children
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,27 @@
+[package]
+name = "rimelight_ui_check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Compile check for the rimelight_ui component library. Not shipped."
+
+# An app crate: the only crate that compiles Slint for rimelight_ui (AGENTS.md, layering 1). It is a library so the
+# headless test can reach CheckWindow.
+# Lints are spelled out, not inherited: Slint generates unsafe vtable code, which the workspace `forbid` rejects even
+# under `allow`. This crate uses `deny` and allows it on the generated module only (src/lib.rs), as Space does.
+[lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "deny"
+
+[dependencies]
+slint.workspace = true
+
+# build.rs runs on the host and reads the library folders, so the markup libraries are build dependencies.
+[build-dependencies]
+slint-build.workspace = true
+rimelight_ui = { path = "../../crates/rimelight_ui" }
+rimelight_design.workspace = true
+
+[dev-dependencies]
+i-slint-backend-testing = { workspace = true, features = ["renderer-software"] }

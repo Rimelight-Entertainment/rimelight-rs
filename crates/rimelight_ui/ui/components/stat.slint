@@ -1,0 +1,74 @@
+// Stat (P0.17 batch 4). A label, a large value, and an optional delta with its direction and an optional caption.
+//
+// The delta's tone follows its direction: up is the success colour, down the danger colour, flat the muted text colour.
+// The icon is a chevron pointing down for down, turned to point up for up, and a minus for flat. The direction is drawn
+// as an icon and the delta text carries the amount, so the state does not rest on colour alone.
+//
+// Keyboard: none. A stat is display only; it has no focus stop and handles no keys. The caller writes the value and the
+// delta text (for example "+12 %"); the component does not format numbers.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export enum DeltaDirection { up, down, flat }
+
+export component Stat inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    // Empty hides the delta row.
+    in property <string> delta;
+    in property <DeltaDirection> direction: DeltaDirection.flat;
+    // Empty hides the caption.
+    in property <string> caption;
+
+    property <color> delta-ink: root.direction == DeltaDirection.up ? Tokens.status-success-text-on-surface
+        : (root.direction == DeltaDirection.down ? Tokens.status-danger-text-on-surface : Tokens.text-muted);
+
+    spacing: Tokens.space-1;
+    alignment: start;
+
+    Text {
+        text: root.label;
+        color: Tokens.text-muted;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+        wrap: word-wrap;
+    }
+    Text {
+        text: root.value;
+        color: Tokens.text-primary;
+        font-family: Type.title.family;
+        font-size: Type.title.size;
+        font-weight: Type.title.weight;
+        wrap: word-wrap;
+    }
+    if root.delta != "" : HorizontalLayout {
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        Image {
+            width: Icons.small-size;
+            height: Icons.small-size;
+            source: root.direction == DeltaDirection.flat ? Icons.minus : Icons.chevron-down;
+            colorize: root.delta-ink;
+            transform-rotation: root.direction == DeltaDirection.up ? 180deg : 0deg;
+        }
+        Text {
+            text: root.delta;
+            color: root.delta-ink;
+            font-family: Type.body-strong.family;
+            font-size: Type.body-strong.size;
+            font-weight: Type.body-strong.weight;
+            wrap: word-wrap;
+        }
+    }
+    if root.caption != "" : Text {
+        text: root.caption;
+        color: Tokens.text-muted;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+}

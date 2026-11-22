@@ -1,0 +1,51 @@
+// ButtonGroup (S3). Segmented buttons that share one border and one radius.
+// Each segment is a Button in its grouped look, so it has its own focus ring and its own tab stop: Tab moves from one
+// segment to the next. Enter and Space on a segment activate it, and a click does the same.
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export struct GroupSegment {
+    label: string,
+    enabled: bool,
+}
+
+export component ButtonGroup inherits Rectangle {
+    in property <[GroupSegment]> segments;
+    in property <ButtonVariant> variant: ButtonVariant.secondary;
+    in property <ButtonSize> size: ButtonSize.md;
+    in property <bool> full-width: false;
+    // Forced focus ring on one segment, for captures (-1 none).
+    in property <int> forced-focus: -1;
+
+    // The index of the segment that was activated.
+    callback segment-clicked(int);
+
+    // One shared frame: the rounded outer border. The segments are clipped to it.
+    clip: true;
+    border-width: 1px;
+    border-color: Tokens.border-strong;
+    border-radius: Tokens.radius-control;
+    height: root.size == ButtonSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == ButtonSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    horizontal-stretch: root.full-width ? 1 : 0;
+    min-width: row.preferred-width;
+    max-width: root.full-width ? 100000px : row.preferred-width;
+    background: transparent;
+
+    row := HorizontalLayout {
+        spacing: 0px;
+        for segment[i] in root.segments: Button {
+            text: segment.label;
+            variant: root.variant;
+            size: root.size;
+            full-width: root.full-width;
+            enabled: segment.enabled;
+            grouped: true;
+            divider: i < root.segments.length - 1;
+            forced-state: root.forced-focus == i ? 3 : 0;
+            clicked => { root.segment-clicked(i); }
+            horizontal-stretch: root.full-width ? 1 : 0;
+        }
+    }
+}

@@ -1,0 +1,61 @@
+// TimePicker (P0.17 batch 6). An hour and a minute, each a NumberInput, with a colon between them. The hour runs 0 to 23
+// and the minute 0 to 59. Both change by typing, by Up and Down, and by the NumberInput buttons; `time-changed` reports
+// each change with both values.
+//
+// Keyboard: as NumberInput. Tab moves from the hour to the minute.
+//
+// Limits: the fields show the number as typed (9, not 09). The 24-hour clock only; a 12-hour clock and AM or PM are not
+// built.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { NumberInput } from "number-input.slint";
+
+export component TimePicker inherits HorizontalLayout {
+    // Hour (0 to 23) and minute (0 to 59). Two-way, so the caller can set them.
+    in-out property <float> hour: 9;
+    in-out property <float> minute: 0;
+    // Accessible name of the picker; the hour and minute fields add their own word to it.
+    in property <string> accessible-name;
+    in property <bool> enabled: true;
+    // Fires after the hour or the minute changes, with both values.
+    callback time-changed(float, float);
+
+    spacing: Tokens.space-1;
+    alignment: start;
+
+    hour-field := NumberInput {
+        width: 96px;
+        value <=> root.hour;
+        minimum: 0;
+        maximum: 23;
+        step: 1;
+        accessible-name: root.accessible-name + ", hour";
+        increase-label: "Later hour";
+        decrease-label: "Earlier hour";
+        enabled: root.enabled;
+        changed(v) => { root.time-changed(root.hour, root.minute); }
+    }
+
+    Text {
+        text: ":";
+        width: Tokens.space-2;
+        color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+        font-family: Type.body.family;
+        font-size: Type.body.size;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+
+    minute-field := NumberInput {
+        width: 96px;
+        value <=> root.minute;
+        minimum: 0;
+        maximum: 59;
+        step: 1;
+        accessible-name: root.accessible-name + ", minute";
+        increase-label: "Later minute";
+        decrease-label: "Earlier minute";
+        enabled: root.enabled;
+        changed(v) => { root.time-changed(root.hour, root.minute); }
+    }
+}

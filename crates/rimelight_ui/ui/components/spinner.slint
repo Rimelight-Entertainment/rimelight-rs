@@ -1,0 +1,128 @@
+﻿// Spinner (S4). A busy indicator: a faint ring with an arc segment (about a quarter of the ring) that turns round it.
+// Own component, drawn from the Tokens global. three sizes, a tone colour, and no focus.
+//
+// The segment is a Path arc. Its two ends are placed with `Math.sin` and `Math.cos` of an angle `spin`, which is animated
+// 0deg to 360deg, linear, with `iteration-count: -1` (a negative count loops forever in Slint's animation code). The end
+// angle is `spin` plus 90deg, so the arc always covers a quarter of the ring. Reduced motion (Tokens.reduced-motion)
+// keeps the angle at 0deg, so the segment stays in the top-right quarter: a still indicator under the setting.
+// The loop length is Tokens.motion-loop, which is 0 ms under reduced motion.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Icons } from "../icons.slint";
+
+export enum SpinnerSize { sm, md, lg }
+
+export component Spinner inherits Rectangle {
+    in property <SpinnerSize> size: SpinnerSize.md;
+    // The tone of the ring and the segment. Callers pass the text colour of their surface.
+    in property <color> ink: Tokens.text-primary;
+    // false stops the spin (the segment stays at its start position), for callers that show the spinner only sometimes.
+    in property <bool> running: true;
+
+    property <length> d: root.size == SpinnerSize.sm ? Icons.small-size
+        : (root.size == SpinnerSize.md ? Icons.medium-size : Icons.large-size);
+    // Stroke of the faint ring: 2 px for sm and md, 3 px for lg.
+    property <length> stroke: root.size == SpinnerSize.lg ? 3px : 2px;
+    // Radius of the arc's centre line. The faint ring is a border drawn inside the box, so its centre line sits
+    // half a ring stroke in from the edge: (d - stroke) / 2. The arc uses the same radius so it runs along the rail.
+    property <length> r: (root.d - root.stroke) / 2;
+    property <length> c: root.d / 2;
+    // Plain numbers for the arc maths (Slint does not mix lengths and floats).
+    property <float> rf: root.r / 1px;
+    property <float> cf: root.c / 1px;
+
+    // An animation runs only when the property changes, so the angle starts at 0deg and is set to 360deg once the
+    // spinner is shown. The animation then repeats forever (iteration-count -1). A constant binding never animates.
+    property <angle> spin: 0deg;
+    animate spin {
+        duration: Tokens.motion-loop;
+        iteration-count: -1;
+        easing: linear;
+    }
+    init => {
+        root.spin = (root.running && !Tokens.reduced-motion) ? 360deg : 0deg;
+    }
+
+    width: root.d;
+    height: root.d;
+    background: transparent;
+
+    // The faint ring the segment turns on.
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: Tokens.radius-pill;
+        background: transparent;
+        border-width: root.stroke;
+        border-color: root.ink.transparentize(0.7);
+    }
+
+    // The arc segment: a quarter of the ring, from `spin` to `spin` + 90deg, clockwise.
+    Path {
+        width: root.d;
+        height: root.d;
+        fill: transparent;
+        stroke: root.ink;
+        // Same stroke as the rail, so the segment covers the rail exactly instead of bulging past it.
+        stroke-width: root.stroke;
+        // A fixed viewbox equal to the box. Without one, Slint fits the bounding box of the path commands to the
+        // element, which stretches a quarter arc to fill the whole box (wrong radius, cutting across the centre).
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: root.d / 1px;
+        viewbox-height: root.d / 1px;
+
+        // The arc is drawn as 12 short straight steps along the circle (7.5deg each), in box pixels.
+        MoveTo {
+            x: (root.cf + root.rf * Math.sin(root.spin));
+            y: (root.cf - root.rf * Math.cos(root.spin));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 7.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 7.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 15deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 15deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 22.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 22.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 30deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 30deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 37.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 37.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 45deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 45deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 52.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 52.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 60deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 60deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 67.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 67.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 75deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 75deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 82.5deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 82.5deg));
+        }
+        LineTo {
+            x: (root.cf + root.rf * Math.sin(root.spin + 90deg));
+            y: (root.cf - root.rf * Math.cos(root.spin + 90deg));
+        }
+    }
+}

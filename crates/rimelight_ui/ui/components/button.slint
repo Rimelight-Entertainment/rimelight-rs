@@ -1,0 +1,227 @@
+// Button (S3). Own component, not the std-widgets Button: the std Button draws Fluent colours,
+// a fixed 32 px minimum and a fixed 4 px radius from its own palette, and none of those follow the Tokens global. The
+// decision and reason are in crates/rimelight_ui/README.md ("Slint port", S3).
+//
+// five variants, three sizes, leading and trailing
+// icons, a loading state, disabled, full width, the navy-sidebar colours for ghost and link, forced states for captures,
+// and the grouped (segmented) look used by ButtonGroup.
+//
+// Keyboard: a FocusScope takes Tab focus. Enter and Space activate it. `focus-on-click` is false, so a pointer click does
+// not move focus, and the focus ring (2 px, Tokens.focus-ring) is drawn only while the keyboard or the caller gives the
+// button focus.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Spinner, SpinnerSize } from "spinner.slint";
+import { TooltipHub } from "tooltip.slint";
+
+export enum ButtonVariant { primary, secondary, ghost, danger, link }
+export enum ButtonSize { sm, md, lg }
+
+// The colours of one variant at rest, hover and pressed.
+struct Paint {
+    fill: color,
+    fill-hover: color,
+    fill-active: color,
+    text: color,
+    border: color,
+}
+
+export component Button inherits Rectangle {
+    in property <string> text;
+    // Caller-supplied accessible name. Empty means the text is the name (icon-only buttons set it).
+    in property <string> accessible-name;
+    in property <ButtonVariant> variant: ButtonVariant.secondary;
+    in property <ButtonSize> size: ButtonSize.md;
+    in property <image> leading-icon;
+    in property <image> trailing-icon;
+    in property <bool> full-width: false;
+    // Square: the width equals the height and the padding is zero (icon-only).
+    in property <bool> square: false;
+    // false draws the disabled look and takes no input.
+    in property <bool> enabled: true;
+    // true replaces the leading icon with a Spinner and takes no input (S4: the spinner turns, still under reduced motion).
+    in property <bool> loading: false;
+    // Navy sidebar colours for ghost and link, so their text reads on the sidebar.
+    in property <bool> on-sidebar: false;
+    // Forced look for captures: 0 none, 1 hover, 2 pressed, 3 focus ring. Real input takes precedence.
+    in property <int> forced-state: 0;
+    // Segmented look inside a ButtonGroup: square corners, no border unless focused, and an optional divider on the right.
+    in property <bool> grouped: false;
+    // Square corners (radius 0) without the grouped look: the workspace strip's "+" matches its square tabs.
+    in property <bool> square-corners: false;
+    in property <bool> divider: false;
+    // Sidebar rows (SF.4): the label is one line that elides, and the button may shrink to its row's width. Its icon
+    // stays at the left and the label is left-aligned.
+    in property <bool> elide: false;
+    // The gutter at each end of an elided button's content (the sidebar uses space-4). A caller with a tighter list sets less.
+    in property <length> elide-gutter: Tokens.space-4;
+    // The current route or page: the sidebar selected look (selected background and text, distinct from hover).
+    in property <bool> selected: false;
+    // A button that reports a checked state to assistive tech (the selected sidebar row). Reads `selected`.
+    in property <bool> checkable: false;
+    // A ghost toggle (the header's inspector button): a selected toggle is a filled subtle background (the active page tab's
+    // neutral fill), with no outline; a disabled toggle is a dimmed glyph with no fill and no outline. Other buttons are unchanged.
+    in property <bool> ghost-toggle: false;
+    // Bold label (an unread conversation).
+    in property <bool> bold: false;
+    // Space kept free at the right end of an elided label, for a count badge drawn over the button.
+    in property <length> end-inset: 0px;
+    // Space kept free at the left end of an elided label, after the gutter, for a visual drawn over the button (an avatar).
+    in property <length> start-inset: 0px;
+
+    callback clicked();
+    // Escape while the button has keyboard focus (S7: an IconButton's tooltip dismisses on it). The key is not consumed.
+    callback escape-pressed();
+    // A pointer press on the button, before its click (S7: a Popover trigger records the press, see popover.slint).
+    callback pointer-pressed();
+    // Down arrow while the button has keyboard focus (S7: a Menu trigger opens its menu on it). The key is not consumed.
+    callback down-pressed();
+
+    // True when a click or Enter reaches `clicked`: enabled and not loading.
+    out property <bool> actionable: root.enabled && !root.loading;
+    // True while the FocusScope holds keyboard focus (or the forced focus state is on).
+    out property <bool> has-focus: fs.has-focus;
+
+    property <Paint> paint: root.variant == ButtonVariant.primary
+        ? { fill: Tokens.button-primary-bg, fill-hover: Tokens.button-primary-bg-hover, fill-active: Tokens.button-primary-bg-active, text: Tokens.button-primary-text, border: Tokens.button-primary-border }
+        : root.variant == ButtonVariant.secondary
+        ? { fill: Tokens.button-secondary-bg, fill-hover: Tokens.button-secondary-bg-hover, fill-active: Tokens.button-secondary-bg-active, text: Tokens.button-secondary-text, border: Tokens.button-secondary-border }
+        : root.variant == ButtonVariant.danger
+        ? { fill: Tokens.button-danger-bg, fill-hover: Tokens.button-danger-bg-hover, fill-active: Tokens.button-danger-bg-active, text: Tokens.button-danger-text, border: Tokens.button-danger-border }
+        : root.variant == ButtonVariant.ghost
+        ? { fill: transparent, fill-hover: root.on-sidebar ? Tokens.sidebar-hover-bg : Tokens.button-ghost-bg-hover, fill-active: root.on-sidebar ? Tokens.sidebar-selected-bg : Tokens.button-ghost-bg-active, text: root.on-sidebar ? Tokens.sidebar-text : Tokens.button-ghost-text, border: transparent }
+        : { fill: transparent, fill-hover: transparent, fill-active: transparent, text: root.on-sidebar ? Tokens.sidebar-link : Tokens.accent-text, border: transparent };
+
+    // Pointer over the button (or forced hover). Read by an IconButton's tooltip (S7).
+    out property <bool> hovered: (ta.has-hover && root.actionable) || root.forced-state == 1;
+    property <bool> pressed: (ta.pressed && root.actionable) || root.forced-state == 2;
+    // Keyboard focus (or forced focus). Read by an IconButton's tooltip (S7).
+    out property <bool> focused: fs.has-focus || root.forced-state == 3;
+    property <color> fg: !root.enabled ? Tokens.disabled-text
+        : (root.selected ? (root.ghost-toggle ? Tokens.text-primary : Tokens.sidebar-selected-text) : root.paint.text);
+    property <length> control-height: root.size == ButtonSize.sm
+        ? Tokens.size-control-sm
+        : (root.size == ButtonSize.lg ? Tokens.size-control-lg : Tokens.size-control-md);
+    property <length> pad: root.size == ButtonSize.sm
+        ? Tokens.space-2
+        : (root.size == ButtonSize.lg ? Tokens.space-4 : Tokens.space-3);
+    property <length> icon-size: root.size == ButtonSize.lg ? Tokens.icon-medium : Tokens.icon-small;
+
+    function activate() {
+        if (root.actionable) {
+            root.clicked();
+        }
+    }
+
+    accessible-role: button;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.activate(); }
+
+    height: root.control-height;
+    // Width: the content's preferred width, capped so a layout does not stretch it. Full width lets the layout stretch it.
+    // Square is the control height on both sides. An elided button may shrink below its label so the label can elide.
+    horizontal-stretch: root.full-width ? 1 : 0;
+    min-width: root.square ? root.control-height : (root.elide ? 0px : content.preferred-width);
+    max-width: root.square ? root.control-height : (root.full-width ? 100000px : content.preferred-width);
+    border-radius: (root.grouped || root.square-corners) ? 0px : Tokens.radius-control;
+    // A disabled ghost button (and a ghost toggle) draws no fill: only the dimmed glyph shows.
+    background: !root.enabled ? ((root.ghost-toggle || root.variant == ButtonVariant.ghost) ? transparent : Tokens.disabled-surface)
+        : (root.pressed ? root.paint.fill-active
+        : (root.hovered ? root.paint.fill-hover
+        : (root.selected ? (root.ghost-toggle ? Tokens.surface-raised : Tokens.sidebar-selected-bg) : root.paint.fill)));
+    border-width: root.focused ? 2px : (root.grouped ? 0px : 1px);
+    // A ghost toggle draws no outline when disabled or selected (its fill marks the selection).
+    border-color: root.focused ? Tokens.focus-ring
+        : ((root.ghost-toggle || root.variant == ButtonVariant.ghost) && (!root.enabled || root.selected) ? transparent
+        : (root.enabled ? root.paint.border : Tokens.disabled-border));
+
+    content := HorizontalLayout {
+        // Sidebar rows (elide) use the sidebar gutter (space-4, as the section headings) and start their content at the left.
+        padding-left: root.square ? 0px : (root.elide ? root.elide-gutter + root.start-inset : root.pad);
+        padding-right: root.square ? 0px : (root.elide ? root.elide-gutter + root.end-inset : root.pad);
+        spacing: root.elide ? Tokens.space-3 : Tokens.space-2;
+        alignment: root.elide ? start : center;
+
+        if root.loading : Spinner {
+            y: (parent.height - self.height) / 2;
+            size: root.size == ButtonSize.lg ? SpinnerSize.md : SpinnerSize.sm;
+            ink: root.fg;
+        }
+        if !root.loading && root.leading-icon.width > 0 : Image {
+            y: (parent.height - self.height) / 2;
+            source: root.leading-icon;
+            colorize: root.fg;
+            width: root.icon-size;
+            height: root.icon-size;
+        }
+        if root.text != "" : Text {
+            text: root.text;
+            color: root.fg;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: root.bold ? Type.body-strong.weight : Type.label.weight;
+            horizontal-alignment: root.elide ? left : center;
+            vertical-alignment: center;
+            horizontal-stretch: root.elide ? 1 : 0;
+            wrap: no-wrap;
+            overflow: root.elide ? TextOverflow.elide : TextOverflow.clip;
+        }
+        if root.trailing-icon.width > 0 : Image {
+            y: (parent.height - self.height) / 2;
+            source: root.trailing-icon;
+            colorize: root.fg;
+            width: root.icon-size;
+            height: root.icon-size;
+        }
+    }
+
+    // The divider of a grouped segment, on its right edge.
+    if root.divider && !root.focused : Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Tokens.border-strong;
+    }
+
+    // Gives the button keyboard focus (S7: a Popover trigger takes focus before it opens, so focus returns here on close).
+    public function focus-me() {
+        fs.focus();
+    }
+
+    // Test hook: a click on the button, as its pointer area does. Nothing happens when it is disabled or loading.
+    public function test-click() {
+        root.activate();
+    }
+
+    ta := TouchArea {
+        enabled: root.actionable;
+        mouse-cursor: pointer;
+        clicked => { root.activate(); }
+        pointer-event(pe) => {
+            if (pe.kind == PointerEventKind.down) {
+                TooltipHub.pointer-down();
+                root.pointer-pressed();
+            }
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.activate();
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                root.escape-pressed();
+            }
+            if (event.text == Key.DownArrow) {
+                root.down-pressed();
+            }
+            return reject;
+        }
+    }
+}

@@ -1,0 +1,156 @@
+// Accordion (P0.17 batch 2). A list of collapsible items. Each header is a row with the title and a chevron that turns when
+// the item opens. The body is plain text (`body`): a caller that needs richer bodies builds them with Section or its own
+// layout (see the README gaps).
+//
+// Single or multiple. With `multiple` false (the default) opening one item closes the others, and `open-index` holds the
+// open item (-1 for none). With `multiple` true each item opens and closes on its own, and `open-index` is not used.
+//
+// Keyboard: each header is its own Tab stop, in order. Enter or Space toggles the focused header. Tab moves on to the
+// next header and leaves the accordion after the last one. Arrow keys and Home and End do not move between headers yet
+// (see the README gaps). A click toggles the header and does not move keyboard focus. The focus ring is 2 px.
+//
+// Callbacks. `toggled(index, open)` fires after every change, from a click or a key, with the new state of that item.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export struct AccordionEntry {
+    title: string,
+    body: string,
+}
+
+// One item: a header that requests its own open state, and the body while open. The accordion decides whether the request
+// is granted: in single mode through `open-index`, in multiple mode the row keeps its own state.
+component AccordionRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> body;
+    in property <bool> multiple;
+    // In single mode: this row is the open one (from the accordion's `open-index`).
+    in property <bool> open-when-single;
+    // In multiple mode: the row's own state.
+    property <bool> own-open: false;
+    out property <bool> expanded: root.multiple ? root.own-open : root.open-when-single;
+    // Asks for the item to be open (true) or closed (false). Fires after the row's own state is updated.
+    callback requested(bool);
+
+    function press() {
+        let want = !root.expanded;
+        if (root.multiple) {
+            root.own-open = want;
+        }
+        root.requested(want);
+    }
+
+    spacing: Tokens.space-0;
+    alignment: start;
+
+    header := Rectangle {
+        height: Tokens.size-control-md;
+        border-radius: Tokens.radius-control;
+        border-width: fs.has-focus ? 2px : 0px;
+        border-color: Tokens.focus-ring;
+        background: transparent;
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-expanded: root.expanded;
+        accessible-action-default => { root.press(); }
+
+        HorizontalLayout {
+            padding-left: Tokens.space-3;
+            padding-right: Tokens.space-3;
+            spacing: Tokens.space-2;
+            alignment: start;
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.title;
+                color: Tokens.text-primary;
+                font-family: Type.body-strong.family;
+                font-size: Type.body-strong.size;
+                font-weight: Type.body-strong.weight;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+
+            Image {
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                y: (parent.height - self.height) / 2;
+                source: Icons.chevron-down;
+                colorize: Tokens.text-muted;
+                transform-rotation: root.expanded ? 180deg : 0deg;
+            }
+        }
+
+        ta := TouchArea {
+            clicked => { root.press(); }
+        }
+
+        fs := FocusScope {
+            focus-on-click: false;
+            key-pressed(event) => {
+                if (event.text == Key.Space || event.text == Key.Return) {
+                    root.press();
+                    return accept;
+                }
+                return reject;
+            }
+        }
+    }
+
+    if root.expanded : HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-3;
+        padding-bottom: Tokens.space-3;
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.body;
+            color: Tokens.text-muted;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: root.body;
+        }
+    }
+}
+
+export component Accordion inherits VerticalLayout {
+    in property <[AccordionEntry]> items;
+    // False: one item open at a time. True: each item opens and closes on its own.
+    in property <bool> multiple: false;
+    // Single mode only: the index of the open item, or -1 for none. Two-way, so the caller can open an item by index.
+    in-out property <int> open-index: -1;
+    // The index of the item and whether it is open after the change.
+    callback toggled(int, bool);
+
+    function request(i: int, want: bool) {
+        if (!root.multiple) {
+            root.open-index = want ? i : -1;
+        }
+        root.toggled(i, want);
+    }
+
+    // Test hooks. `test-request` is the request a header makes on a press, with the open state it asks for. In single
+    // mode it is the whole path. `test-title` reads an item's title.
+    public function test-request(i: int, want: bool) {
+        root.request(i, want);
+    }
+    public function test-title(i: int) -> string {
+        return root.items[i].title;
+    }
+
+    spacing: Tokens.space-1;
+    alignment: start;
+
+    for entry[i] in root.items : AccordionRow {
+        title: entry.title;
+        body: entry.body;
+        multiple: root.multiple;
+        open-when-single: root.open-index == i;
+        requested(want) => { root.request(i, want); }
+    }
+}

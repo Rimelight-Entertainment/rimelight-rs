@@ -1,0 +1,250 @@
+// Tooltip (S7). A short text, with an optional keyboard shortcut, shown above or below an anchor
+// control. Own component, drawn from the Tokens global (tooltip-bg, tooltip-text, tooltip-border, the overlay shadow).
+// text, a Kbd hint, the caption text size.
+//
+// The bubble is drawn by TooltipOverlay, one per window, the last child of the window root, so no ancestor's `clip: true`
+// (a column, a scroll area) cuts it and it draws above the page. A Tooltip only decides when it is shown and writes its
+// text and anchor into the TooltipLayer global. Nothing is a popup, so a tooltip never takes focus from its anchor.
+// Limit: the overlay draws below PopupWindows (menus), so a tooltip anchored inside a popup is hidden by the popup.
+//
+// Triggers.
+// - Keyboard focus: `anchor-focused` (bind it to the anchor's focus) shows the tooltip at once.
+// - Pointer: `anchor-hovered` shows the tooltip after `Tokens.motion-slow` (a hover delay, so a passing pointer does not
+//   flash it). The pointer leaving hides it at once.
+// - Escape: the anchor calls `dismiss()` on Escape. It stays hidden until the anchor is focused or hovered again.
+// - Blur: losing focus hides a focus-shown tooltip.
+//
+// Placement. `top` (the default) opens above the anchor and `bottom` below it. Either side flips to the other when the
+// bubble would leave the window on its own side, and the bubble is centred on the anchor. The window is known from
+// `TooltipBounds`, which the window root sets. The bubble is then pushed inside the window's left, right, top and bottom
+// edges, so it is never cut off. Without the bounds (a window that does not set them) it only flips, and is not pushed.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Kbd } from "kbd.slint";
+
+export enum TooltipPlacement { top, bottom }
+
+// The window size, for the tooltip clamp. The window root (AppShell) copies its own width and height here.
+export global TooltipBounds {
+    in-out property <length> width: 0px;
+    in-out property <length> height: 0px;
+}
+
+// The one rule for every tooltip (gaps tracker, "tooltips obey one central rule"). The window-level handlers and the
+// controls report into this global, and every Tooltip reads it, so no tooltip patches its own case.
+// - `dismiss-tick` changes on ANY pointer press (a drag starts with one), key press, popup open or close, and scroll. A
+//   Tooltip remembers the tick when its trigger began (hover entered, focus arrived); when the tick has moved on, the
+//   tooltip is hidden until the trigger begins again (the pointer leaves and re-enters, or focus is moved again).
+// - `mouse-mode` is true from a pointer press or a popup event until the next key press. Keyboard-focus tooltips are
+//   shown only while it is false, so a focus that arrived by a click, or that a closing popup restored, shows nothing.
+//   The key press that moves focus (Tab, an arrow) is seen first and clears it, so the tooltip of the new focus shows.
+export global TooltipHub {
+    in-out property <int> dismiss-tick: 0;
+    in-out property <bool> mouse-mode: false;
+
+    // A pointer press (also the start of a drag, a right press for a context menu).
+    public function pointer-down() {
+        TooltipHub.mouse-mode = true;
+        TooltipHub.dismiss-tick += 1;
+    }
+    // A popup, menu, dialog or sheet opened or closed. Closing hands focus back to the trigger; that is not keyboard
+    // navigation.
+    public function popup-event() {
+        TooltipHub.mouse-mode = true;
+        TooltipHub.dismiss-tick += 1;
+    }
+    // A key press, seen by the window before the focused control.
+    public function key-down() {
+        TooltipHub.mouse-mode = false;
+        TooltipHub.dismiss-tick += 1;
+    }
+    // Any other dismissal (scroll).
+    public function dismiss() {
+        TooltipHub.dismiss-tick += 1;
+    }
+}
+
+// The one tooltip shown in this window (decision: tooltips draw in TooltipOverlay, never in a popup, so they never take
+// focus). A Tooltip writes here when it shows (claims) and clears `owner` when it hides, if it is still the owner.
+export global TooltipLayer {
+    in-out property <int> next-id: 0;
+    in-out property <int> owner: 0;
+    in-out property <string> text;
+    in-out property <[string]> shortcut;
+    in-out property <TooltipPlacement> placement: TooltipPlacement.top;
+    in-out property <length> anchor-x: 0px;
+    in-out property <length> anchor-y: 0px;
+    in-out property <length> anchor-width: 0px;
+    in-out property <length> anchor-height: 0px;
+    in-out property <bool> forced: false;
+    // TooltipHub.dismiss-tick at claim time. A later tick hides the bubble even if its Tooltip was destroyed while shown.
+    in-out property <int> claim-tick: 0;
+}
+
+export component Tooltip inherits Rectangle {
+    // The text. Empty means no tooltip at all (the trigger is still focusable and hoverable).
+    in property <string> text;
+    // Keyboard keys shown after the text, one cap per key, for example ["Ctrl", "S"]. Empty means no hint.
+    in property <[string]> shortcut;
+    in property <TooltipPlacement> placement: TooltipPlacement.top;
+    // The anchor's size, passed by the anchor (the Tooltip is zero-sized and cannot read it).
+    in property <length> anchor-width: 0px;
+    in property <length> anchor-height: 0px;
+    // The anchor's state: bind these to the anchor's focus and pointer hover.
+    in property <bool> anchor-focused: false;
+    in property <bool> anchor-hovered: false;
+    // Forced: true keeps the tooltip shown (captures and the shown variants of the stories).
+    in property <bool> forced-open: false;
+    // Set by Escape (dismiss). Cleared when the anchor is focused or hovered again.
+    out property <bool> dismissed: false;
+    // True while the bubble is drawn.
+    out property <bool> is-shown: root.text != "" && !root.dismissed
+        && (root.forced-open
+            || (root.live && root.anchor-focused && !TooltipHub.mouse-mode)
+            || (root.live && root.anchor-hovered && root.hover-ready));
+    // The TooltipHub tick when the trigger (focus or hover) began. A later tick means something dismissed the tooltip.
+    property <int> epoch: 0;
+    property <bool> live: root.epoch == TooltipHub.dismiss-tick;
+    // True once the pointer has rested on the anchor for the hover delay.
+    property <bool> hover-ready: false;
+
+    // The anchor's top left. Without x and y a zero-sized child is centred in its parent (seen in the S7 captures), which
+    // put the bubble half an anchor away from its anchor.
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    // This tooltip's id in TooltipLayer, taken once.
+    property <int> id: 0;
+
+    public function dismiss() {
+        root.dismissed = true;
+    }
+
+    function claim() {
+        TooltipLayer.owner = root.id;
+        TooltipLayer.text = root.text;
+        TooltipLayer.shortcut = root.shortcut;
+        TooltipLayer.placement = root.placement;
+        TooltipLayer.anchor-x = root.absolute-position.x;
+        TooltipLayer.anchor-y = root.absolute-position.y;
+        TooltipLayer.anchor-width = root.anchor-width;
+        TooltipLayer.anchor-height = root.anchor-height;
+        TooltipLayer.forced = root.forced-open;
+        TooltipLayer.claim-tick = TooltipHub.dismiss-tick;
+    }
+
+    init => {
+        TooltipLayer.next-id += 1;
+        root.id = TooltipLayer.next-id;
+        if (root.is-shown) {
+            root.claim();
+        }
+    }
+    changed is-shown => {
+        if (root.is-shown) {
+            root.claim();
+        } else if (TooltipLayer.owner == root.id) {
+            TooltipLayer.owner = 0;
+        }
+    }
+    changed text => {
+        if (root.is-shown) {
+            root.claim();
+        }
+    }
+
+    changed anchor-focused => {
+        root.epoch = TooltipHub.dismiss-tick;
+        root.dismissed = false;
+    }
+    changed anchor-hovered => {
+        if (root.anchor-hovered) {
+            root.epoch = TooltipHub.dismiss-tick;
+            root.dismissed = false;
+        } else {
+            root.hover-ready = false;
+        }
+    }
+
+    // Starts while the pointer rests on the anchor, and sets hover-ready when the delay has passed.
+    hover-timer := Timer {
+        interval: Tokens.motion-slow;
+        running: root.anchor-hovered && !root.hover-ready && root.text != "";
+        triggered => {
+            root.hover-ready = true;
+        }
+    }
+}
+
+// Draws the TooltipLayer bubble. Put one as the LAST child of a window root, sized to the window, so it draws above all
+// other content. It has no input elements, so pointer events and focus pass through it.
+export component TooltipOverlay inherits Rectangle {
+    property <bool> shown: TooltipLayer.owner != 0 && TooltipLayer.text != ""
+        && (TooltipLayer.forced || TooltipLayer.claim-tick == TooltipHub.dismiss-tick);
+    // The bubble is one line: the taller of the text line and the Kbd cap, the vertical padding and the border. The side
+    // is chosen before the bubble is laid out, so this estimate is used for the flip.
+    property <length> bubble-height: Math.max(Type.caption.line-height, Tokens.size-kbd-height) + Tokens.space-1 * 2 + 2px;
+    property <length> gap: Tokens.space-1;
+    // Window bounds are known when both sides are set. Without them nothing is pushed inside the window.
+    property <bool> bounded: TooltipBounds.width > 0px && TooltipBounds.height > 0px;
+    property <bool> room-above: TooltipLayer.anchor-y - root.gap - root.bubble-height >= 0px;
+    property <bool> room-below: !root.bounded
+        || TooltipLayer.anchor-y + TooltipLayer.anchor-height + root.gap + root.bubble-height <= TooltipBounds.height;
+    // Top is kept while there is room above or none below. Bottom is kept while there is room below or none above.
+    property <bool> show-top: TooltipLayer.placement == TooltipPlacement.top
+        ? (root.room-above || !root.room-below)
+        : (root.room-above && !root.room-below);
+    // Horizontal: centred on the anchor, then pushed inside the window's left and right edges.
+    property <length> desired-x: TooltipLayer.anchor-x + (TooltipLayer.anchor-width - bubble.width) / 2;
+    property <length> placed-x: root.bounded
+        ? Math.max(0px, Math.min(root.desired-x, TooltipBounds.width - bubble.width))
+        : root.desired-x;
+    // Vertical: above or below the anchor, then pushed inside the window's top and bottom edges.
+    property <length> desired-y: TooltipLayer.anchor-y
+        + (root.show-top ? -(bubble.height + root.gap) : TooltipLayer.anchor-height + root.gap);
+    property <length> placed-y: root.bounded
+        ? Math.max(0px, Math.min(root.desired-y, TooltipBounds.height - bubble.height))
+        : root.desired-y;
+
+    bubble := Rectangle {
+        visible: root.shown;
+        x: root.placed-x - root.absolute-position.x;
+        y: root.placed-y - root.absolute-position.y;
+        width: row.preferred-width;
+        height: row.preferred-height;
+        background: Tokens.tooltip-bg;
+        border-width: 1px;
+        border-color: Tokens.tooltip-border;
+        border-radius: Tokens.radius-control;
+        drop-shadow-color: Tokens.shadow-overlay;
+        drop-shadow-offset-y: Tokens.shadow-overlay-offset-y;
+        drop-shadow-blur: Tokens.shadow-overlay-blur;
+        // Not an accessibility node of its own: the anchor's accessible name carries the text.
+        accessible-role: none;
+
+        row := HorizontalLayout {
+            padding-left: Tokens.space-2;
+            padding-right: Tokens.space-2;
+            padding-top: Tokens.space-1;
+            padding-bottom: Tokens.space-1;
+            spacing: Tokens.space-2;
+            alignment: center;
+
+            Text {
+                text: TooltipLayer.text;
+                color: Tokens.tooltip-text;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                vertical-alignment: center;
+            }
+
+            if TooltipLayer.shortcut.length > 0 : Kbd {
+                keys: TooltipLayer.shortcut;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+}

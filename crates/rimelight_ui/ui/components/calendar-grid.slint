@@ -1,0 +1,176 @@
+// CalendarGrid (P0.17 batch 6). One month as a grid of six weeks by seven days, with a title, the weekday labels and
+// Previous and Next month buttons. The Rust side builds the cells (src/slint_ui/calendar.rs, `day_flags`) and passes the
+// week start by ordering the labels; this component only draws them and reports keys and clicks.
+//
+// Keyboard: the grid is one Tab stop. Left and Right move the focus by one day, Up and Down by one week. Page Up and Page
+// Down call `month-step(-1)` and `month-step(1)`. Enter and Space call `picked(index)` for the focus day. A click on a day
+// calls `picked(index)` and moves the focus there. The focus day is `focus-index`, an index into `days`.
+//
+// Limits: the grid has no type-ahead and no year picker. Days outside the month are drawn muted and can be picked.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Button, ButtonVariant } from "button.slint";
+
+export struct CalendarDay {
+    day: int,
+    in-month: bool,
+    today: bool,
+    selected: bool,
+    in-range: bool,
+}
+
+export component CalendarGrid inherits Rectangle {
+    // Forty-two cells, from the first day of the grid to the last.
+    in property <[CalendarDay]> days;
+    // Seven labels, in the order of the week start.
+    in property <[string]> weekday-labels;
+    // The month and year, for example "November 2026".
+    in property <string> title;
+    // Accessible name of the grid.
+    in property <string> accessible-name;
+    // The day with the keyboard focus (an index into `days`). Two-way, so the caller can set it.
+    in-out property <int> focus-index: 0;
+    // Caller-supplied words for the month buttons.
+    in property <string> previous-label: "Previous month";
+    in property <string> next-label: "Next month";
+    // True while the grid holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // Day index. Fires on Enter, Space and on a click.
+    callback picked(int);
+    // -1 for the previous month, 1 for the next. Fires on Page Up and Page Down and on the month buttons.
+    callback month-step(int);
+
+    property <length> head-h: Tokens.size-control-md;
+    property <length> label-h: Tokens.space-6;
+    property <length> cell-h: Tokens.size-control-md;
+    property <length> cell-w: root.width / 7;
+    property <bool> ring-on: fs.has-focus;
+
+    // Moves the focus to day `i`, clamped to the grid.
+    function move-to(i: int) {
+        root.focus-index = i < 0 ? 0 : (i >= 42 ? 41 : i);
+    }
+
+    // Gives the grid the keyboard focus, as a Tab into it would.
+    public function focus-grid() {
+        fs.focus();
+    }
+
+    fs := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        focus-on-click: false;
+
+        key-pressed(event) => {
+            if (event.text == Key.LeftArrow) {
+                root.move-to(root.focus-index - 1);
+                return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                root.move-to(root.focus-index + 1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                root.move-to(root.focus-index - 7);
+                return accept;
+            }
+            if (event.text == Key.DownArrow) {
+                root.move-to(root.focus-index + 7);
+                return accept;
+            }
+            if (event.text == Key.PageUp) {
+                root.month-step(-1);
+                return accept;
+            }
+            if (event.text == Key.PageDown) {
+                root.month-step(1);
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.picked(root.focus-index);
+                return accept;
+            }
+            return reject;
+        }
+
+        // Header: Previous, the title, Next.
+        HorizontalLayout {
+            x: 0px;
+            y: 0px;
+            width: root.width;
+            height: root.head-h;
+            spacing: Tokens.space-1;
+            alignment: space-between;
+
+            Button {
+                text: "<";
+                accessible-name: root.previous-label;
+                variant: ButtonVariant.ghost;
+                clicked => { root.month-step(-1); }
+            }
+            Text {
+                text: root.title;
+                color: Tokens.text-primary;
+                font-family: Type.subheading.family;
+                font-size: Type.subheading.size;
+                font-weight: Type.subheading.weight;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+            Button {
+                text: ">";
+                accessible-name: root.next-label;
+                variant: ButtonVariant.ghost;
+                clicked => { root.month-step(1); }
+            }
+        }
+
+        // Weekday labels.
+        for label[i] in root.weekday-labels : Text {
+            x: i * root.cell-w;
+            y: root.head-h;
+            width: root.cell-w;
+            height: root.label-h;
+            text: label;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        // The forty-two day cells.
+        for d[i] in root.days : Rectangle {
+            x: Math.mod(i, 7) * root.cell-w;
+            y: root.head-h + root.label-h + Math.floor(i / 7.0) * root.cell-h;
+            width: root.cell-w;
+            height: root.cell-h;
+            border-radius: Tokens.radius-control;
+            background: d.selected
+                ? Tokens.accent-fill
+                : (d.in-range ? Tokens.accent-default : transparent);
+            border-width: (root.ring-on && root.focus-index == i) || d.today ? 2px : 0px;
+            border-color: root.ring-on && root.focus-index == i ? Tokens.focus-ring : Tokens.border-strong;
+
+            Text {
+                text: d.day;
+                color: d.selected
+                    ? Tokens.text-on-accent
+                    : (d.in-month ? Tokens.text-primary : Tokens.text-faint);
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: d.selected ? Type.body-strong.weight : Type.body.weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.focus-index = i;
+                    root.picked(i);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,39 @@
+// IconButton (S3). A square Button with one icon. It inherits the own Button, so it has the same
+// variants, sizes, states and keyboard behaviour.
+//
+// The accessible label is required: the caller passes it, and it is the only name a screen reader gets. `tooltip` is drawn
+// by the Tooltip component (S7): it opens on hover after the delay and on keyboard focus, closes on Escape, blur and
+// pointer leave. Empty `tooltip` draws nothing.
+import { Button, ButtonVariant, ButtonSize } from "button.slint";
+import { Tooltip, TooltipPlacement } from "tooltip.slint";
+
+export component IconButton inherits Button {
+    // The icon, as an image (for example Icons.plus).
+    in property <image> icon;
+    // Required accessible label, supplied by the caller in its own language.
+    in property <string> label;
+    // Hover and focus text, shown by the Tooltip (S7). Empty means no tooltip.
+    in property <string> tooltip;
+    // Keys of the tooltip's shortcut hint, for example ["Ctrl", "N"]. Empty means no hint.
+    in property <[string]> tooltip-shortcut;
+    in property <TooltipPlacement> tooltip-placement: TooltipPlacement.top;
+    // True while the tooltip is drawn (read by tests and captures).
+    out property <bool> tooltip-shown: tip.is-shown;
+
+    square: true;
+    text: "";
+    leading-icon: root.icon;
+    accessible-name: root.label;
+
+    escape-pressed => { tip.dismiss(); }
+
+    tip := Tooltip {
+        text: root.tooltip;
+        shortcut: root.tooltip-shortcut;
+        placement: root.tooltip-placement;
+        anchor-width: root.width;
+        anchor-height: root.height;
+        anchor-focused: root.focused;
+        anchor-hovered: root.hovered;
+    }
+}

@@ -1,0 +1,167 @@
+// Tabs (P0.17 batch 2). Content tabs that switch the panel below them. Not the shell TabStrip (tabs.slint), which is for
+// workspace documents and has close and drag. Underline style: the active tab has a 2 px accent line under its label, and
+// the row has a 1 px subtle rule beneath it. The component draws no panel: the caller shows the content for `active`.
+//
+// Keyboard (roving focus): the whole tab list is ONE Tab stop, as RadioGroup is. Tab from before the list lands on the
+// focused tab, which starts on the active one. Right and Left move the focus to the next and previous tab and wrap at the
+// ends. Home and End move the focus to the first and last tab. Enter and Space activate the focused tab. Arrow keys only
+// move the focus, so a focused tab that is not active shows the focus ring alone. A click activates the tab and does not
+// move keyboard focus. The next Tab after the list leaves it.
+//
+// Callbacks. `activated(index)` fires on every activation (Enter, Space or click), including the tab that is already
+// active. `active` is set before the callback runs.
+//
+// Limit: a change of `active` from outside does not move the focus; the focus follows the user's own keys and clicks.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export struct ContentTab {
+    label: string,
+}
+
+export component Tabs inherits Rectangle {
+    in property <[ContentTab]> tabs;
+    // The index of the active tab, two-way. Out of range shows no active tab.
+    in-out property <int> active: 0;
+    // Accessible name of the tab list.
+    in property <string> accessible-name;
+    // Forced look for captures: 2 shows the focus ring on the focused tab. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the tab list holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    callback activated(int);
+
+    // The tab that holds the roving focus. It starts on the active tab and follows the keys and clicks.
+    property <int> focus-index: root.active;
+    property <int> count: root.tabs.length;
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+
+    function activate(i: int) {
+        if (i >= 0 && i < root.count) {
+            root.focus-index = i;
+            root.active = i;
+            root.activated(i);
+        }
+    }
+
+    // Moves the focus one tab forward (dir 1) or back (dir -1), wrapping at the ends.
+    function move(dir: int) {
+        if (root.count > 0) {
+            if (dir > 0) {
+                if (root.focus-index + 1 < root.count) {
+                    root.focus-index = root.focus-index + 1;
+                } else {
+                    root.focus-index = 0;
+                }
+            } else {
+                if (root.focus-index > 0) {
+                    root.focus-index = root.focus-index - 1;
+                } else {
+                    root.focus-index = root.count - 1;
+                }
+            }
+        }
+    }
+
+    // Test hooks. `test-tab-click` is what a tab's TouchArea does on a click; `test-tab-label` reads a tab's label.
+    public function test-tab-click(i: int) {
+        root.activate(i);
+    }
+    public function test-tab-label(i: int) -> string {
+        return root.tabs[i].label;
+    }
+
+    accessible-role: tab-list;
+    accessible-label: root.accessible-name;
+
+    height: Tokens.size-control-md;
+    min-width: 120px;
+    horizontal-stretch: 1;
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        for entry[i] in root.tabs : Rectangle {
+            width: content.preferred-width;
+            height: root.height;
+            border-radius: Tokens.radius-control;
+            border-width: root.ring-on && root.focus-index == i ? 2px : 0px;
+            border-color: Tokens.focus-ring;
+            background: transparent;
+
+            content := HorizontalLayout {
+                padding-left: Tokens.space-3;
+                padding-right: Tokens.space-3;
+                alignment: center;
+
+                Text {
+                    text: entry.label;
+                    color: i == root.active ? Tokens.text-primary : Tokens.text-muted;
+                    font-family: Type.body.family;
+                    font-size: Type.body.size;
+                    font-weight: i == root.active ? Type.body-strong.weight : Type.body.weight;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+            }
+
+            // The underline of the active tab, on the bottom edge of the cell.
+            Rectangle {
+                x: 0px;
+                y: parent.height - 2px;
+                width: parent.width;
+                height: 2px;
+                background: i == root.active ? Tokens.accent-default : transparent;
+            }
+
+            TouchArea {
+                accessible-role: tab;
+                accessible-label: entry.label;
+                accessible-checkable: true;
+                accessible-checked: i == root.active;
+                clicked => { root.activate(i); }
+            }
+        }
+    }
+
+    // The bottom rule across the whole row.
+    Rectangle {
+        x: 0px;
+        y: root.height - 1px;
+        width: root.width;
+        height: 1px;
+        background: Tokens.border-subtle;
+    }
+
+    // The one Tab stop of the list. It has no size: it takes focus and keys only.
+    fs := FocusScope {
+        enabled: root.count > 0;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.RightArrow) {
+                root.move(1);
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.move(-1);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.focus-index = 0;
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.focus-index = root.count - 1;
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.activate(root.focus-index);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

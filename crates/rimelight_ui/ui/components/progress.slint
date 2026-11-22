@@ -1,0 +1,70 @@
+// Progress (S4). A horizontal bar, determinate or indeterminate, in a tone. Own component drawn from the
+// Tokens global, with the tones of the Badge (ToneColours). 
+//
+// A determinate value is clamped to 0 through 1 in `fraction`, so an out-of-range value never draws outside the track. The Rust
+// rule (`clamp_progress` in src/slint_ui/display.rs) gives the same result; the test checks it. A neutral tone draws the accent
+// colour, so the bar stays visible on the track.
+//
+// Indeterminate: a fixed segment (30 percent of the track) sweeps across and back, alternating, through an animated level. Under
+// reduced motion it is parked at the start,. The track is `border.track` (3.43:1 on the dark base).
+//
+// Accessibility: the bar is a progress-indicator. Its value is exposed as the percentage (accessible-value-minimum 0, maximum 100).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { BadgeTone, ToneColours } from "badge.slint";
+
+export component Progress inherits Rectangle {
+    // Fraction 0 to 1. Ignored when `indeterminate` is set.
+    in property <float> value: 0;
+    in property <bool> indeterminate: false;
+    in property <BadgeTone> tone: BadgeTone.accent;
+    // Caller-supplied accessible name (for example "Upload").
+    in property <string> accessible-name;
+
+    // The value clamped to 0 through 1.
+    out property <float> fraction: Math.max(0, Math.min(1, root.value));
+
+    property <color> fill-colour: root.tone == BadgeTone.neutral ? Tokens.accent-fill : ToneColours.fill(root.tone);
+
+    // The sweep level for the indeterminate segment, 0 to 1 and back.
+    property <float> sweep: 0;
+    init => {
+        if (root.indeterminate && !Tokens.reduced-motion) {
+            root.sweep = 1;
+        }
+    }
+    animate sweep {
+        duration: Tokens.motion-loop;
+        iteration-count: -1;
+        direction: alternate;
+        easing: ease-in-out;
+    }
+
+    accessible-role: progress-indicator;
+    accessible-label: root.accessible-name;
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 100;
+    accessible-value: "\{round(root.fraction * 100)} percent";
+
+    height: Tokens.size-progress-height;
+    border-radius: Tokens.radius-pill;
+    background: Tokens.border-track;
+    clip: true;
+
+    // Determinate fill.
+    if !root.indeterminate : Rectangle {
+        x: 0px;
+        width: parent.width * root.fraction;
+        height: parent.height;
+        border-radius: Tokens.radius-pill;
+        background: root.fill-colour;
+    }
+
+    // Indeterminate segment.
+    if root.indeterminate : Rectangle {
+        width: parent.width * 0.3;
+        height: parent.height;
+        border-radius: Tokens.radius-pill;
+        background: root.fill-colour;
+        x: Tokens.reduced-motion ? 0px : root.sweep * (parent.width - self.width);
+    }
+}

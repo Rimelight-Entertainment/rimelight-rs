@@ -1,0 +1,405 @@
+﻿// RadioGroup (S5): one choice from a list of options, each with a value, a label and a disabled
+// flag. Own component, not the std-widgets RadioButton: its Fluent style is coloured from FluentPalette, which Tokens
+// cannot reach, and a RadioButton has no group (README, "Slint port" S5).
+//
+// vertical and horizontal layouts, a disabled
+// group, invalid, focus, and a DOT (not a check mark) for the selected option.
+//
+// Keyboard: the whole group is ONE tab stop (one FocusScope). Tab from before the group lands on the selected option;
+// the next Tab leaves the group. Down and Right select the next enabled option, Up and Left the previous one, skipping
+// disabled options and wrapping at the ends. With no selection, the first arrow selects the first enabled option. A click
+// selects an enabled option and does not move keyboard focus, so the focus ring (Tokens.focus-ring) shows only for keyboard
+// focus, on the option that is selected.
+//
+// Limit: Slint 1.18.1 has no loops in functions, so the searches for the selected option and the next enabled option are
+// unrolled for up to 16 options. A group with more options than that finds no match past the 16th, and the README says so.
+//
+// Rows are a fixed 28 px tall and their labels do not wrap: a long label is cut at the group's edge. The group's height
+// is computed from the option count, because Slint cannot read the height of a layout that is not on screen.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export struct RadioOption {
+    value: string,
+    label: string,
+    disabled: bool,
+}
+
+export enum RadioOrientation { vertical, horizontal }
+
+// One option: a dot and its label. The group decides `selected`, `focused` and whether the option is usable.
+component RadioRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    // The option itself is disabled (its own flag, or the whole group is).
+    in property <bool> off;
+    in property <bool> invalid;
+    in property <bool> focused;
+    callback picked();
+
+    width: row.preferred-width;
+    height: Tokens.size-control-sm;
+    horizontal-stretch: 0;
+
+    row := HorizontalLayout {
+        spacing: Tokens.space-2;
+        alignment: start;
+
+        Rectangle {
+            width: Tokens.icon-small;
+            min-height: Tokens.icon-small;
+
+            dot := Rectangle {
+                width: Tokens.icon-small;
+                height: Tokens.icon-small;
+                y: (parent.height - self.height) / 2;
+                border-radius: Tokens.radius-pill;
+                background: root.off ? Tokens.disabled-surface : Tokens.surface-base;
+                border-width: 1px;
+                border-color: root.off ? Tokens.disabled-border
+                    : (root.invalid ? Tokens.status-danger
+                    : (root.selected ? Tokens.accent-default : Tokens.border-strong));
+
+                // The dot: present only when selected.
+                if root.selected : Rectangle {
+                    width: Tokens.space-2;
+                    height: Tokens.space-2;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Tokens.radius-pill;
+                    background: root.off ? Tokens.disabled-fill : Tokens.accent-default;
+                }
+            }
+
+            // The focus ring sits outside the dot, with a 2 px gap, so it shows on the selected (accent) dot too.
+            focus-ring := Rectangle {
+                visible: root.focused;
+                x: -4px;
+                y: (parent.height - Tokens.icon-small) / 2 - 4px;
+                width: Tokens.icon-small + 8px;
+                height: Tokens.icon-small + 8px;
+                border-radius: Tokens.radius-pill;
+                border-width: 2px;
+                border-color: Tokens.focus-ring;
+                background: transparent;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 0;
+            width: self.preferred-width;
+            text: root.label;
+            color: root.off ? Tokens.disabled-text : Tokens.text-primary;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+
+    accessible-role: radio-button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-enabled: !root.off;
+
+    ta := TouchArea {
+        enabled: !root.off;
+        clicked => { root.picked(); }
+    }
+}
+
+export component RadioGroup inherits Rectangle {
+    // The value of the selected option, two-way. Empty means no option is selected.
+    in-out property <string> value;
+    in property <[RadioOption]> options;
+    in property <RadioOrientation> orientation: RadioOrientation.vertical;
+    // false disables every option and the group is not a Tab stop.
+    in property <bool> enabled: true;
+    // Red dots and borders, for an error. Inside a Field, the caller passes `field.invalid || own-flag`.
+    in property <bool> invalid: false;
+    // Accessible name of the group.
+    in property <string> accessible-name;
+    // Forced look for captures: 2 shows the focus ring on the focus option. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the group holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // Fires with the new value when the selection changes (by click or arrow key).
+    callback changed(string);
+
+    property <bool> ring-on: fs.has-focus || root.forced-state == 2;
+    // The option selected by value, or -1.
+    property <int> selected-index: root.index-of-value();
+    // The option the focus is on: the selected one, or the first enabled one when nothing is selected. -1 when none is usable.
+    property <int> focus-index: root.selected-index >= 0 ? root.selected-index : root.first-enabled();
+
+    function option-enabled(k: int) -> bool {
+        return root.enabled && !root.options[k].disabled;
+    }
+
+    // Maps an index that may be out of range by one step in either direction onto 0 .. length - 1.
+    function wrap-index(x: int) -> int {
+        let n = root.options.length;
+        if (x < 0) {
+            return x + n;
+        }
+        if (x >= n) {
+            return x - n;
+        }
+        return x;
+    }
+
+    // The next enabled option from `start` in direction `dir` (1 or -1), wrapping; -1 when no other option is enabled.
+    function index-of-value() -> int {
+        if (root.options.length > 0) {
+            if (root.options[0].value == root.value) { return 0; }
+        }
+        if (root.options.length > 1) {
+            if (root.options[1].value == root.value) { return 1; }
+        }
+        if (root.options.length > 2) {
+            if (root.options[2].value == root.value) { return 2; }
+        }
+        if (root.options.length > 3) {
+            if (root.options[3].value == root.value) { return 3; }
+        }
+        if (root.options.length > 4) {
+            if (root.options[4].value == root.value) { return 4; }
+        }
+        if (root.options.length > 5) {
+            if (root.options[5].value == root.value) { return 5; }
+        }
+        if (root.options.length > 6) {
+            if (root.options[6].value == root.value) { return 6; }
+        }
+        if (root.options.length > 7) {
+            if (root.options[7].value == root.value) { return 7; }
+        }
+        if (root.options.length > 8) {
+            if (root.options[8].value == root.value) { return 8; }
+        }
+        if (root.options.length > 9) {
+            if (root.options[9].value == root.value) { return 9; }
+        }
+        if (root.options.length > 10) {
+            if (root.options[10].value == root.value) { return 10; }
+        }
+        if (root.options.length > 11) {
+            if (root.options[11].value == root.value) { return 11; }
+        }
+        if (root.options.length > 12) {
+            if (root.options[12].value == root.value) { return 12; }
+        }
+        if (root.options.length > 13) {
+            if (root.options[13].value == root.value) { return 13; }
+        }
+        if (root.options.length > 14) {
+            if (root.options[14].value == root.value) { return 14; }
+        }
+        if (root.options.length > 15) {
+            if (root.options[15].value == root.value) { return 15; }
+        }
+        return -1;
+    }
+
+    function first-enabled() -> int {
+        if (root.options.length > 0) {
+            if (root.option-enabled(0)) { return 0; }
+        }
+        if (root.options.length > 1) {
+            if (root.option-enabled(1)) { return 1; }
+        }
+        if (root.options.length > 2) {
+            if (root.option-enabled(2)) { return 2; }
+        }
+        if (root.options.length > 3) {
+            if (root.option-enabled(3)) { return 3; }
+        }
+        if (root.options.length > 4) {
+            if (root.option-enabled(4)) { return 4; }
+        }
+        if (root.options.length > 5) {
+            if (root.option-enabled(5)) { return 5; }
+        }
+        if (root.options.length > 6) {
+            if (root.option-enabled(6)) { return 6; }
+        }
+        if (root.options.length > 7) {
+            if (root.option-enabled(7)) { return 7; }
+        }
+        if (root.options.length > 8) {
+            if (root.option-enabled(8)) { return 8; }
+        }
+        if (root.options.length > 9) {
+            if (root.option-enabled(9)) { return 9; }
+        }
+        if (root.options.length > 10) {
+            if (root.option-enabled(10)) { return 10; }
+        }
+        if (root.options.length > 11) {
+            if (root.option-enabled(11)) { return 11; }
+        }
+        if (root.options.length > 12) {
+            if (root.option-enabled(12)) { return 12; }
+        }
+        if (root.options.length > 13) {
+            if (root.option-enabled(13)) { return 13; }
+        }
+        if (root.options.length > 14) {
+            if (root.option-enabled(14)) { return 14; }
+        }
+        if (root.options.length > 15) {
+            if (root.option-enabled(15)) { return 15; }
+        }
+        return -1;
+    }
+
+    function next-enabled(start: int, dir: int) -> int {
+        if (root.options.length > 1) {
+            let k = root.wrap-index(start + 1 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 2) {
+            let k = root.wrap-index(start + 2 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 3) {
+            let k = root.wrap-index(start + 3 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 4) {
+            let k = root.wrap-index(start + 4 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 5) {
+            let k = root.wrap-index(start + 5 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 6) {
+            let k = root.wrap-index(start + 6 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 7) {
+            let k = root.wrap-index(start + 7 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 8) {
+            let k = root.wrap-index(start + 8 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 9) {
+            let k = root.wrap-index(start + 9 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 10) {
+            let k = root.wrap-index(start + 10 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 11) {
+            let k = root.wrap-index(start + 11 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 12) {
+            let k = root.wrap-index(start + 12 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 13) {
+            let k = root.wrap-index(start + 13 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 14) {
+            let k = root.wrap-index(start + 14 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        if (root.options.length > 15) {
+            let k = root.wrap-index(start + 15 * dir);
+            if (root.option-enabled(k)) { return k; }
+        }
+        return -1;
+    }
+
+    function pick(i: int) {
+        if (root.option-enabled(i)) {
+            root.value = root.options[i].value;
+            root.changed(root.value);
+        }
+    }
+
+    // Test hook: a click on option i, as its row does (a disabled option is not picked).
+    public function test-pick(i: int) {
+        root.pick(i);
+    }
+
+    function move(dir: int) {
+        if (root.enabled && root.options.length > 0) {
+            if (root.selected-index < 0) {
+                if (root.focus-index >= 0) {
+                    root.pick(root.focus-index);
+                }
+            } else {
+                let k = root.next-enabled(root.selected-index, dir);
+                if (k >= 0) {
+                    root.pick(k);
+                }
+            }
+        }
+    }
+
+    accessible-role: radio-group;
+    accessible-label: root.accessible-name;
+    accessible-enabled: root.enabled;
+
+    // Height: rows are 28 px, with the group's spacing between them for a vertical group.
+    height: root.orientation == RadioOrientation.vertical
+        ? root.options.length * Tokens.size-control-sm + max(0, root.options.length - 1) * Tokens.space-2
+        : Tokens.size-control-sm;
+    min-width: 120px;
+    horizontal-stretch: 1;
+
+    if root.orientation == RadioOrientation.vertical : VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: Tokens.space-2;
+        alignment: start;
+        for opt[i] in root.options : RadioRow {
+            label: opt.label;
+            selected: root.selected-index == i;
+            off: !root.enabled || opt.disabled;
+            invalid: root.invalid;
+            focused: root.ring-on && root.focus-index == i;
+            picked => { root.pick(i); }
+        }
+    }
+
+    if root.orientation == RadioOrientation.horizontal : HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: Tokens.space-4;
+        alignment: start;
+        for opt[i] in root.options : RadioRow {
+            label: opt.label;
+            selected: root.selected-index == i;
+            off: !root.enabled || opt.disabled;
+            invalid: root.invalid;
+            focused: root.ring-on && root.focus-index == i;
+            picked => { root.pick(i); }
+        }
+    }
+
+    // The one Tab stop of the group. It has no size: it only takes focus and keys.
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.DownArrow || event.text == Key.RightArrow) {
+                root.move(1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow || event.text == Key.LeftArrow) {
+                root.move(-1);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

@@ -1,0 +1,85 @@
+// Link (S3). An inline text link in the accent text colour, or the sidebar link colour on the navy
+// sidebar. It is underlined on hover and focus, and an external link adds the external-link icon after the text.
+//
+// Keyboard: a FocusScope takes Tab focus, and Enter or Space activates it (as a click does). `focus-on-click` is false, so
+// a click does not move focus. Own rendering: the link is drawn by its own code.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export component Link inherits Rectangle {
+    in property <string> text;
+    in property <bool> external: false;
+    // Sidebar colour for the navy sidebar.
+    in property <bool> on-sidebar: false;
+    // Forced look for captures: 0 none, 1 hover (underline), 3 focus ring. Real input takes precedence.
+    in property <int> forced-state: 0;
+
+    callback clicked();
+
+    // True while the FocusScope holds keyboard focus (or the forced focus state is on).
+    out property <bool> has-focus: fs.has-focus;
+
+    property <color> fg: root.on-sidebar ? Tokens.sidebar-link : Tokens.accent-text;
+    property <bool> hovered: ta.has-hover || root.forced-state == 1;
+    property <bool> focused: fs.has-focus || root.forced-state == 3;
+
+    function activate() {
+        root.clicked();
+    }
+
+    // Slint 1.18.1 has no link role (AccessibleRole). `button` is the closest interactive role; recorded in the README.
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.activate(); }
+
+    width: content.preferred-width;
+    height: content.preferred-height;
+    border-radius: Tokens.radius-control;
+    border-width: root.focused ? 2px : 0px;
+    border-color: Tokens.focus-ring;
+
+    content := HorizontalLayout {
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        Text {
+            text: root.text;
+            color: root.fg;
+            font-family: Type.body.family;
+            font-size: Type.body.size;
+            font-weight: Type.body.weight;
+            vertical-alignment: center;
+        }
+        if root.external : Image {
+            source: Icons.external-link;
+            colorize: root.fg;
+            width: Tokens.icon-small;
+            height: Tokens.icon-small;
+        }
+    }
+
+    // The underline sits on the bottom edge of the text.
+    if root.hovered || root.focused : Rectangle {
+        x: 0px;
+        y: root.height - 1px;
+        width: root.width;
+        height: 1px;
+        background: root.fg;
+    }
+
+    ta := TouchArea {
+        clicked => { root.activate(); }
+    }
+
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.activate();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

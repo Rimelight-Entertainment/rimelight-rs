@@ -1,0 +1,63 @@
+// Badge (S4). A count chip or a status dot. Own component: pure Rectangle and Text drawn from the
+// Tokens global. six tones, counts above `max` show
+// as `max+`, and a dot with no text. The cap rule is also in src/slint_ui/display.rs (badge_label); the test checks both.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export enum BadgeTone { neutral, accent, success, warning, danger, info }
+
+// The fill, the text colour on it, and the edge drawn around the fill for one tone. Shared with Tag.
+export global ToneColours {
+    // Neutral has a sunken fill and primary text; its edge is the strong border, because the fill is close to the surface.
+    public pure function fill(tone: BadgeTone) -> color {
+        return tone == BadgeTone.neutral ? Tokens.surface-sunken
+            : tone == BadgeTone.accent ? Tokens.accent-fill
+            : tone == BadgeTone.success ? Tokens.status-success
+            : tone == BadgeTone.warning ? Tokens.status-warning
+            : tone == BadgeTone.danger ? Tokens.status-danger
+            : Tokens.status-info;
+    }
+    public pure function ink(tone: BadgeTone) -> color {
+        return tone == BadgeTone.neutral ? Tokens.text-primary : Tokens.text-on-accent;
+    }
+    public pure function edge(tone: BadgeTone) -> color {
+        return tone == BadgeTone.neutral ? Tokens.border-strong : ToneColours.fill(tone);
+    }
+}
+
+export component Badge inherits Rectangle {
+    // The count shown when `dot` is false. Above `max` it shows "<max>+".
+    in property <int> count: 0;
+    in property <int> max: 99;
+    // true draws a small dot with no text.
+    in property <bool> dot: false;
+    in property <BadgeTone> tone: BadgeTone.accent;
+    // Caller-supplied accessible name (the count badge is otherwise only a number).
+    in property <string> accessible-name;
+
+    // The text a count badge shows. Read by the tests and by callers that need the capped number.
+    out property <string> shown-label: root.count > root.max ? "\{root.max}+" : "\{root.count}";
+
+    accessible-role: text;
+    accessible-label: root.accessible-name != "" ? root.accessible-name : (root.dot ? "" : root.shown-label);
+
+    height: root.dot ? Tokens.size-badge-dot : Tokens.size-badge-height;
+    width: root.dot ? Tokens.size-badge-dot : Math.max(Tokens.size-badge-height, label.preferred-width + Tokens.space-2 * 2);
+    border-radius: Tokens.radius-pill;
+    background: ToneColours.fill(root.tone);
+    border-width: 1px;
+    border-color: ToneColours.edge(root.tone);
+
+    label := Text {
+        visible: !root.dot;
+        width: parent.width;
+        height: parent.height;
+        text: root.shown-label;
+        color: ToneColours.ink(root.tone);
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

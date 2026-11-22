@@ -1,0 +1,189 @@
+// Slider (S5): one value in a range, chosen by pointer or keyboard. Own component, not the std-widgets
+// Slider: its Fluent style colours the track and thumb from FluentPalette, which Tokens cannot reach, and it has no
+// keyboard clamp or step (README, "Slint port" S5).
+//
+// minimum, maximum and step; a single value; a
+// disabled slider that still shows its thumb; and an optional value label. Fixed: the thumb snaps to the
+// step while the pointer drags, because the value is snapped on every move, not only when the drag ends.
+//
+// Keyboard: Tab reaches the slider. Left and Down step down by one step, Right and Up step up, Home goes to the minimum
+// and End to the maximum. Every change is clamped to the range and snapped to the step; a key that cannot move the value
+// does not fire `changed`. Disabled: not a Tab stop, and ignores pointer and keys. A pointer press moves the value but does
+// not move keyboard focus, so the focus ring (Tokens.focus-ring) shows only for keyboard focus.
+//
+// Accessibility: role slider, with the value, minimum, maximum and step.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export component Slider inherits Rectangle {
+    // The value, two-way. Set it from the caller; it is always clamped and snapped when the user changes it.
+    in-out property <float> value: 0;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    // Distance between values. A step of 0 or less means any value in the range.
+    in property <float> step: 1;
+    in property <bool> enabled: true;
+    // Shows the value to the right of the track.
+    in property <bool> show-value: false;
+    // Text after the value in that label, for example "%".
+    in property <string> value-suffix: "";
+    // Accessible name of the slider.
+    in property <string> accessible-name;
+    // Forced look for captures: 2 shows the focus ring on the thumb. Real keyboard focus takes precedence.
+    in property <int> forced-state: 0;
+    // True while the FocusScope holds keyboard focus.
+    out property <bool> has-focus: fs.has-focus;
+    // The new value, after a change.
+    callback changed(float);
+
+    property <length> thumb: Tokens.icon-small;
+    property <length> label-w: 40px * Tokens.zoom-factor;
+    property <length> track-w: root.show-value ? root.width - root.label-w : root.width;
+    property <bool> focused: fs.has-focus || root.forced-state == 2;
+    // Position of the value in the range, 0 to 1.
+    property <float> fraction: root.maximum > root.minimum
+        ? max(0, min(1, (root.value - root.minimum) / (root.maximum - root.minimum)))
+        : 0;
+    property <color> fill-colour: root.enabled ? Tokens.accent-default : Tokens.disabled-fill;
+    property <color> rail-colour: root.enabled ? Tokens.border-strong : Tokens.disabled-border;
+
+    // The nearest step to `v` inside the range (or `v` clamped when there is no step).
+    function snap(v: float) -> float {
+        let stepped = root.step > 0 ? root.minimum + round((v - root.minimum) / root.step) * root.step : v;
+        return max(root.minimum, min(root.maximum, stepped));
+    }
+
+    function set-value(v: float) {
+        if (root.enabled) {
+            let next = root.snap(v);
+            if (next != root.value) {
+                root.value = next;
+                root.changed(next);
+            }
+        }
+    }
+
+    // A pointer position on the track, mapped to a value: the thumb centre follows the pointer.
+    function set-from-x(x: length) {
+        let span = root.track-w - root.thumb;
+        if (span > 0) {
+            let f = max(0, min(1, (x - root.thumb / 2) / span));
+            root.set-value(root.minimum + f * (root.maximum - root.minimum));
+        }
+    }
+
+    accessible-role: slider;
+    accessible-label: root.accessible-name;
+    accessible-enabled: root.enabled;
+    accessible-value: "\{root.value}";
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+
+    min-width: 120px * Tokens.zoom-factor;
+    // A row of captions gives the slider its preferred width (a layout that does not stretch it would leave it short).
+    preferred-width: 240px * Tokens.zoom-factor;
+    height: Tokens.size-control-sm;
+    horizontal-stretch: 1;
+
+    // The rail, and the filled part from the start to the thumb centre.
+    rail := Rectangle {
+        x: root.thumb / 2;
+        width: max(0px, root.track-w - root.thumb);
+        height: Tokens.size-progress-height;
+        y: (parent.height - self.height) / 2;
+        border-radius: Tokens.radius-pill;
+        background: root.rail-colour;
+    }
+    fill := Rectangle {
+        x: root.thumb / 2;
+        width: max(0px, root.track-w - root.thumb) * root.fraction;
+        height: Tokens.size-progress-height;
+        y: (parent.height - self.height) / 2;
+        border-radius: Tokens.radius-pill;
+        background: root.fill-colour;
+    }
+
+    // The thumb. It is placed from `fraction`, which is always snapped, so it moves in steps while dragging.
+    thumb-shape := Rectangle {
+        width: root.thumb;
+        height: root.thumb;
+        y: (parent.height - self.height) / 2;
+        x: max(0px, root.track-w - root.thumb) * root.fraction;
+        border-radius: Tokens.radius-pill;
+        background: Tokens.surface-raised;
+        border-width: 2px;
+        border-color: root.fill-colour;
+    }
+
+    // The focus ring sits outside the thumb, with a 2 px gap, so it shows on the accent border too.
+    focus-ring := Rectangle {
+        visible: root.focused;
+        x: thumb-shape.x - 4px;
+        y: (parent.height - root.thumb) / 2 - 4px;
+        width: root.thumb + 8px;
+        height: root.thumb + 8px;
+        border-radius: Tokens.radius-pill;
+        border-width: 2px;
+        border-color: Tokens.focus-ring;
+        background: transparent;
+    }
+
+    value-label := Text {
+        visible: root.show-value;
+        // Starts space-2 past the track edge. At the maximum the thumb's right edge is at the track edge, so the gap to the
+        // thumb is space-2 at every value (it was zero before: the label started half a thumb inside the track).
+        x: root.track-w + Tokens.space-2;
+        width: root.label-w;
+        height: parent.height;
+        text: "\{root.value}\{root.value-suffix}";
+        color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+        vertical-alignment: center;
+        horizontal-alignment: left;
+        accessible-role: none;
+    }
+
+    // The track takes pointer presses and drags. The press moves the value; each move moves it again. Covers the track only,
+    // not the value label.
+    track-ta := TouchArea {
+        x: 0px;
+        width: root.track-w;
+        height: parent.height;
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                root.set-from-x(self.mouse-x);
+            }
+        }
+        moved => {
+            root.set-from-x(self.mouse-x);
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.LeftArrow || event.text == Key.DownArrow) {
+                root.set-value(root.value - root.step);
+                return accept;
+            }
+            if (event.text == Key.RightArrow || event.text == Key.UpArrow) {
+                root.set-value(root.value + root.step);
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.set-value(root.minimum);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.set-value(root.maximum);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

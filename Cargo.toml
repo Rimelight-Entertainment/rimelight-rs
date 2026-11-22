@@ -12,8 +12,13 @@ license = "MIT"
 publish = false
 repository = "https://github.com/Rimelight-Entertainment/rimelight-rs"
 
-# Workspace dependencies are added with the first crate that uses them (ST2.2 onward): slint =1.18.1 family, and
-# rimelight_design from the web monorepo (packages/design/crate, decision D1) pinned to a reviewed rev.
+[workspace.dependencies]
+# Slint family, pinned exactly. Only app crates compile Slint (AGENTS.md, layering 1).
+slint = "=1.18.1"
+slint-build = "=1.18.1"
+i-slint-backend-testing = "=1.18.1"
+# Design tokens from the web monorepo (packages/design/crate, decision D1), pinned to a reviewed rev.
+rimelight_design = { git = "https://github.com/Rimelight-Entertainment/rimelight.git", rev = "d4420e634ee65c11f1e46666a4a1ccf3f713f653" }
 
 [workspace.lints.rust]
 future_incompatible = { level = "deny", priority = -1 }

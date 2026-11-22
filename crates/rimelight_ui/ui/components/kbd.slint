@@ -1,0 +1,50 @@
+// Kbd (S4). A keyboard key cap, one cap per key, joined by "+". Own component, drawn from the Tokens
+// global. which draws one cap per key of a combo.
+//
+// Slint 1.18.1 has no string split, so the caller passes the keys as a list. The split rule is `parse_combo` in
+// src/slint_ui/display.rs, and the stories use the keys it gives. Not interactive: no keyboard behaviour.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export component Kbd inherits HorizontalLayout {
+    // The keys, in order: for "Ctrl+Shift+P" this is ["Ctrl", "Shift", "P"].
+    in property <[string]> keys;
+
+    spacing: Tokens.space-1;
+    alignment: start;
+
+    for key[i] in root.keys : HorizontalLayout {
+        spacing: Tokens.space-1;
+        alignment: center;
+
+        if i > 0 : Text {
+            text: "+";
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            width: Math.max(Tokens.size-kbd-height, cap.preferred-width + Tokens.space-1 * 2);
+            height: Tokens.size-kbd-height;
+            border-radius: Tokens.radius-r4;
+            background: Tokens.surface-raised;
+            border-width: 1px;
+            border-color: Tokens.border-strong;
+
+            cap := Text {
+                width: parent.width;
+                height: parent.height;
+                text: key;
+                color: Tokens.text-primary;
+                font-family: Tokens.type-code-family;
+                font-size: Tokens.type-code-size;
+                font-weight: Tokens.type-code-weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

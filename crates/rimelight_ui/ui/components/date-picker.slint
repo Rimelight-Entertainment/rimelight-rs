@@ -1,0 +1,68 @@
+// DatePicker (P0.17 batch 6). A button that shows the chosen date (or a placeholder). Pressing it opens a popover with a
+// CalendarGrid. Picking a day calls `picked(index)` and closes the popover; the caller owns the selection and the month,
+// and passes the cells back in (see src/slint_ui/calendar.rs).
+//
+// Keyboard: the trigger is a Tab stop. Enter or Space opens the popover, and the grid takes the focus (Left, Right, Up,
+// Down, Page Up and Page Down, Enter to pick). Escape closes the popover and returns the focus to the trigger.
+//
+// Limits: the caller formats `text`, and the locale names (month and weekday labels) come in as strings.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { Popover } from "popover.slint";
+import { CalendarGrid, CalendarDay } from "calendar-grid.slint";
+
+export component DatePicker inherits Rectangle {
+    // The chosen date, formatted by the caller. Empty shows the placeholder.
+    in property <string> text;
+    in property <string> placeholder: "Pick a date";
+    // Accessible name of the trigger and the popover.
+    in property <string> accessible-name;
+    in property <bool> enabled: true;
+    // The grid's cells, weekday labels and month title (from the caller's calendar rules).
+    in property <[CalendarDay]> days;
+    in property <[string]> weekday-labels;
+    in property <string> title;
+    in-out property <int> focus-index: 0;
+    callback picked(int);
+    callback month-step(int);
+
+    height: Tokens.size-control-md;
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: root.text == "" ? root.placeholder : root.text;
+        accessible-name: root.accessible-name;
+        variant: ButtonVariant.secondary;
+        enabled: root.enabled;
+        pointer-pressed => { pop.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        x: 0px;
+        y: 0px;
+        accessible-name: root.accessible-name;
+        anchor-height: trig.height;
+        panel-width: 320px;
+
+        CalendarGrid {
+            width: 100%;
+            height: 304px;
+            days: root.days;
+            weekday-labels: root.weekday-labels;
+            title: root.title;
+            accessible-name: root.accessible-name;
+            focus-index <=> root.focus-index;
+            picked(index) => {
+                pop.close();
+                root.picked(index);
+            }
+            month-step(step) => { root.month-step(step); }
+        }
+    }
+}
