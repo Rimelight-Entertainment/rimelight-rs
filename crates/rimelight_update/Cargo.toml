@@ -1,0 +1,21 @@
+[package]
+name = "rimelight_update"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight self-update with Velopack: one updater fed by GitHub Releases or an HTTP feed, with the Slint window glue as a macro the app expands."
+
+# No unsafe code in this crate. The workspace already forbids it; spelled out here so the crate reads the same on its own.
+[lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# The Velopack crate and the `vpk` tool (dotnet-tools.json) must be the same version. `public-utils` makes the small
+# download helper public (Rimelight Space's minimum-version file). Desktop only: wasm and Android builds get an empty crate.
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
+velopack = { version = "=1.3.39-g8d2844f", features = ["public-utils"] }

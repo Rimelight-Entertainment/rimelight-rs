@@ -170,3 +170,36 @@ export component Toolbar inherits Rectangle {
         }
     }
 }
+
+// ToolbarRow (WS4 ST4.2). The children-based top bar of a tab, as Media's ToolBar: icon buttons and short controls in
+// order, left to right, centred vertically, with a hairline at the bottom. Use a `Rectangle { horizontal-stretch: 1; }`
+// spacer to push later items to the right. Separate groups with ToolDivider. For the items-based bar with roving focus,
+// use Toolbar above. The row takes no focus: its IconButtons are the Tab stops.
+export component ToolbarRow inherits Rectangle {
+    height: Tokens.component-toolbar-height;
+    background: Tokens.surface-raised;
+
+    HorizontalLayout {
+        padding-left: Tokens.space-2;
+        padding-right: Tokens.space-2;
+        padding-top: (Tokens.component-toolbar-height - Tokens.size-control-md) / 2;
+        padding-bottom: (Tokens.component-toolbar-height - Tokens.size-control-md) / 2;
+        spacing: Tokens.space-1;
+        alignment: stretch;
+        @children
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Tokens.border-subtle; }
+}
+
+// A vertical 1px divider between groups in a ToolbarRow or ActionRow. Never at the end of a row. Draws nothing focusable.
+export component ToolDivider inherits Rectangle {
+    width: Tokens.space-2 + 1px;
+    height: Tokens.size-control-md;
+    Rectangle {
+        x: Tokens.space-2 / 2;
+        width: 1px;
+        height: Tokens.size-control-sm - Tokens.space-2;
+        y: (parent.height - self.height) / 2;
+        background: Tokens.border-subtle;
+    }
+}

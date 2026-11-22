@@ -1,0 +1,38 @@
+[package]
+name = "rimelight_picture"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight picture decoding, thumbnails, animation frames, markup and saving, with no UI toolkit. Shared by Rimelight Media and Rimelight Space."
+
+# Spelled out instead of `[lints] workspace = true`: the workspace forbids unsafe code, and the `heif` feature's FFmpeg
+# stream-group reader (src/heif.rs) is the one audited exception. The other lints are the workspace's.
+[lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "deny"
+
+[features]
+# Default: PNG, JPEG, WebP, GIF, BMP, ICO and SVG (pure Rust; builds for wasm32 and Android). Camera RAW and HEIF are
+# opt-in because they are large and HEIF needs FFmpeg installed.
+default = []
+# Camera RAW through rawler (pure Rust, LGPL-2.1).
+raw = ["dep:rawler"]
+# HEIC, HEIF, HIF and AVIF through FFmpeg (not wasm). Needs FFmpeg's libraries at build time, as rimelight-media does.
+heif = ["dep:ffmpeg-next"]
+
+[dependencies]
+# Same version and features as the workspace; the decoders and encoders this crate uses are added here.
+image = { workspace = true, features = ["jpeg", "webp", "gif", "bmp", "ico"] }
+# Camera RAW (optional, see the `raw` feature).
+rawler = { version = "0.7", optional = true }
+
+# SVG. Same version Slint uses. System fonts are read on desktop and Android targets; wasm32 has no font directories.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+resvg = { version = "0.48", default-features = false, features = ["text", "system-fonts", "raster-images"] }
+# HEIF through FFmpeg (optional, see the `heif` feature). Same features as rimelight-media.
+ffmpeg-next = { version = "9.1", default-features = false, features = ["codec", "format", "software-scaling"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+resvg = { version = "0.48", default-features = false, features = ["text", "raster-images"] }

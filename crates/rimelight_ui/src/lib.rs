@@ -5,7 +5,7 @@
 //! the markup, so Rust code in this crate never touches generated Slint types.
 //!
 //! What is in the crate:
-//! - `ui/components/`: 74 exported components (buttons, inputs, menus, dialogs, toasts, tables and more).
+//! - `ui/components/`: 81 exported components (buttons, inputs, menus, dialogs, toasts, tables and more).
 //! - `ui/typography.slint` (the `Type` global) and `ui/icons.slint` (the `Icons` global, Lucide icons from `assets/icons`).
 //! - `ui/fonts/`: Noto Sans and JetBrains Mono (SIL OFL 1.1). `typography.slint` registers them, so any app that uses
 //!   the library gets the faces without importing them itself.

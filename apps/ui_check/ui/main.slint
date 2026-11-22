@@ -4,6 +4,7 @@
 // Generated from the export list; regenerate it when a component is added or renamed.
 
 import { Accordion } from "@rimelight_ui/components/accordion.slint";
+import { ActionRow } from "@rimelight_ui/components/action-row.slint";
 import { ActivityFeed } from "@rimelight_ui/components/activity-feed.slint";
 import { AttachmentTile, AttachmentGrid } from "@rimelight_ui/components/attachment-tile.slint";
 import { Avatar, AvatarStack } from "@rimelight_ui/components/avatar.slint";
@@ -43,6 +44,7 @@ import { Popover } from "@rimelight_ui/components/popover.slint";
 import { PresenceDot } from "@rimelight_ui/components/presence-dot.slint";
 import { Progress } from "@rimelight_ui/components/progress.slint";
 import { RadioGroup } from "@rimelight_ui/components/radio-group.slint";
+import { RecentList, RecentRow } from "@rimelight_ui/components/recent-list.slint";
 import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
 import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { SearchField } from "@rimelight_ui/components/search-field.slint";
@@ -60,10 +62,11 @@ import { Table } from "@rimelight_ui/components/table.slint";
 import { TabStrip } from "@rimelight_ui/components/tabs.slint";
 import { Tag } from "@rimelight_ui/components/tag.slint";
 import { Textarea } from "@rimelight_ui/components/textarea.slint";
+import { Tile, FileKindTile } from "@rimelight_ui/components/tile.slint";
 import { TimePicker } from "@rimelight_ui/components/time-picker.slint";
 import { Timeline } from "@rimelight_ui/components/timeline.slint";
 import { ToastStack } from "@rimelight_ui/components/toast.slint";
-import { Toolbar } from "@rimelight_ui/components/toolbar.slint";
+import { Toolbar, ToolbarRow, ToolDivider } from "@rimelight_ui/components/toolbar.slint";
 import { Tooltip, TooltipOverlay } from "@rimelight_ui/components/tooltip.slint";
 import { Tree } from "@rimelight_ui/components/tree.slint";
 import { ViewSwitcher } from "@rimelight_ui/components/view-switcher.slint";
@@ -178,6 +181,13 @@ export component CheckWindow inherits Window {
             Timeline { }
             ToastStack { }
             Toolbar { }
+            ToolbarRow { }
+            ToolDivider { }
+            ActionRow { }
+            Tile { }
+            FileKindTile { kind: "picture"; }
+            RecentRow { item: { name: "file.png", detail: "Pictures", kind: "image", index: 0 }; }
+            RecentList { recents: [{ name: "file.png", detail: "Pictures", kind: "image", index: 0 }]; }
             Tooltip { }
             TooltipOverlay { }
             Tree { }

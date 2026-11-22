@@ -627,6 +627,30 @@ pub const STORIES: &[Story] = &[
         section: Section::Components,
         variants: &[DEFAULT],
     },
+    Story {
+        id: "components/toolbar-row",
+        title: "ToolbarRow",
+        section: Section::Components,
+        variants: &[DEFAULT],
+    },
+    Story {
+        id: "components/action-row",
+        title: "ActionRow",
+        section: Section::Components,
+        variants: &[DEFAULT],
+    },
+    Story {
+        id: "components/tile",
+        title: "Tile",
+        section: Section::Components,
+        variants: &[DEFAULT],
+    },
+    Story {
+        id: "components/recent-list",
+        title: "RecentList",
+        section: Section::Components,
+        variants: &[DEFAULT],
+    },
 ];
 
 /// The sidebar heading of the app stories.
@@ -928,7 +952,7 @@ mod tests {
             STORIES.len(),
             "ui/gallery.slint must show every built-in story"
         );
-        let builtin_count = markup.contains("in-out property <int> builtin-count: 67;");
+        let builtin_count = markup.contains("in-out property <int> builtin-count: 71;");
         assert!(
             builtin_count,
             "gallery.slint builtin-count must equal STORIES.len()"

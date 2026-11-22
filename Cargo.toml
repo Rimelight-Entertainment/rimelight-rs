@@ -28,6 +28,11 @@ rimelight_design = { git = "https://github.com/Rimelight-Entertainment/rimelight
 future_incompatible = { level = "deny", priority = -1 }
 unsafe_code = "forbid"
 
+# ffmpeg-sys-next with its bindings checked in (vendor/, shared with the apps), for crates/rimelight_media. Apps patch
+# the same crate from this repo's tag.
+[patch.crates-io]
+ffmpeg-sys-next = { path = "vendor/ffmpeg-sys-next" }
+
 [profile.dev]
 debug = "line-tables-only"
 # Build scripts and proc macros (slint-build, the slint! macro, serde derive) run optimised. The Slint compiler at

@@ -25,6 +25,10 @@ import { RadioGroup, RadioOrientation } from "@rimelight_ui/components/radio-gro
 import { Switch, SwitchSize, SwitchLabelSide } from "@rimelight_ui/components/switch.slint";
 import { Slider } from "@rimelight_ui/components/slider.slint";
 import { ColorPicker, ColorField } from "@rimelight_ui/components/color-picker.slint";
+import { ToolbarRow, ToolDivider } from "@rimelight_ui/components/toolbar.slint";
+import { ActionRow } from "@rimelight_ui/components/action-row.slint";
+import { Tile, FileKindTile } from "@rimelight_ui/components/tile.slint";
+import { RecentList } from "@rimelight_ui/components/recent-list.slint";
 import { Select, SelectOption, SelectSize } from "@rimelight_ui/components/select.slint";
 import { Combobox } from "@rimelight_ui/components/combobox.slint";
 import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
@@ -1195,6 +1199,16 @@ export component SwitchStory inherits VerticalLayout {
         Switch { text: "Focused"; checked: true; forced-state: 2; accessible-name: "Focus"; }
     }
 
+    SectionCaption { text: root.pt ? "Com linha de detalhe" : "With a detail line"; }
+    CaptionRow {
+        caption: "detail, right";
+        Switch { text: "Close to tray"; detail: "Keep running in the system tray when the window is closed."; checked: true; accessible-name: "Detail right"; }
+    }
+    CaptionRow {
+        caption: "detail, left";
+        Switch { text: "Start with Windows"; detail: "Launch in the tray when you sign in."; label-side: SwitchLabelSide.left; accessible-name: "Detail left"; }
+    }
+
     SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
     FieldForm {
         Field { label: "Notifications"; help: "Email me when something changes.";
@@ -1218,6 +1232,37 @@ export component SliderStory inherits VerticalLayout {
     CaptionRow {
         caption: "step 1";
         Slider { value: 7; minimum: 0; maximum: 10; step: 1; show-value: true; accessible-name: "Stars"; }
+    }
+    CaptionRow {
+        caption: "range 20 to 70";
+        Slider { value: 40; minimum: 0; maximum: 100; step: 10; show-range: true; range-start: 20; range-end: 70; accessible-name: "Range"; }
+    }
+
+    SectionCaption { text: root.pt ? "Palco escuro" : "Dark stage"; }
+    CaptionRow {
+        caption: "on-stage, controlled, trim range";
+        Rectangle {
+            width: 300px;
+            height: 40px;
+            background: #1B1B1F;
+            border-radius: 6px;
+            Slider {
+                x: 12px;
+                width: parent.width - 24px;
+                height: 24px;
+                y: (parent.height - self.height) / 2;
+                value: 0.4;
+                minimum: 0;
+                maximum: 1;
+                step: 0;
+                on-stage: true;
+                controlled: true;
+                show-range: true;
+                range-start: 0.2;
+                range-end: 0.7;
+                accessible-name: "Trim";
+            }
+        }
     }
 
     SectionCaption { text: root.pt ? "Estados" : "States"; }
@@ -2675,5 +2720,120 @@ export component ColorPickerStory inherits VerticalLayout {
     CaptionRow {
         caption: "opens a popover";
         ColorField { width: 220px; color <=> root.field-colour; accessible-name: "Area colour"; }
+    }
+}
+
+// ToolbarRow (WS4 ST4.2): the children-based top bar of a tab, with a ToolDivider between groups and a spacer that pushes
+// the last item to the right.
+export component ToolbarRowStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Barra de ferramentas (linha)" : "ToolbarRow"; }
+
+    CaptionRow { caption: "Groups, spacer";
+        ToolbarRow {
+            width: 480px;
+            IconButton { icon: Icons.folder-open; label: "Open"; }
+            IconButton { icon: Icons.copy; label: "Copy"; }
+            ToolDivider { }
+            IconButton { icon: Icons.trash; label: "Delete"; enabled: false; }
+            IconButton { icon: Icons.check; label: "Check"; }
+            Rectangle { horizontal-stretch: 1; }
+            IconButton { icon: Icons.x; label: "Close"; }
+        }
+    }
+}
+
+// ActionRow (WS4 ST4.2): the edit row under a toolbar, with the children on the left and Cancel and Apply flush right.
+export component ActionRowStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Linha de ações" : "ActionRow"; }
+
+    CaptionRow { caption: "Cancel and Apply";
+        ActionRow {
+            width: 480px;
+            show-confirm: true;
+            Button { text: "Rotate"; variant: ButtonVariant.ghost; }
+        }
+    }
+    CaptionRow { caption: "No buttons";
+        ActionRow {
+            width: 480px;
+            Text { text: root.pt ? "Recorte" : "Crop"; color: Tokens.text-muted; font-size: Type.body.size; vertical-alignment: center; }
+        }
+    }
+}
+
+// Tile and FileKindTile (WS4 ST4.2): the launch tile with a keyboard hint, and the four file-kind tiles.
+export component TileStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Tile"; }
+
+    CaptionRow { caption: "Launch tiles";
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            Tile { width: 220px; icon: Icons.folder-open; title: "Open a file"; detail: "Pick a picture, video, song or text file."; keys: "Ctrl+O"; }
+            Tile { width: 220px; icon: Icons.image; title: "Pictures"; detail: "View and edit."; }
+        }
+    }
+    CaptionRow { caption: "File kinds";
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            FileKindTile { kind: "picture"; tile-size: 56px; }
+            FileKindTile { kind: "video"; tile-size: 56px; }
+            FileKindTile { kind: "music"; tile-size: 56px; }
+            FileKindTile { kind: "text"; tile-size: 56px; }
+        }
+    }
+}
+
+// RecentList (WS4 ST4.2): the Recent header with Clear, the rows (one per file kind) and the empty line.
+export component RecentListStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Recent list"; }
+
+    CaptionRow { caption: "Three files";
+        RecentList {
+            width: 420px;
+            recents: [
+                { name: "holiday.png", detail: "Pictures", kind: "image", index: 0 },
+                { name: "song.mp3", detail: "Music", kind: "audio", index: 1 },
+                { name: "notes.txt", detail: "Documents", kind: "text", index: 2 }
+            ];
+        }
+    }
+    CaptionRow { caption: "Empty";
+        RecentList { width: 420px; recents: []; }
+    }
+    CaptionRow { caption: "Custom file-kind tiles";
+        RecentList {
+            width: 420px;
+            file-kind-styles: {
+                picture: { top-colour: #7DD3FC, bottom-colour: #0284C7, glyph: Icons.image, styled: true },
+                video: { top-colour: #C4B5FD, bottom-colour: #7C3AED, glyph: Icons.video, styled: true },
+                music: { top-colour: #FDA4AF, bottom-colour: #E11D48, glyph: Icons.music, styled: true },
+                text: { top-colour: #86EFAC, bottom-colour: #16A34A, glyph: Icons.file-text, styled: true },
+            };
+            recents: [
+                { name: "holiday.png", detail: "Pictures", kind: "image", index: 0 },
+                { name: "song.mp3", detail: "Music", kind: "audio", index: 1 },
+                { name: "notes.txt", detail: "Documents", kind: "text", index: 2 }
+            ];
+        }
     }
 }

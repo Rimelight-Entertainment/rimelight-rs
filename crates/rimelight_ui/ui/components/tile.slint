@@ -1,0 +1,132 @@
+// Tile and FileKindTile (WS4 ST4.2). Two surfaces for launch pages and file lists.
+//
+// Tile: a big card on a home page: an icon in an accent square, a title, a detail line and an optional keyboard hint.
+// Clicking it, or pressing Enter or Space when it has focus, calls `clicked()`.
+//
+// FileKindTile: the file-type tile Explorer uses for each kind of file: a rounded gradient square with a white glyph.
+// `kind` is "picture", "video", "music" or "text". The gradient ends and the glyph default from the kind; the caller can
+// set `top-colour` and `bottom-colour` to override them.
+//
+// Keyboard: Tile is one Tab stop. Enter and Space activate it. The focus ring (Tokens.focus-ring) is drawn while it has
+// focus. FileKindTile is decorative (no focus, no accessible role).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Icons } from "../icons.slint";
+
+export component FileKindTile inherits Rectangle {
+    in property <string> kind;
+    in property <length> tile-size: Tokens.icon-medium;
+    // Gradient ends. Defaults: the design's file-kind roles at the top, palette ramps at the bottom.
+    in property <color> top-colour: root.kind == "picture" ? Tokens.extension-file-kind-picture
+        : root.kind == "video" ? Tokens.extension-file-kind-video
+        : root.kind == "music" ? Tokens.extension-file-kind-music
+        : Tokens.extension-file-kind-text;
+    in property <color> bottom-colour: root.kind == "picture" ? Tokens.ramp-primary-500
+        : root.kind == "video" ? Tokens.ramp-ideation-500
+        : root.kind == "music" ? Tokens.ramp-error-500
+        : Tokens.ramp-success-500;
+    // The glyph drawn in the square, from the kind.
+    in property <image> glyph: root.kind == "picture" ? Icons.image
+        : root.kind == "video" ? Icons.video
+        : root.kind == "music" ? Icons.music
+        : Icons.file-text;
+
+    width: root.tile-size;
+    height: root.tile-size;
+    border-radius: root.tile-size * 0.22;
+    background: @linear-gradient(135deg, root.top-colour 0%, root.bottom-colour 100%);
+
+    Image {
+        // The glyph covers about 59% of the square, centred.
+        x: root.width * 0.207;
+        y: root.height * 0.207;
+        width: root.width * 0.586;
+        height: root.height * 0.586;
+        source: root.glyph;
+        colorize: Tokens.ramp-neutral-0;
+    }
+}
+
+// A big tile: an icon, a title, a detail line and an optional keyboard hint. Its height follows the detail text.
+export component Tile inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> detail;
+    // The keyboard hint under the detail, for example "Ctrl+O". Empty hides it.
+    in property <string> keys;
+    in property <color> accent: Tokens.accent-default;
+    callback clicked();
+
+    // Layouts size a wrapped Text before its width is known, so the detail's lines are estimated from its length and the
+    // tile's width (about 0.6 em a character), and the tile is that tall: the text never spills out of the card.
+    property <float> detail-lines: max(1, ceil((root.detail.character-count * Type.caption.size * 0.6) / max(1px, self.width - 2 * Tokens.space-4)));
+    min-height: Tokens.size-control-xl * 2 + Tokens.space-4;
+    preferred-height: 2 * Tokens.space-4 + Tokens.size-control-lg + 2 * Tokens.space-1 + Type.subheading.line-height
+        + root.detail-lines * Type.caption.line-height + (root.keys != "" ? Tokens.size-kbd-height : 0px);
+    border-radius: Tokens.radius-r8;
+    background: ta.pressed ? Tokens.surface-pressed : ta.has-hover ? Tokens.surface-hover : Tokens.surface-raised;
+    border-width: fs.has-focus ? Tokens.focus-width : 1px;
+    border-color: fs.has-focus ? Tokens.focus-ring : (ta.has-hover ? Tokens.border-strong : Tokens.border-subtle);
+    accessible-role: button;
+    accessible-label: root.title;
+    accessible-action-default => { root.clicked(); }
+
+    VerticalLayout {
+        padding: Tokens.space-4;
+        spacing: Tokens.space-1;
+        alignment: start;
+        Rectangle {
+            width: Tokens.size-control-lg;
+            height: Tokens.size-control-lg;
+            border-radius: Tokens.radius-r8;
+            background: root.accent.with-alpha(0.16);
+            Image {
+                source: root.icon;
+                width: Tokens.icon-medium;
+                height: Tokens.icon-medium;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                colorize: root.accent;
+            }
+        }
+        Rectangle { height: Tokens.space-1; }
+        Text {
+            text: root.title;
+            color: Tokens.text-primary;
+            font-family: Type.subheading.family;
+            font-size: Type.subheading.size;
+            font-weight: Type.subheading.weight;
+        }
+        Text {
+            text: root.detail;
+            color: Tokens.text-muted;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            wrap: word-wrap;
+        }
+        if root.keys != "": Text {
+            text: root.keys;
+            color: Tokens.text-faint;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+        }
+    }
+
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

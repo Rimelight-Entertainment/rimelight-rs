@@ -1,0 +1,56 @@
+[package]
+name = "rimelight_platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight OS calls shared by Rimelight Media and Rimelight Space: Win32 window, shell and capture calls, and Android JNI calls, behind a portable API."
+
+# Lints are spelled out, not inherited: the workspace forbids unsafe code, this crate denies it and allows it only on the
+# audited modules `win32` and `android` (each with a SAFETY comment on every unsafe block and an audit note at the top).
+[lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Win32 and WinRT, used only on Windows. Feature lists are the union of Rimelight Media's and Rimelight Space's.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Storage_Xps",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+# Windows' Share panel and built-in text recognition (WinRT).
+windows = { version = "0.62", features = [
+    "ApplicationModel_DataTransfer",
+    "Foundation",
+    "Foundation_Collections",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Storage",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+] }
+
+# Android OS calls through JNI: the browser, the activity's intent and the Downloads folder.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+slint = { version = "=1.18.1", features = ["backend-android-activity-06"] }

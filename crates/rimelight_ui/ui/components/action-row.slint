@@ -1,0 +1,46 @@
+// ActionRow (WS4 ST4.2). The edit row under a toolbar (crop, resize, trim, find and replace, markup options): the same
+// height on every tab. The @children area on the left stretches. When show-confirm is set, the cancel and confirm buttons
+// sit at the far right, always flush right. `cancel()` and `confirm()` are the buttons' callbacks.
+//
+// Keyboard: the children and the two buttons are Tab stops in order (each is a Button, with Enter and Space). The row
+// itself takes no focus. Drawn from the Tokens global.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Button, ButtonVariant } from "button.slint";
+
+export component ActionRow inherits Rectangle {
+    in property <bool> show-confirm: false;
+    in property <string> confirm-text: "Apply";
+    in property <string> cancel-text: "Cancel";
+    in property <bool> confirm-enabled: true;
+    callback cancel();
+    callback confirm();
+
+    height: Tokens.component-toolbar-height;
+    background: Tokens.surface-base;
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-3;
+        padding-top: (Tokens.component-toolbar-height - Tokens.size-control-md) / 2;
+        padding-bottom: (Tokens.component-toolbar-height - Tokens.size-control-md) / 2;
+        spacing: Tokens.space-2;
+        alignment: stretch;
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-2;
+            alignment: start;
+            @children
+        }
+        if root.show-confirm: HorizontalLayout {
+            spacing: Tokens.space-2;
+            Button { text: root.cancel-text; variant: ButtonVariant.secondary; clicked => { root.cancel(); } }
+            Button {
+                text: root.confirm-text;
+                variant: ButtonVariant.primary;
+                enabled: root.confirm-enabled;
+                clicked => { root.confirm(); }
+            }
+        }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Tokens.border-subtle; }
+}

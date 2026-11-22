@@ -11,6 +11,16 @@
 // does not fire `changed`. Disabled: not a Tab stop, and ignores pointer and keys. A pointer press moves the value but does
 // not move keyboard focus, so the focus ring (Tokens.focus-ring) shows only for keyboard focus.
 //
+// Release: `released` fires when a pointer drag ends (the button goes up on the track) and after a key moves the value.
+// It carries the value at that point, for the settings that commit on release (voice gain, speed, zoom).
+//
+// Controlled: by default the slider writes `value` when the user moves it (two-way use, as the zoom in the status bar).
+// Set `controlled` when the caller drives `value` from a binding (playback position, a setting): the slider then leaves
+// the binding alone, and the caller sets its state in `changed`.
+//
+// Looks: `on-stage` is the light-on-dark look for a picture or video stage. `show-range` draws a band on the track from
+// range-start to range-end (in value units), for a trim range.
+//
 // Accessibility: role slider, with the value, minimum, maximum and step.
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "../typography.slint";
@@ -31,21 +41,38 @@ export component Slider inherits Rectangle {
     in property <string> accessible-name;
     // Forced look for captures: 2 shows the focus ring on the thumb. Real keyboard focus takes precedence.
     in property <int> forced-state: 0;
+    // The caller drives `value` from a binding, so the slider does not write it (see the header).
+    in property <bool> controlled: false;
+    // The light-on-dark look for a picture or video stage.
+    in property <bool> on-stage: false;
+    // Draws a band on the track from range-start to range-end, in value units (a trim range).
+    in property <bool> show-range: false;
+    in property <float> range-start: root.minimum;
+    in property <float> range-end: root.maximum;
+    in property <color> range-colour: Tokens.accent-default.with-alpha(0.5);
     // True while the FocusScope holds keyboard focus.
     out property <bool> has-focus: fs.has-focus;
     // The new value, after a change.
     callback changed(float);
+    // The value when the user lets go: a pointer drag ends, or a key moved the value.
+    callback released(float);
 
     property <length> thumb: Tokens.icon-small;
     property <length> label-w: 40px * Tokens.zoom-factor;
     property <length> track-w: root.show-value ? root.width - root.label-w : root.width;
     property <bool> focused: fs.has-focus || root.forced-state == 2;
-    // Position of the value in the range, 0 to 1.
-    property <float> fraction: root.maximum > root.minimum
-        ? max(0, min(1, (root.value - root.minimum) / (root.maximum - root.minimum)))
-        : 0;
+    // Position of the value, and of the range ends, in the range: 0 to 1.
+    property <float> fraction: root.fraction-of(root.value);
+    property <float> range-from: root.fraction-of(root.range-start);
+    property <float> range-to: root.fraction-of(root.range-end);
     property <color> fill-colour: root.enabled ? Tokens.accent-default : Tokens.disabled-fill;
-    property <color> rail-colour: root.enabled ? Tokens.border-strong : Tokens.disabled-border;
+    property <color> rail-colour: root.on-stage ? #FFFFFF40 : root.enabled ? Tokens.border-strong : Tokens.disabled-border;
+    property <color> thumb-colour: root.on-stage ? #FFFFFF : Tokens.surface-raised;
+
+    // Position of `v` in the range, 0 to 1.
+    function fraction-of(v: float) -> float {
+        return root.maximum > root.minimum ? max(0, min(1, (v - root.minimum) / (root.maximum - root.minimum))) : 0;
+    }
 
     // The nearest step to `v` inside the range (or `v` clamped when there is no step).
     function snap(v: float) -> float {
@@ -53,13 +80,23 @@ export component Slider inherits Rectangle {
         return max(root.minimum, min(root.maximum, stepped));
     }
 
-    function set-value(v: float) {
-        if (root.enabled) {
-            let next = root.snap(v);
-            if (next != root.value) {
-                root.value = next;
-                root.changed(next);
-            }
+    // Moves to `v` (snapped). Returns true when the value changed.
+    function set-value(v: float) -> bool {
+        let next = root.snap(v);
+        if (!root.enabled || next == root.value) {
+            return false;
+        }
+        if (!root.controlled) {
+            root.value = next;
+        }
+        root.changed(next);
+        return true;
+    }
+
+    // A key move: changes the value and, when it did, reports the release.
+    function set-by-key(v: float) {
+        if (root.set-value(v)) {
+            root.released(root.value);
         }
     }
 
@@ -86,7 +123,7 @@ export component Slider inherits Rectangle {
     height: Tokens.size-control-sm;
     horizontal-stretch: 1;
 
-    // The rail, and the filled part from the start to the thumb centre.
+    // The rail, and the range band (when shown), and the filled part from the start to the thumb centre.
     rail := Rectangle {
         x: root.thumb / 2;
         width: max(0px, root.track-w - root.thumb);
@@ -94,6 +131,15 @@ export component Slider inherits Rectangle {
         y: (parent.height - self.height) / 2;
         border-radius: Tokens.radius-pill;
         background: root.rail-colour;
+    }
+    range-band := Rectangle {
+        visible: root.show-range;
+        x: root.thumb / 2 + max(0px, root.track-w - root.thumb) * root.range-from;
+        width: max(0px, root.track-w - root.thumb) * max(0, root.range-to - root.range-from);
+        y: (parent.height - self.height) / 2;
+        height: 8px;
+        border-radius: Tokens.radius-pill;
+        background: root.range-colour;
     }
     fill := Rectangle {
         x: root.thumb / 2;
@@ -111,8 +157,8 @@ export component Slider inherits Rectangle {
         y: (parent.height - self.height) / 2;
         x: max(0px, root.track-w - root.thumb) * root.fraction;
         border-radius: Tokens.radius-pill;
-        background: Tokens.surface-raised;
-        border-width: 2px;
+        background: root.thumb-colour;
+        border-width: root.on-stage ? 0px : 2px;
         border-color: root.fill-colour;
     }
 
@@ -137,7 +183,7 @@ export component Slider inherits Rectangle {
         width: root.label-w;
         height: parent.height;
         text: "\{root.value}\{root.value-suffix}";
-        color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+        color: root.on-stage ? #FFFFFF : root.enabled ? Tokens.text-primary : Tokens.disabled-text;
         font-family: Type.label.family;
         font-size: Type.label.size;
         font-weight: Type.label.weight;
@@ -146,8 +192,8 @@ export component Slider inherits Rectangle {
         accessible-role: none;
     }
 
-    // The track takes pointer presses and drags. The press moves the value; each move moves it again. Covers the track only,
-    // not the value label.
+    // The track takes pointer presses and drags. The press moves the value; each move moves it again, while the button is
+    // down. Covers the track only, not the value label.
     track-ta := TouchArea {
         x: 0px;
         width: root.track-w;
@@ -157,9 +203,14 @@ export component Slider inherits Rectangle {
             if (event.kind == PointerEventKind.down) {
                 root.set-from-x(self.mouse-x);
             }
+            if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                root.released(root.value);
+            }
         }
         moved => {
-            root.set-from-x(self.mouse-x);
+            if (self.pressed) {
+                root.set-from-x(self.mouse-x);
+            }
         }
     }
 
@@ -168,19 +219,19 @@ export component Slider inherits Rectangle {
         focus-on-click: false;
         key-pressed(event) => {
             if (event.text == Key.LeftArrow || event.text == Key.DownArrow) {
-                root.set-value(root.value - root.step);
+                root.set-by-key(root.value - root.step);
                 return accept;
             }
             if (event.text == Key.RightArrow || event.text == Key.UpArrow) {
-                root.set-value(root.value + root.step);
+                root.set-by-key(root.value + root.step);
                 return accept;
             }
             if (event.text == Key.Home) {
-                root.set-value(root.minimum);
+                root.set-by-key(root.minimum);
                 return accept;
             }
             if (event.text == Key.End) {
-                root.set-value(root.maximum);
+                root.set-by-key(root.maximum);
                 return accept;
             }
             return reject;

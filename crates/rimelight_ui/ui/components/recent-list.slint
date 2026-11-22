@@ -1,0 +1,182 @@
+// RecentList and RecentRow (WS4 ST4.2). A generic list of recently opened files: a header with a Clear button (shown only
+// when there are files), then a card that always shows either the rows or a line saying the list is empty.
+//
+// RecentItem: one file. kind: "image", "video", "audio" or "text" (audio draws the music tile). index: the caller's
+// position for the file (what `open-recent` passes back), so a filtered list still opens the right file.
+//
+// File-kind tiles: each row's tile uses the shared look (the Tokens file-kind colours and the default glyphs) unless
+// `file-kind-styles` gives that kind a style: `styled: true` with its gradient ends and glyph. The kinds are "picture",
+// "video", "music" and "text" (an image row is a picture, an audio row is music). A styled kind needs its glyph.
+//
+// Keyboard: each row is a Tab stop. Enter and Space open the file (`clicked`). The Clear button is a Tab stop of its own.
+// The focus ring is Tokens.focus-ring. Drawn from the Tokens global.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+import { Button, ButtonVariant } from "button.slint";
+import { FileKindTile } from "tile.slint";
+
+export struct RecentItem {
+    name: string,
+    detail: string,
+    kind: string,
+    index: int,
+}
+
+// The tile for one file kind: gradient ends and glyph, used when `styled` is true.
+export struct FileKindStyle {
+    top-colour: color,
+    bottom-colour: color,
+    glyph: image,
+    styled: bool,
+}
+
+// The tile style of each file kind.
+export struct FileKindStyles {
+    picture: FileKindStyle,
+    video: FileKindStyle,
+    music: FileKindStyle,
+    text: FileKindStyle,
+}
+
+// One row of the list: the file-type tile, the name and the folder.
+export component RecentRow inherits Rectangle {
+    in property <RecentItem> item;
+    in property <FileKindStyles> kind-styles;
+    callback clicked();
+
+    // The tile kind for this row's file, and that kind's style.
+    property <string> tile-kind: root.item.kind == "image" ? "picture" : root.item.kind == "audio" ? "music" : root.item.kind;
+    property <FileKindStyle> tile-style: root.tile-kind == "picture" ? root.kind-styles.picture
+        : root.tile-kind == "video" ? root.kind-styles.video
+        : root.tile-kind == "music" ? root.kind-styles.music
+        : root.kind-styles.text;
+
+    height: Tokens.size-control-xl;
+    border-radius: Tokens.radius-control;
+    border-width: fs.has-focus ? Tokens.focus-width : 0px;
+    border-color: Tokens.focus-ring;
+    background: ta.has-hover ? Tokens.surface-hover : transparent;
+    accessible-role: button;
+    accessible-label: root.item.name;
+    accessible-action-default => { root.clicked(); }
+
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-3;
+        spacing: Tokens.space-3;
+        alignment: start;
+        Rectangle {
+            width: Tokens.icon-medium;
+            if !root.tile-style.styled: FileKindTile {
+                kind: root.tile-kind;
+                tile-size: Tokens.icon-medium;
+                y: (parent.height - self.height) / 2;
+            }
+            if root.tile-style.styled: FileKindTile {
+                kind: root.tile-kind;
+                tile-size: Tokens.icon-medium;
+                top-colour: root.tile-style.top-colour;
+                bottom-colour: root.tile-style.bottom-colour;
+                glyph: root.tile-style.glyph;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text {
+                text: root.item.name;
+                color: Tokens.text-primary;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                horizontal-alignment: left;
+                overflow: elide;
+            }
+            Text {
+                text: root.item.detail;
+                color: Tokens.text-muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                horizontal-alignment: left;
+                overflow: elide;
+            }
+        }
+    }
+
+    fs := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// The Recent list: a header (title and Clear), then the card of rows. The strings are properties, so each app words them.
+export component RecentList inherits VerticalLayout {
+    in property <[RecentItem]> recents;
+    in property <string> title: "Recent";
+    in property <string> clear-text: "Clear";
+    in property <string> empty-text: "Files you open show up here.";
+    in property <color> ink: Tokens.text-primary;
+    in property <color> muted: Tokens.text-muted;
+    // The file-kind tile styles of the rows; empty (the default) keeps the shared look.
+    in property <FileKindStyles> file-kind-styles;
+    callback open-recent(int);
+    callback clear-recents();
+
+    spacing: Tokens.space-2;
+    // A fixed height: the header is the same whether or not Clear is shown, so only the list below changes.
+    HorizontalLayout {
+        height: Tokens.size-control-md;
+        Text {
+            text: root.title;
+            color: root.ink;
+            font-family: Type.subheading.family;
+            font-size: Type.subheading.size;
+            font-weight: Type.subheading.weight;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.recents.length > 0: Button {
+            text: root.clear-text;
+            variant: ButtonVariant.ghost;
+            clicked => { root.clear-recents(); }
+        }
+    }
+    Rectangle {
+        background: Tokens.surface-raised;
+        border-radius: Tokens.radius-r8;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+        VerticalLayout {
+            padding: Tokens.space-1;
+            if root.recents.length == 0: Text {
+                text: root.empty-text;
+                color: root.muted;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                height: Tokens.size-control-xl;
+            }
+            for r[i] in root.recents: RecentRow {
+                item: r;
+                kind-styles: root.file-kind-styles;
+                clicked => { root.open-recent(r.index); }
+            }
+        }
+    }
+}

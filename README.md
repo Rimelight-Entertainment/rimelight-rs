@@ -13,7 +13,7 @@ The plan these crates follow is `docs/plan.md` in rimelight-space.
 - `spikes/slint-cross-crate`: proof that a library can ship Slint markup and Rust glue while only the app compiles
   Slint (ST2.1, passed 2026-11-22).
 - Workspace (ST2.0, set up 2026-11-22; not yet built or checked with cargo):
-  - `crates/rimelight_ui`: Slint component library (ST2.3, not yet compiled): 65 component files (74 exported
+  - `crates/rimelight_ui`: Slint component library (ST2.3, WS4): 68 component files (81 exported
     components), typography, icons, and bundled fonts. Markup only; the app crates compile it. The fonts are Noto Sans
     and JetBrains Mono, licensed under SIL OFL 1.1 (see `crates/rimelight_ui/ui/fonts/README.md`).
   - `crates/rimelight_ui/tests/ui`: the one `ui` test binary for the components (ST2.7, not yet run): 26 test modules

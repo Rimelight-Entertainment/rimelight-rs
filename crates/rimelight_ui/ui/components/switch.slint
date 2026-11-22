@@ -3,7 +3,7 @@
 // thumb animation is a fixed 150 ms linear curve with no reduced-motion switch (README, "Slint port" S5).
 //
 // sizes sm (28 by 16 px track) and md (36 by 20 px),
-// the label on the left or the right, disabled, and the focus ring around the track.
+// the label on the left or the right, an optional detail line under the label, disabled, and the focus ring around the track.
 //
 // Motion: the thumb moves with `animate x` over Tokens.motion-base (200 ms, or 0 under reduced motion) on an ease-in-out
 // curve. Under reduced motion the duration is 0, so the thumb jumps and is static.
@@ -24,6 +24,8 @@ export component Switch inherits Rectangle {
     // The state, two-way: the switch edits it and the caller can set it.
     in-out property <bool> checked: false;
     in property <string> text;
+    // A line under the label, for example what the setting does. Empty hides it; the row then grows to fit it.
+    in property <string> detail;
     // Accessible name. Empty means the label text is the name.
     in property <string> accessible-name;
     in property <SwitchSize> size: SwitchSize.md;
@@ -49,6 +51,7 @@ export component Switch inherits Rectangle {
         : (root.checked ? Tokens.accent-default : Tokens.border-strong);
     property <color> thumb-fill: root.enabled && root.checked ? Tokens.text-on-accent : Tokens.surface-raised;
     property <color> label-color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+    property <color> detail-color: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
 
     function toggle() {
         if (root.enabled) {
@@ -68,7 +71,7 @@ export component Switch inherits Rectangle {
     accessible-checked: root.checked;
     accessible-action-default => { root.toggle(); }
 
-    height: root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md;
+    height: root.detail != "" ? layout.preferred-height : (root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md);
     min-width: root.track-w;
     horizontal-stretch: 0;
 
@@ -76,17 +79,30 @@ export component Switch inherits Rectangle {
         spacing: Tokens.space-2;
         alignment: start;
 
-        if root.label-side == SwitchLabelSide.left && root.text != "" : Text {
+        if root.label-side == SwitchLabelSide.left && root.text != "" : VerticalLayout {
             horizontal-stretch: 1;
-            text: root.text;
-            color: root.label-color;
-            font-family: Type.label.family;
-            font-size: Type.label.size;
-            font-weight: Type.label.weight;
-            vertical-alignment: center;
-            horizontal-alignment: right;
-            wrap: word-wrap;
-            accessible-role: none;
+            alignment: center;
+            Text {
+                text: root.text;
+                color: root.label-color;
+                font-family: Type.label.family;
+                font-size: Type.label.size;
+                font-weight: Type.label.weight;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
+            if root.detail != "" : Text {
+                text: root.detail;
+                color: root.detail-color;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                horizontal-alignment: right;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
         }
 
         // A full-height cell, so the track is centred with `y` inside it (a layout would pin it to the top).
@@ -127,16 +143,28 @@ export component Switch inherits Rectangle {
             }
         }
 
-        if root.label-side == SwitchLabelSide.right && root.text != "" : Text {
+        if root.label-side == SwitchLabelSide.right && root.text != "" : VerticalLayout {
             horizontal-stretch: 1;
-            text: root.text;
-            color: root.label-color;
-            font-family: Type.label.family;
-            font-size: Type.label.size;
-            font-weight: Type.label.weight;
-            vertical-alignment: center;
-            wrap: word-wrap;
-            accessible-role: none;
+            alignment: center;
+            Text {
+                text: root.text;
+                color: root.label-color;
+                font-family: Type.label.family;
+                font-size: Type.label.size;
+                font-weight: Type.label.weight;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
+            if root.detail != "" : Text {
+                text: root.detail;
+                color: root.detail-color;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
         }
     }
 
