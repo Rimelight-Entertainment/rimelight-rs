@@ -1,6 +1,6 @@
-# ST2.5b: the shell's Rust models and the app frame (design, needs owner answers)
+# ST2.5b: the shell's Rust models and the app frame (design, answered)
 
-**Status:** proposed, 2026-11-22. Nothing in this step is built. ST2.5a (the shell markup) is done.
+**Status:** answered by the owner, 2026-11-22; ready to build. ST2.5a (the shell markup) is done.
 
 ## Where things stand
 
@@ -60,7 +60,15 @@ The **Rust** that fills those components still lives in Space, because almost al
    own pages. Space's 2,989-line file shrinks as pieces move out. A single `AppFrame` would force one layout on Media,
    which has no rail or sidebar.
 
-## Questions for the owner
+## Owner answers (2026-11-22)
+
+All four recommendations accepted:
+1. Media uses only the status bar, the shortcuts dialog and the About screen.
+2. Frame pieces, not one `AppFrame`.
+3. The profile menu and sign-in screen move to `rimelight_shell` as `AccountMenu` and `SignInScreen`.
+4. The sidebar's "Projects" label becomes a property, in step 4.
+
+## Questions for the owner (as asked)
 
 1. **Does Rimelight Media use the shell at all?**
    - Its layout is a top toolbar, an edit row, a stage and a status bar, with no rail, sidebar or tabs.

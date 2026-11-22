@@ -1,6 +1,6 @@
-# ST2.6: the gallery (design, needs owner answers)
+# ST2.6: the gallery (design, answered)
 
-**Status:** proposed, 2026-11-22. Not started; waiting on the two questions below.
+**Status:** answered by the owner, 2026-11-22; ready to build.
 
 ## What the gallery is today
 
@@ -38,7 +38,13 @@ because it shows issue cards).
    - (a) the shared gallery gains a `--stories <dir>` flag that adds an app's own story file, or
    - (b) Space's kanban story is dropped and kanban is checked in the running app.
 
-## Questions for the owner
+## Owner answers (2026-11-22)
+
+Both recommendations accepted:
+1. Whole-app screenshots move to `cargo xtask screenshot shell/<state>` in Space.
+2. The shared gallery gains a `--stories <dir>` flag for an app's own stories; Space keeps kanban there.
+
+## Questions for the owner (as asked)
 
 1. **Where should whole-app screenshots live:** a desktop-app flag or an `xtask` command? Recommendation: `cargo xtask
    screenshot shell/<state>`, which matches the existing `xtask screenshot windows|android`.
