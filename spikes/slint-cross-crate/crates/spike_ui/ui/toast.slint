@@ -1,0 +1,50 @@
+// Toast stack for the spike. The Rust side (spike_kit) writes `ToastState.entries`
+// and reads `ToastState.dismiss`. `tone` 0 is neutral; any other value uses the accent border.
+import { Tokens } from "tokens.slint";
+
+export struct ToastEntry {
+    id: int,
+    text: string,
+    tone: int,
+}
+
+export global ToastState {
+    in property <[ToastEntry]> entries;
+    callback dismiss(int);
+}
+
+// Draws every entry in ToastState.entries as a row. A click on a row calls dismiss with its id.
+export component ToastStack inherits Rectangle {
+    width: 280px;
+    height: column.preferred-height;
+    background: transparent;
+
+    column := VerticalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        spacing: Tokens.space;
+
+        for entry in ToastState.entries : Rectangle {
+            horizontal-stretch: 1;
+            height: 44px;
+            background: Tokens.surface;
+            border-radius: 6px;
+            border-width: 2px;
+            border-color: entry.tone == 0 ? Tokens.ink : Tokens.accent;
+
+            Text {
+                x: 12px;
+                text: entry.text;
+                color: Tokens.ink;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => {
+                    ToastState.dismiss(entry.id);
+                }
+            }
+        }
+    }
+}

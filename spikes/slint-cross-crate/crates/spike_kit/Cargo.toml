@@ -1,0 +1,9 @@
+[package]
+name = "spike_kit"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Runtime Slint only. No slint-build and no build.rs: this crate never compiles markup.
+[dependencies]
+slint.workspace = true

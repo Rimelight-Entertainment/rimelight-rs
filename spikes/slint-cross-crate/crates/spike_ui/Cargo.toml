@@ -1,0 +1,8 @@
+[package]
+name = "spike_ui"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Markup only: no slint dependency and no build.rs. The app crate compiles ui/*.slint.
+[dependencies]

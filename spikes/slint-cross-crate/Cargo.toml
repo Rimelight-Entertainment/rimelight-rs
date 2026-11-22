@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/spike_ui",
+    "crates/spike_kit",
+    "crates/spike_app",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+slint = "=1.18.1"
+slint-build = "=1.18.1"
+i-slint-backend-testing = "=1.18.1"
+spike_ui = { path = "crates/spike_ui" }
+spike_kit = { path = "crates/spike_kit" }

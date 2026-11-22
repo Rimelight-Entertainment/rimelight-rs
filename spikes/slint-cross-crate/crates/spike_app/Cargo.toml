@@ -1,0 +1,21 @@
+[package]
+name = "spike_app"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[features]
+# Connects the queue with a hand-written ToastSink (src/manual.rs) instead of wire_toasts!.
+manual-trait = []
+
+[dependencies]
+slint.workspace = true
+spike_kit.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true
+spike_ui.workspace = true
+
+[dev-dependencies]
+i-slint-backend-testing = { workspace = true, features = ["renderer-software"] }

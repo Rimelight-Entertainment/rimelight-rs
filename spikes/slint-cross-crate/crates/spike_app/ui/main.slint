@@ -1,0 +1,29 @@
+import { ToastStack, ToastState, ToastEntry } from "@spike_ui/toast.slint";
+import { Tokens } from "@spike_ui/tokens.slint";
+import { Button } from "std-widgets.slint";
+
+// Re-exported so Rust gets the generated struct and the global. Generated names: AppWindow, ToastState, ToastEntry.
+export { ToastState, ToastEntry, Tokens }
+
+export component AppWindow inherits Window {
+    title: "Slint cross-crate spike";
+    width: 480px;
+    height: 360px;
+    background: Tokens.surface;
+
+    callback push-toast();
+
+    Button {
+        x: 16px;
+        y: 16px;
+        text: "Push toast";
+        clicked => {
+            root.push-toast();
+        }
+    }
+
+    ToastStack {
+        x: 16px;
+        y: 72px;
+    }
+}
