@@ -13,3 +13,16 @@ workspace = true
 # Font tests (glyph coverage and family names), moved from Space with the fonts.
 [dev-dependencies]
 ttf-parser = "0.25.1"
+# The ui test binary (tests/ui): Slint runs headless in the testing backend, the markup comes from the test-markup crate,
+# and the component rules come from rimelight_ui_kit. None of these is a runtime dependency of this library.
+slint = { workspace = true }
+i-slint-backend-testing = { workspace = true, features = ["renderer-software"] }
+rimelight_ui_test_slint = { path = "../rimelight_ui_test_slint" }
+rimelight_ui_kit = { path = "../rimelight_ui_kit" }
+
+# One UI test binary for the whole library (AGENTS.md, code rules): each test file is a module of tests/ui/main.rs, so
+# Slint links once. No libtest harness: the testing backend is bound to the thread that creates it.
+[[test]]
+name = "ui"
+path = "tests/ui/main.rs"
+harness = false

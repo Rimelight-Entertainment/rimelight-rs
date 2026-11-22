@@ -1,0 +1,70 @@
+// Test markup for tests/ui/display.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Badge, BadgeTone } from "@rimelight_ui/components/badge.slint";
+import { Tag } from "@rimelight_ui/components/tag.slint";
+import { AvatarStack, AvatarItem } from "@rimelight_ui/components/avatar.slint";
+import { Progress } from "@rimelight_ui/components/progress.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+export { Tokens }
+
+export component DisplayForm inherits Window {
+    width: 600px;
+    height: 300px;
+
+    in-out property <int> probe-count: 0;
+    in-out property <int> probe-max: 99;
+    out property <string> probe-label: probe.shown-label;
+
+    in-out property <float> probe-value: 0;
+    out property <float> probe-fraction: progress.fraction;
+
+    in-out property <int> stack-max: 4;
+    out property <int> stack-shown: stack.shown;
+    out property <int> stack-overflow: stack.overflow;
+
+    out property <int> design-removed: 0;
+    out property <int> urgent-removed: 0;
+    out property <string> plain-label: plain.label;
+
+    // Test hook: fires the Design tag's own `removed` callback, as its remove button does.
+    public function click-remove-design() { design.removed(); }
+
+    VerticalLayout {
+        probe := Badge {
+            count: root.probe-count;
+            max: root.probe-max;
+        }
+        progress := Progress {
+            value: root.probe-value;
+            accessible-name: "Upload";
+        }
+        stack := AvatarStack {
+            max: root.stack-max;
+            people: [
+                { name: "Ana Souza", initials: "AS" },
+                { name: "Bruno Lima", initials: "BL" },
+                { name: "Carla Mendes", initials: "CM" },
+                { name: "Dani Reis", initials: "DR" },
+                { name: "Eva Costa", initials: "EC" },
+                { name: "Felipe Dias", initials: "FD" },
+            ];
+        }
+        design := Tag {
+            label: "Design";
+            tone: BadgeTone.accent;
+            removable: true;
+            remove-label: "Remove Design";
+            removed => { root.design-removed += 1; }
+        }
+        Tag {
+            label: "Urgent";
+            tone: BadgeTone.danger;
+            removable: true;
+            remove-label: "Remove Urgent";
+            removed => { root.urgent-removed += 1; }
+        }
+        plain := Tag {
+            label: "Plain";
+            tone: BadgeTone.info;
+        }
+    }
+}

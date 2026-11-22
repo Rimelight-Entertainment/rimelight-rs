@@ -1,0 +1,29 @@
+[package]
+name = "rimelight_ui_test_slint"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+description = "Generated Slint windows for the rimelight_ui ui test binary: test-only markup, compiled once."
+
+# Generated Slint code for the `ui` test binary of rimelight_ui. The markup lives in `crates/rimelight_ui/tests/ui/markup/`;
+# compiling it here means editing a test .rs file does not re-run the Slint compiler. Same lint set as rimelight_ui_slint
+# (Space): unsafe is denied and allowed on the generated modules only. The workspace `forbid` cannot be relaxed by allow,
+# so this crate spells out `deny` (AGENTS.md, code rules).
+[lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[dependencies]
+slint = { workspace = true }
+
+[build-dependencies]
+slint-build = { workspace = true }
+# build.rs maps the `rimelight_design`, `rimelight_ui` and `rimelight_shell` library paths to the shared markup.
+rimelight_design = { workspace = true }
+rimelight_ui = { path = "../rimelight_ui" }
+rimelight_shell = { path = "../rimelight_shell" }

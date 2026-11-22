@@ -1,0 +1,72 @@
+// Test markup for tests/ui/tier2_b1.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Card, CardSurface } from "@rimelight_ui/components/card.slint";
+import { Section } from "@rimelight_ui/components/section.slint";
+import { StatusDot } from "@rimelight_ui/components/status-dot.slint";
+import { PresenceDot } from "@rimelight_ui/components/presence-dot.slint";
+import { Presence } from "@rimelight_ui/components/avatar.slint";
+import { Breadcrumbs } from "@rimelight_ui/components/breadcrumbs.slint";
+import { BadgeTone } from "@rimelight_ui/components/badge.slint";
+export { CardSurface, Presence, BadgeTone }
+
+export component B1Form inherits Window {
+    width: 390px;
+    height: 400px;
+
+    in property <[string]> crumbs;
+    in property <int> max-visible: 0;
+    callback activated(int);
+
+    // Test hooks: the components' own properties, read back by the test.
+    out property <string> test-card-title: card.title;
+    out property <string> test-section-title: section.title;
+    out property <string> test-sync-name: sync.accessible-name;
+    out property <string> test-busy-name: busy.accessible-name;
+
+    // Test hooks: a press on segment `index` (what its link does), and what the breadcrumbs draw.
+    public function test-crumb-click(index: int) {
+        trail.test-click(index);
+    }
+    public function test-crumb-shown(index: int) -> bool {
+        return trail.test-shown(index);
+    }
+    public function test-ellipsis-drawn() -> bool {
+        return trail.test-ellipsis-drawn();
+    }
+
+    card := Card {
+        x: 0px;
+        y: 0px;
+        width: 300px;
+        title: "Card title";
+        surface: CardSurface.sunken;
+        Text { text: "Card body"; }
+    }
+    section := Section {
+        x: 0px;
+        y: 80px;
+        width: 300px;
+        title: "Section heading";
+        description: "Section description";
+    }
+    sync := StatusDot {
+        x: 0px;
+        y: 160px;
+        tone: BadgeTone.success;
+        label: "Synced now";
+        accessible-name: "Sync state";
+    }
+    busy := PresenceDot {
+        x: 0px;
+        y: 190px;
+        presence: Presence.busy;
+        accessible-name: "Busy dot";
+    }
+    trail := Breadcrumbs {
+        x: 0px;
+        y: 220px;
+        width: root.width;
+        items: root.crumbs;
+        max-visible: root.max-visible;
+        activated(index) => { root.activated(index); }
+    }
+}

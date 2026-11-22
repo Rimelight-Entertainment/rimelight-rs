@@ -1,0 +1,38 @@
+// Test markup for tests/ui/popover_place.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Popover } from "@rimelight_ui/components/popover.slint";
+
+export component PlaceForm inherits Window {
+    width: 400px;
+    height: 400px;
+
+    out property <bool> is-open: pop.is-open;
+    out property <bool> above: pop.menu-above;
+    out property <length> eff: pop.effective-panel-height;
+    out property <length> pop-y: pop.dbg-pop-y;
+    out property <length> panel-h: pop.dbg-panel-h;
+    out property <length> content-h: pop.dbg-content-h;
+
+    public function open-pop() { pop.open(); }
+
+    trig := Rectangle {
+        x: 20px;
+        y: 300px;
+        width: 120px;
+        height: 34px;
+    }
+
+    pop := Popover {
+        x: trig.x;
+        y: trig.y;
+        anchor-width: trig.width;
+        anchor-height: trig.height;
+        bottom-limit: trig.y + trig.height;
+        panel-width: 240px;
+
+        VerticalLayout {
+            for row in [1, 2, 3, 4, 5] : Rectangle {
+                height: 28px;
+            }
+        }
+    }
+}

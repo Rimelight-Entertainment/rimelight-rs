@@ -1,0 +1,67 @@
+// Test markup for tests/ui/actions.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ButtonGroup } from "@rimelight_ui/components/button-group.slint";
+import { Link } from "@rimelight_ui/components/link.slint";
+
+export component ActionsForm inherits Window {
+    width: 720px;
+    height: 400px;
+
+    out property <int> save-clicks: 0;
+    out property <int> disabled-clicks: 0;
+    out property <int> loading-clicks: 0;
+    out property <int> close-clicks: 0;
+    out property <int> group-clicks: 0;
+    out property <int> group-last: -1;
+    out property <int> link-clicks: 0;
+    // True while the first button owns keyboard focus.
+    out property <bool> save-focused: save.has-focus;
+
+    out property <string> close-label: close-btn.label;
+
+    VerticalLayout {
+        save := Button {
+            text: "Save";
+            clicked => { root.save-clicks += 1; }
+        }
+        disabled-btn := Button {
+            text: "Disabled";
+            enabled: false;
+            clicked => { root.disabled-clicks += 1; }
+        }
+        loading-btn := Button {
+            text: "Loading";
+            loading: true;
+            clicked => { root.loading-clicks += 1; }
+        }
+        close-btn := IconButton {
+            label: "Close";
+            tooltip: "Close";
+            clicked => { root.close-clicks += 1; }
+        }
+        group := ButtonGroup {
+            segments: [
+                { label: "Day", enabled: true },
+                { label: "Week", enabled: true },
+                { label: "Month", enabled: true },
+            ];
+            segment-clicked(index) => {
+                root.group-clicks += 1;
+                root.group-last = index;
+            }
+        }
+        link := Link {
+            text: "Read the notes";
+            clicked => { root.link-clicks += 1; }
+        }
+    }
+
+    // Test hooks: fire the Save button's, the Month segment's and the link's own callbacks, as a click does.
+    public function click-save() { save.clicked(); }
+    public function click-month() { group.segment-clicked(2); }
+    public function click-link() { link.clicked(); }
+    // Test hooks: a click on the disabled and the loading button, as their pointer areas run it (no callback fires).
+    public function click-disabled() { disabled-btn.test-click(); }
+    public function click-loading() { loading-btn.test-click(); }
+}

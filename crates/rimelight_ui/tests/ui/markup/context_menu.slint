@@ -1,0 +1,48 @@
+// Test markup for tests/ui/context_menu.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { ContextMenu, MenuItem, MenuKind, MenuChecked, MenuNav } from "@rimelight_ui/components/menu.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+export { MenuNav, MenuItem }
+
+export component ContextForm inherits Window {
+    width: 480px;
+    height: 360px;
+
+    // Rows, by index: 0 Cut, 1 Copy, 2 Paste (disabled), 3 rule, 4 Pin to top (checked), 5 rule, 6 Delete (danger).
+    property <[MenuItem]> items: [
+        { id: "cut", kind: MenuKind.item, label: "Cut", icon: Icons.x, shortcut: "Ctrl+X", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "copy", kind: MenuKind.item, label: "Copy", icon: Icons.x, shortcut: "Ctrl+C", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "paste", kind: MenuKind.item, label: "Paste", icon: Icons.x, shortcut: "Ctrl+V", disabled: true, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "sep1", kind: MenuKind.separator, label: "", icon: Icons.x, shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "pin", kind: MenuKind.item, label: "Pin to top", icon: Icons.x, shortcut: "", disabled: false, danger: false, checked: MenuChecked.on, parent: "" },
+        { id: "sep2", kind: MenuKind.separator, label: "", icon: Icons.x, shortcut: "", disabled: false, danger: false, checked: MenuChecked.none, parent: "" },
+        { id: "delete", kind: MenuKind.item, label: "Delete", icon: Icons.x, shortcut: "Del", disabled: false, danger: true, checked: MenuChecked.none, parent: "" },
+    ];
+
+    out property <int> fired: 0;
+    out property <string> last-id: "";
+    out property <bool> open: cm.menu-open;
+    out property <int> highlight: cm.highlight;
+    out property <bool> target-focused: cm.target-has-focus;
+
+    public function focus-target() { cm.focus-target(); }
+    // Test hook: a click on item `index` of items, as its row does (a disabled item takes no click).
+    public function click-item(index: int) { cm.test-click-item(index); }
+
+    cm := ContextMenu {
+        x: 40px;
+        y: 40px;
+        width: 300px;
+        height: 200px;
+        accessible-name: "File";
+        menu-width: 220px;
+        items: root.items;
+        selected(id) => {
+            root.fired += 1;
+            root.last-id = id;
+        }
+
+        Rectangle {
+            background: #808080;
+        }
+    }
+}

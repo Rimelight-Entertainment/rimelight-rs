@@ -1,0 +1,115 @@
+// Test markup for tests/ui/dialog.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Dialog, DialogSize, ConfirmDialog } from "@rimelight_ui/components/dialog.slint";
+
+export component DialogForm inherits Window {
+    width: 800px;
+    height: 600px;
+
+    in property <bool> dismissible: true;
+    out property <int> opens: 0;
+    out property <int> closes: 0;
+    out property <int> last-action: -1;
+    out property <int> first-clicks: 0;
+    out property <bool> open: dlg.is-open;
+    out property <bool> trigger-focused: trig.has-focus;
+    out property <bool> behind-focused: behind.has-focus;
+    out property <bool> keys-focused: dlg.keys-focused;
+    out property <bool> end-focused: dlg.end-focused;
+    out property <int> behind-clicks: 0;
+
+    public function open-dlg() { dlg.open(); }
+    public function close-dlg() { dlg.close(); }
+    // Test hooks: fire the same callbacks as the page's own controls.
+    public function click-open() { trig.clicked(); }
+    public function click-save() { dlg.action-clicked(1); }
+
+    // The page behind the dialog. It must never take focus or a click while the dialog is open.
+    behind := Button {
+        x: 20px;
+        y: 300px;
+        width: 120px;
+        text: "Behind";
+        accessible-name: "Behind";
+        clicked => { root.behind-clicks += 1; }
+    }
+
+    trig := Button {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        text: "Open";
+        accessible-name: "Open";
+        variant: ButtonVariant.danger;
+        clicked => {
+            trig.focus-me();
+            dlg.open();
+        }
+    }
+
+    dlg := Dialog {
+        title: "Delete file?";
+        description: "This cannot be undone.";
+        size: DialogSize.md;
+        dismissible: root.dismissible;
+        host-width: root.width;
+        host-height: root.height;
+        close-label: "Close dialog";
+        actions: [
+            { text: "Cancel", variant: ButtonVariant.secondary },
+            { text: "Save", variant: ButtonVariant.primary },
+        ];
+        opened => { root.opens += 1; }
+        closed => { root.closes += 1; }
+        action-clicked(index) => { root.last-action = index; }
+
+        Button {
+            text: "First";
+            accessible-name: "First";
+            clicked => { root.first-clicks += 1; }
+        }
+        Button {
+            text: "Second";
+            accessible-name: "Second";
+        }
+    }
+}
+
+export component ConfirmForm inherits Window {
+    width: 800px;
+    height: 600px;
+
+    out property <int> confirms: 0;
+    out property <int> cancels: 0;
+    out property <bool> open: confirm.is-open;
+
+    trig := Button {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        text: "Open";
+        accessible-name: "Open";
+        clicked => {
+            trig.focus-me();
+            confirm.open();
+        }
+    }
+
+    confirm := ConfirmDialog {
+        title: "Delete file?";
+        message: "This cannot be undone.";
+        confirm-label: "Delete";
+        cancel-label: "Keep";
+        danger: true;
+        host-width: root.width;
+        host-height: root.height;
+        confirmed => { root.confirms += 1; }
+        cancelled => { root.cancels += 1; }
+    }
+
+    // Test hook: fires the open button's own clicked callback.
+    public function click-open() { trig.clicked(); }
+    // Test hooks: footer choices of the confirm dialog, as its Cancel and Confirm buttons run them (0 Cancel, 1 Confirm).
+    public function click-confirm() { confirm.test-choose(1); }
+    public function click-cancel() { confirm.test-choose(0); }
+}

@@ -1,0 +1,27 @@
+// Test markup for tests/ui/keyboard.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button, LineEdit } from "std-widgets.slint";
+
+export component Form inherits Window {
+    width: 360px;
+    height: 160px;
+
+    // Text in the LineEdit, as the markup sees it.
+    out property <string> typed: edit.text;
+    // Number of times the Button's clicked callback ran.
+    out property <int> clicks: 0;
+    // True while the Button owns keyboard focus.
+    out property <bool> button-focused: ok.has-focus;
+
+    // Test hook: gives the LineEdit the keyboard focus, as a click on the field does.
+    public function focus-edit() { edit.focus(); }
+
+    VerticalLayout {
+        edit := LineEdit {
+            placeholder-text: "name";
+        }
+        ok := Button {
+            text: "OK";
+            clicked => { root.clicks += 1; }
+        }
+    }
+}

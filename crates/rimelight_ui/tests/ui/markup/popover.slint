@@ -1,0 +1,73 @@
+// Test markup for tests/ui/popover.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Input } from "@rimelight_ui/components/input.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+
+export component PopoverForm inherits Window {
+    width: 420px;
+    height: 360px;
+
+    in-out property <string> name: "";
+    out property <int> opens: 0;
+    out property <int> closes: 0;
+    out property <int> saves: 0;
+    out property <bool> open: pop.is-open;
+    out property <bool> trigger-focused: trig.has-focus;
+
+    public function open-pop() { pop.open(); }
+    public function close-pop() { pop.close(); }
+    public function toggle-pop() { pop.toggle(); }
+
+    trig := Button {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        text: "Rename";
+        accessible-name: "Rename";
+        variant: ButtonVariant.secondary;
+        pointer-pressed => { pop.trigger-pressed(); }
+        clicked => {
+            trig.focus-me();
+            pop.trigger-clicked();
+        }
+    }
+
+    pop := Popover {
+        x: 20px;
+        y: 20px;
+        accessible-name: "Rename";
+        anchor-height: trig.height;
+        panel-width: 280px;
+        opened => { root.opens += 1; }
+        closed => { root.closes += 1; }
+
+        VerticalLayout {
+            spacing: 12px;
+            Input {
+                text <=> root.name;
+                placeholder: "Name";
+                accessible-name: "Name";
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                Button {
+                    text: "Cancel";
+                    accessible-name: "Cancel";
+                    variant: ButtonVariant.secondary;
+                }
+                Button {
+                    text: "Save";
+                    accessible-name: "Save";
+                    variant: ButtonVariant.primary;
+                    clicked => { root.saves += 1; }
+                }
+            }
+        }
+    }
+
+    // Test hook: a click on the trigger. The press reaches the trigger first (it records whether the panel was open),
+    // then the core closes an open panel on a press outside it, then the trigger's click runs.
+    public function click-trigger() { trig.pointer-pressed(); pop.close(); trig.clicked(); }
+    public function click-save() { root.saves += 1; }
+}

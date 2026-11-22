@@ -1,0 +1,74 @@
+// Test markup for tests/ui/tier3_b5.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { ListRow, List } from "@rimelight_ui/components/list.slint";
+import { TableColumn, TableRow, Table } from "@rimelight_ui/components/table.slint";
+export { ListRow, TableColumn, TableRow }
+
+export component B5Form inherits Window {
+    width: 720px;
+    height: 640px;
+
+    in property <[ListRow]> list-rows;
+    in property <[TableColumn]> columns;
+    in property <[TableRow]> table-rows;
+    in-out property <int> list-focus: 0;
+    in-out property <int> table-focus: 0;
+    in-out property <int> sort-column: -1;
+    in-out property <bool> sort-descending: false;
+    callback list-picked(int, bool, bool);
+    callback table-sort(int);
+    callback table-picked(int, bool, bool);
+    callback table-resized(int, float);
+
+    // Gives the table header the keyboard (the test cannot Tab into it from the list without a known order).
+    public function focus-table-header() {
+        table.focus-header();
+    }
+
+    // Test hooks: what a press on a List row or a Table row or sort label does, what is on screen, and the
+    // table's position in the window, for the header resize drag.
+    public function test-list-pick(i: int) {
+        entries.test-pick-row(i);
+    }
+    public function test-list-on-screen(i: int) -> bool {
+        return entries.test-row-on-screen(i);
+    }
+    public function test-table-pick(i: int) {
+        table.test-pick-row(i);
+    }
+    public function test-table-sort-click(c: int) {
+        table.test-sort-click(c);
+    }
+    public function test-table-row-on-screen(i: int) -> bool {
+        return table.test-body-row-on-screen(i);
+    }
+    out property <length> test-table-x: table.absolute-position.x;
+    out property <length> test-table-y: table.absolute-position.y;
+    out property <length> test-header-height: table.test-header-height;
+    out property <length> test-handle-width: table.test-handle-width;
+
+    VerticalLayout {
+        spacing: 12px;
+        alignment: start;
+
+        entries := List {
+            height: 220px;
+            rows: root.list-rows;
+            accessible-name: "Entries";
+            focus-row <=> root.list-focus;
+            picked(i, shift, ctrl) => { root.list-picked(i, shift, ctrl); }
+        }
+
+        table := Table {
+            height: 340px;
+            columns: root.columns;
+            rows: root.table-rows;
+            accessible-name: "Items";
+            focus-row <=> root.table-focus;
+            sort-column: root.sort-column;
+            sort-descending: root.sort-descending;
+            sort-requested(c) => { root.table-sort(c); }
+            picked(i, shift, ctrl) => { root.table-picked(i, shift, ctrl); }
+            column-resized(c, w) => { root.table-resized(c, w); }
+        }
+    }
+}

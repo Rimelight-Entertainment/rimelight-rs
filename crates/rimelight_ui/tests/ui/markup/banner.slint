@@ -1,0 +1,30 @@
+// Test markup for tests/ui/banner.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Banner, BannerTone } from "@rimelight_ui/components/banner.slint";
+export { BannerTone }
+
+export component BannerForm inherits Window {
+    width: 390px;
+    height: 400px;
+
+    in property <string> action-label: "Retry";
+    in property <string> dismiss-label: "Dismiss upload";
+    callback action-clicked();
+    callback dismiss-clicked();
+
+    banner := Banner {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        tone: BannerTone.danger;
+        title: "Upload failed";
+        description: "The file was not saved. Check your connection and try again.";
+        action-label: root.action-label;
+        dismiss-label: root.dismiss-label;
+        action-clicked => { root.action-clicked(); }
+        dismiss-clicked => { root.dismiss-clicked(); }
+    }
+
+    // Test hooks: fire the banner's own callbacks, as its buttons do.
+    public function click-action() { banner.action-clicked(); }
+    public function click-dismiss() { banner.dismiss-clicked(); }
+}

@@ -1,0 +1,66 @@
+// Test markup for tests/ui/toast.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button } from "@rimelight_ui/components/button.slint";
+import { ToastStack, ToastEntry, ToastTone } from "@rimelight_ui/components/toast.slint";
+export { ToastEntry, ToastTone }
+
+export component ToastForm inherits Window {
+    width: 800px;
+    height: 600px;
+
+    in-out property <[ToastEntry]> toasts;
+    out property <bool> behind-focused: behind.has-focus;
+    out property <int> behind-clicks: 0;
+
+    public function focus-newest() { stack.focus-newest(); }
+
+    // Test hooks: the action button and the close control of toast `id`, as their buttons run them.
+    public function click-action(id: int) { stack.test-action(id); }
+    public function click-close(id: int) { stack.test-close(id); }
+    // Test state: the number of toasts the stack is fed, the action label of the newest one ("" when it has none), and
+    // the stack's top left in window coordinates (the newest toast sits there).
+    out property <int> toast-count: stack.toasts.length;
+    out property <string> newest-action: stack.toasts.length > 0 ? stack.toasts[0].action-label : "";
+    out property <length> stack-x: stack.absolute-position.x;
+    out property <length> stack-y: stack.absolute-position.y;
+
+    callback action-clicked(int);
+    callback close-requested(int);
+    callback exit-done(int);
+    callback paused-changed(int, bool);
+
+    // The page keeps its focus through a shown toast. F6 is the keyboard route into the newest toast.
+    scope := FocusScope {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        key-pressed(event) => {
+            if (event.text == Key.F6) {
+                stack.focus-newest();
+                return accept;
+            }
+            return reject;
+        }
+
+        behind := Button {
+            x: 20px;
+            y: 300px;
+            width: 120px;
+            text: "Behind";
+            accessible-name: "Behind";
+            clicked => { root.behind-clicks += 1; }
+        }
+
+        stack := ToastStack {
+            x: 420px;
+            y: 20px;
+            toasts: root.toasts;
+            host-width: root.width;
+            label: "Notifications";
+            action-clicked(id) => { root.action-clicked(id); }
+            close-requested(id) => { root.close-requested(id); }
+            exit-done(id) => { root.exit-done(id); }
+            paused-changed(id, paused) => { root.paused-changed(id, paused); }
+        }
+    }
+}

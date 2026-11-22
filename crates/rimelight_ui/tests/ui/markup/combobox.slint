@@ -1,0 +1,46 @@
+// Test markup for tests/ui/combobox.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Combobox } from "@rimelight_ui/components/combobox.slint";
+import { SelectOption, SelectNav } from "@rimelight_ui/components/select.slint";
+export { SelectNav, SelectOption }
+
+export component ComboForm inherits Window {
+    width: 360px;
+    height: 420px;
+
+    in-out property <string> value: "";
+    out property <int> changes: 0;
+    out property <string> last-value: "";
+    out property <int> opens: 0;
+    out property <int> closes: 0;
+    out property <int> highlight: combo.highlight;
+    out property <bool> menu-open: combo.menu-open;
+    out property <bool> focused: combo.has-focus;
+    out property <int> results: combo.result-count;
+    public function focus-combo() { combo.focus-trigger(); }
+
+    // Test hook: a click on the trigger, as its pointer area runs it.
+    public function click-fruit() { combo.test-click(); }
+
+    VerticalLayout {
+        combo := Combobox {
+            accessible-name: "Fruit";
+            placeholder: "Pick a fruit";
+            filter-placeholder: "Search fruit";
+            no-results-text: "No fruit matches";
+            value <=> root.value;
+            options: [
+                { value: "apple", label: "Apple", disabled: false, group: "Pome" },
+                { value: "apricot", label: "Apricot", disabled: true, group: "Stone" },
+                { value: "banana", label: "Banana", disabled: false, group: "Tropical" },
+                { value: "blueberry", label: "Blueberry", disabled: false, group: "" },
+                { value: "cherry", label: "Cherry", disabled: true, group: "" },
+            ];
+            changed(value) => {
+                root.changes += 1;
+                root.last-value = value;
+            }
+            opened => { root.opens += 1; }
+            closed => { root.closes += 1; }
+        }
+    }
+}

@@ -3695,6 +3695,10 @@ version = "0.1.0"
 name = "rimelight_ui"
 version = "0.1.0"
 dependencies = [
+ "i-slint-backend-testing",
+ "rimelight_ui_kit",
+ "rimelight_ui_test_slint",
+ "slint",
  "ttf-parser",
 ]
 
@@ -3715,6 +3719,17 @@ name = "rimelight_ui_kit"
 version = "0.1.0"
 dependencies = [
  "slint",
+]
+
+[[package]]
+name = "rimelight_ui_test_slint"
+version = "0.1.0"
+dependencies = [
+ "rimelight_design",
+ "rimelight_shell",
+ "rimelight_ui",
+ "slint",
+ "slint-build",
 ]
 
 [[package]]

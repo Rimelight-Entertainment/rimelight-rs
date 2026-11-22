@@ -1,0 +1,36 @@
+// Test markup for tests/ui/textarea.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Textarea } from "@rimelight_ui/components/textarea.slint";
+
+export component Form inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <string> notes-text: notes.text;
+    out property <string> locked-text: locked.text;
+    out property <string> off-text: off.text;
+    out property <int> notes-rows: notes.visible-rows;
+    in-out property <int> notes-lines <=> notes.line-count;
+
+    // Test hooks: give each field the keyboard focus, as a click on it does.
+    public function focus-notes() { notes.focus(); }
+    public function focus-locked() { locked.focus(); }
+    public function focus-disabled() { off.focus(); }
+
+    VerticalLayout {
+        notes := Textarea {
+            accessible-name: "Notes";
+            rows: 2;
+            max-rows: 4;
+        }
+        locked := Textarea {
+            accessible-name: "Locked";
+            text: "fixed";
+            read-only: true;
+        }
+        off := Textarea {
+            accessible-name: "Disabled";
+            text: "off";
+            enabled: false;
+        }
+    }
+}

@@ -1,0 +1,29 @@
+// Test markup for tests/ui/tooltip.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+
+export component TipForm inherits Window {
+    width: 360px;
+    height: 200px;
+
+    out property <bool> add-shown: add.tooltip-shown;
+    out property <bool> other-shown: other.tooltip-shown;
+
+    VerticalLayout {
+        spacing: 24px;
+        HorizontalLayout {
+            spacing: 24px;
+            add := IconButton {
+                icon: Icons.plus;
+                label: "Add";
+                tooltip: "Add item";
+                tooltip-shortcut: ["Ctrl", "N"];
+            }
+            other := IconButton {
+                icon: Icons.x;
+                label: "Close";
+                tooltip: "";
+            }
+        }
+    }
+}

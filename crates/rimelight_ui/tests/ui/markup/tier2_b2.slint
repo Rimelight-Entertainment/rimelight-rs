@@ -1,0 +1,91 @@
+// Test markup for tests/ui/tier2_b2.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Tabs, ContentTab } from "@rimelight_ui/components/content-tabs.slint";
+import { Accordion, AccordionEntry } from "@rimelight_ui/components/accordion.slint";
+import { Stepper, StepItem } from "@rimelight_ui/components/stepper.slint";
+import { Pagination } from "@rimelight_ui/components/pagination.slint";
+export { ContentTab, StepItem, AccordionEntry }
+
+export component T2Form inherits Window {
+    width: 420px;
+    height: 900px;
+
+    in-out property <int> tab-active: 0;
+    in property <[ContentTab]> tab-list;
+    callback tab-picked(int);
+
+    in property <int> step-current: 1;
+    in property <[StepItem]> step-list;
+    callback step-picked(int);
+
+    in-out property <int> page-now: 6;
+    in property <int> page-total: 12;
+    callback page-picked(int);
+
+    in-out property <int> open-index: -1;
+    in property <bool> multiple: false;
+    in property <[AccordionEntry]> accordion-items;
+    callback toggled(int, bool);
+
+    // Test hooks: what each component's click path does, and what it draws.
+    public function test-tab-click(i: int) {
+        tabbar.test-tab-click(i);
+    }
+    public function test-tab-label(i: int) -> string {
+        return tabbar.test-tab-label(i);
+    }
+    public function test-step-click(i: int) {
+        stepper.test-click(i);
+    }
+    public function test-step-label(i: int) -> string {
+        return stepper.test-label(i);
+    }
+    public function test-page-click(n: int) {
+        pager.test-click-page(n);
+    }
+    public function test-next() {
+        pager.test-next();
+    }
+    public function test-page-shown(n: int) -> bool {
+        return pager.test-shown(n);
+    }
+    public function test-ellipsis-drawn() -> bool {
+        return pager.test-has-ellipsis();
+    }
+    public function test-accordion-request(i: int, want: bool) {
+        accordion.test-request(i, want);
+    }
+    public function test-accordion-title(i: int) -> string {
+        return accordion.test-title(i);
+    }
+
+    VerticalLayout {
+        spacing: 12px;
+        alignment: start;
+
+        tabbar := Tabs {
+            width: 360px;
+            accessible-name: "Project views";
+            tabs: root.tab-list;
+            active <=> root.tab-active;
+            activated(index) => { root.tab-picked(index); }
+        }
+        stepper := Stepper {
+            width: 420px;
+            current: root.step-current;
+            steps: root.step-list;
+            activated(index) => { root.step-picked(index); }
+        }
+        pager := Pagination {
+            total: root.page-total;
+            page <=> root.page-now;
+            page-changed(n) => { root.page-picked(n); }
+        }
+        accordion := Accordion {
+            width: 360px;
+            items: root.accordion-items;
+            multiple: root.multiple;
+            open-index <=> root.open-index;
+            toggled(index, open) => { root.toggled(index, open); }
+        }
+    }
+}

@@ -1,0 +1,85 @@
+// Test markup for tests/ui/select.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Select, SelectOption, SelectNav } from "@rimelight_ui/components/select.slint";
+export { SelectNav, SelectOption }
+
+export component FruitForm inherits Window {
+    width: 360px;
+    height: 420px;
+
+    in-out property <string> value: "";
+    out property <int> changes: 0;
+    out property <string> last-value: "";
+    out property <int> opens: 0;
+    out property <int> closes: 0;
+    out property <int> highlight: fruit.highlight;
+    out property <bool> menu-open: fruit.menu-open;
+    out property <bool> focused: fruit.has-focus;
+    out property <int> selected: fruit.selected-index;
+    public function focus-fruit() { fruit.focus-trigger(); }
+
+    // Test hooks: a click on the trigger, and on option `index`, as the Select's own pointer areas run them.
+    public function click-fruit() { fruit.test-click(); }
+    public function click-option(index: int) { fruit.test-pick(index); }
+
+    VerticalLayout {
+        fruit := Select {
+            accessible-name: "Fruit";
+            placeholder: "Pick a fruit";
+            value <=> root.value;
+            options: [
+                { value: "apple", label: "Apple", disabled: false, group: "Pome" },
+                { value: "apricot", label: "Apricot", disabled: true, group: "Stone" },
+                { value: "banana", label: "Banana", disabled: false, group: "Tropical" },
+                { value: "blueberry", label: "Blueberry", disabled: false, group: "" },
+                { value: "cherry", label: "Cherry", disabled: true, group: "" },
+            ];
+            changed(value) => {
+                root.changes += 1;
+                root.last-value = value;
+            }
+            opened => { root.opens += 1; }
+            closed => { root.closes += 1; }
+        }
+    }
+}
+
+export component LockedForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <int> changes: 0;
+    out property <bool> menu-open: locked.menu-open;
+
+    public function click-locked() { locked.test-click(); }
+
+    VerticalLayout {
+        locked := Select {
+            accessible-name: "Locked";
+            enabled: false;
+            options: [
+                { value: "a", label: "Alpha", disabled: false, group: "" },
+            ];
+            changed(value) => { root.changes += 1; }
+        }
+    }
+}
+
+export component LongForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <int> highlight: long.highlight;
+    out property <string> value: long.value;
+    out property <bool> menu-open: long.menu-open;
+    public function focus-long() { long.focus-trigger(); }
+
+    VerticalLayout {
+        long := Select {
+            accessible-name: "Long";
+            value: "item-150";
+            options: root.long-options;
+        }
+    }
+
+    in property <[SelectOption]> long-options;
+}

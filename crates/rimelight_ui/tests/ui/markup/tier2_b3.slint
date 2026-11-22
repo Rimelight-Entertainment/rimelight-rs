@@ -1,0 +1,114 @@
+// Test markup for tests/ui/tier2_b3.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Toolbar, ToolbarItem } from "@rimelight_ui/components/toolbar.slint";
+import { FilterBar, FilterChip } from "@rimelight_ui/components/filter-bar.slint";
+import { Tree, TreeRow } from "@rimelight_ui/components/tree.slint";
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
+import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
+export { ToolbarItem, FilterChip, TreeRow }
+
+export component T3Form inherits Window {
+    width: 480px;
+    height: 900px;
+
+    in property <[ToolbarItem]> tool-items;
+    in-out property <int> tool-focus: 0;
+    callback tool-activated(int);
+
+    in property <[FilterChip]> chip-list;
+    in-out property <string> query;
+    callback query-changed(string);
+    callback chip-removed(string);
+    callback cleared();
+
+    in property <[TreeRow]> tree-rows;
+    in-out property <int> tree-focus: 0;
+    in-out property <int> tree-selected: -1;
+    callback tree-selected-node(int);
+    callback tree-toggled(int, bool);
+
+    out property <float> scroll-fraction: scroller.scroll-fraction;
+
+    in-out property <length> panel-size: 240px;
+    callback panel-resized(length);
+
+    // Test hooks: what each component's click path does, and what it draws.
+    public function test-tool-click(i: int) {
+        tools.test-click(i);
+    }
+    public function test-tool-label(i: int) -> string {
+        return tools.test-label(i);
+    }
+    public function test-chip-remove(i: int) {
+        filters.test-chip-remove(i);
+    }
+    public function test-remove-label(i: int) -> string {
+        return filters.test-remove-label(i);
+    }
+    public function test-clear-all() {
+        filters.test-clear-all();
+    }
+    public function test-clear-all-label() -> string {
+        return filters.test-clear-all-label();
+    }
+    public function test-row-click(i: int) {
+        file-tree.test-row-click(i);
+    }
+    public function test-toggle-click(i: int) {
+        file-tree.test-toggle-click(i);
+    }
+    public function test-row-label(i: int) -> string {
+        return file-tree.test-row-label(i);
+    }
+    public function test-row-count() -> int {
+        return file-tree.test-row-count();
+    }
+    // The panel handle's window geometry, in logical px.
+    out property <length> test-handle-x: resizer.test-handle-x;
+    out property <length> test-handle-y: resizer.test-handle-y;
+    out property <length> test-handle-width: resizer.test-handle-width;
+    out property <length> test-handle-height: resizer.test-handle-height;
+
+    VerticalLayout {
+        spacing: 12px;
+        alignment: start;
+
+        tools := Toolbar {
+            width: 440px;
+            accessible-name: "Document";
+            items: root.tool-items;
+            focus-index <=> root.tool-focus;
+            activated(i) => { root.tool-activated(i); }
+        }
+        filters := FilterBar {
+            width: 440px;
+            chips: root.chip-list;
+            query <=> root.query;
+            query-changed(text) => { root.query-changed(text); }
+            chip-removed(key) => { root.chip-removed(key); }
+            cleared => { root.cleared(); }
+        }
+        file-tree := Tree {
+            width: 440px;
+            height: 180px;
+            accessible-name: "Files";
+            rows: root.tree-rows;
+            focus-row <=> root.tree-focus;
+            selected-node <=> root.tree-selected;
+            selected(node) => { root.tree-selected-node(node); }
+            toggled(node, open) => { root.tree-toggled(node, open); }
+        }
+        scroller := ScrollArea {
+            width: 240px;
+            height: 120px;
+            Rectangle {
+                width: 200px;
+                height: 300px;
+            }
+        }
+        resizer := ResizablePanel {
+            height: 80px;
+            size <=> root.panel-size;
+            resized(width) => { root.panel-resized(width); }
+        }
+    }
+}

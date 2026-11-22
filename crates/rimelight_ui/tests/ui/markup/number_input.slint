@@ -1,0 +1,44 @@
+// Test markup for tests/ui/number_input.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { NumberInput } from "@rimelight_ui/components/number-input.slint";
+import { Input } from "@rimelight_ui/components/input.slint";
+
+export component Form inherits Window {
+    width: 360px;
+    height: 200px;
+
+    out property <float> amount: qty.value;
+    out property <string> amount-text: qty.text;
+    out property <int> changes: 0;
+    out property <string> other-text: other.text;
+    out property <string> empty-text: empty.text;
+    out property <float> empty-value: empty.value;
+
+    // Test hooks: a click on the field focuses it; a click on a step button steps by its amount.
+    public function click-quantity() { qty.test-focus(); }
+    public function click-increase() { qty.test-step(1); }
+    public function click-decrease() { qty.test-step(-1); }
+    public function click-empty() { empty.test-focus(); }
+
+    VerticalLayout {
+        qty := NumberInput {
+            accessible-name: "Quantity";
+            increase-label: "Increase quantity";
+            decrease-label: "Decrease quantity";
+            minimum: 0;
+            maximum: 10;
+            step: 1;
+            value: 5;
+            changed(v) => { root.changes += 1; }
+        }
+        empty := NumberInput {
+            accessible-name: "Empty";
+            minimum: 0;
+            maximum: 10;
+            value: 0;
+        }
+        other := Input {
+            accessible-name: "Other";
+            text: "x";
+        }
+    }
+}

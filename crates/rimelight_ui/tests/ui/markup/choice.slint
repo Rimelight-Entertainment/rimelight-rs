@@ -1,0 +1,161 @@
+// Test markup for tests/ui/choice.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Checkbox, CheckState } from "@rimelight_ui/components/checkbox.slint";
+import { Input } from "@rimelight_ui/components/input.slint";
+import { RadioGroup, RadioOption } from "@rimelight_ui/components/radio-group.slint";
+
+export component RadioForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <int> changes: 0;
+    out property <string> last-value: "";
+    out property <bool> group-focused: group.has-focus;
+    out property <string> value: group.value;
+
+    // Test hooks: a click on the Before field, and on option `index` of the group, as their pointer areas run them.
+    public function click-before() { before.test-focus(); }
+    public function click-option(index: int) { group.test-pick(index); }
+
+    VerticalLayout {
+        before := Input { accessible-name: "Before"; placeholder: "Before"; }
+        group := RadioGroup {
+            accessible-name: "Size";
+            value: "alpha";
+            options: [
+                { value: "alpha", label: "Alpha", disabled: false },
+                { value: "beta", label: "Beta", disabled: true },
+                { value: "gamma", label: "Gamma", disabled: false },
+            ];
+            changed(value) => {
+                root.changes += 1;
+                root.last-value = value;
+            }
+        }
+        after := Input { accessible-name: "After"; placeholder: "After"; }
+    }
+}
+
+import { Switch } from "@rimelight_ui/components/switch.slint";
+
+export component SwitchForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <int> changes: 0;
+    out property <bool> last-on: false;
+    out property <bool> on-focused: sw.has-focus;
+    out property <bool> on-state: sw.checked;
+    out property <int> disabled-changes: 0;
+    out property <bool> disabled-state: off.checked;
+
+    // Test hooks: a click on the Before field, and on the switch rows, as their pointer areas run them.
+    public function click-before() { before.test-focus(); }
+    public function click-email() { sw.test-click(); }
+    public function click-locked() { off.test-click(); }
+
+    VerticalLayout {
+        before := Input { accessible-name: "Before"; placeholder: "Before"; }
+        sw := Switch {
+            text: "Email updates";
+            changed(value) => {
+                root.changes += 1;
+                root.last-on = value;
+            }
+        }
+        off := Switch {
+            text: "Locked";
+            enabled: false;
+            changed(value) => { root.disabled-changes += 1; }
+        }
+    }
+}
+
+import { Slider } from "@rimelight_ui/components/slider.slint";
+
+export component SliderForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <float> volume: vol.value;
+    out property <int> changes: 0;
+    out property <bool> vol-focused: vol.has-focus;
+    out property <float> locked-value: locked.value;
+    // On-screen geometry of the two sliders, for the pointer presses.
+    out property <length> vol-x: vol.absolute-position.x;
+    out property <length> vol-y: vol.absolute-position.y;
+    out property <length> vol-width: vol.width;
+    out property <length> vol-height: vol.height;
+    out property <length> locked-x: locked.absolute-position.x;
+    out property <length> locked-y: locked.absolute-position.y;
+    out property <length> locked-width: locked.width;
+    out property <length> locked-height: locked.height;
+
+    public function click-before() { before.test-focus(); }
+
+    VerticalLayout {
+        before := Input { accessible-name: "Before"; placeholder: "Before"; }
+        vol := Slider {
+            accessible-name: "Volume";
+            minimum: 0;
+            maximum: 100;
+            step: 10;
+            value: 40;
+            changed(value) => { root.changes += 1; }
+        }
+        locked := Slider {
+            accessible-name: "Locked";
+            minimum: 0;
+            maximum: 100;
+            step: 10;
+            value: 30;
+            enabled: false;
+        }
+    }
+}
+
+export component CheckForm inherits Window {
+    width: 360px;
+    height: 240px;
+
+    out property <int> changes: 0;
+    out property <bool> last-checked: false;
+    out property <bool> newsletter-focused: news.has-focus;
+    out property <CheckState> newsletter-state: news.check-state;
+    out property <int> enter-changes: 0;
+    out property <int> disabled-changes: 0;
+    out property <CheckState> mixed-state: mixed.check-state;
+    out property <int> mixed-changes: 0;
+
+    // Test hooks: a click on the Before field, and on the checkbox rows, as their pointer areas run them.
+    public function click-before() { before.test-focus(); }
+    public function click-newsletter() { news.test-click(); }
+    public function click-disabled() { disabled-box.test-click(); }
+    public function click-mixed() { mixed.test-click(); }
+
+    VerticalLayout {
+        before := Input { accessible-name: "Before"; placeholder: "Before"; }
+        news := Checkbox {
+            text: "Newsletter";
+            changed(value) => {
+                root.changes += 1;
+                root.last-checked = value;
+            }
+        }
+        enter-box := Checkbox {
+            text: "Enter box";
+            accessible-name: "Enter box";
+            changed(value) => { root.enter-changes += 1; }
+        }
+        disabled-box := Checkbox {
+            text: "Disabled";
+            enabled: false;
+            changed(value) => { root.disabled-changes += 1; }
+        }
+        mixed := Checkbox {
+            text: "Mixed";
+            check-state: CheckState.indeterminate;
+            changed(value) => { root.mixed-changes += 1; }
+        }
+        after := Input { accessible-name: "After"; placeholder: "After"; }
+    }
+}

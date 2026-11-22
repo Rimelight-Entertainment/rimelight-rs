@@ -1,0 +1,34 @@
+// Test markup for tests/ui/feedback.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { EmptyState } from "@rimelight_ui/components/empty-state.slint";
+import { ErrorState } from "@rimelight_ui/components/error-state.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+
+export component FeedbackForm inherits Window {
+    width: 420px;
+    height: 640px;
+
+    out property <int> action-count: 0;
+    out property <int> retry-count: 0;
+
+    VerticalLayout {
+        empty := EmptyState {
+            icon: Icons.mail;
+            title: "No messages";
+            description: "New messages show up here.";
+            action-label: "Compose";
+            action => { root.action-count += 1; }
+        }
+        err := ErrorState {
+            icon: Icons.triangle-alert;
+            title: "Could not load projects";
+            description: "Check your connection and try again.";
+            retry-label: "Try again";
+            details: "HTTP 503 from /api/projects";
+            retry => { root.retry-count += 1; }
+        }
+    }
+
+    // Test hooks: fire each button's own callback, as its click does.
+    public function click-compose() { empty.action(); }
+    public function click-retry() { err.retry(); }
+}

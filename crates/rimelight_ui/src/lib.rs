@@ -1,6 +1,7 @@
 //! Rimelight component library: Slint markup for the shared UI, plus the bundled fonts as bytes.
 //!
-//! This crate is markup only. It has no Slint dependency and no `build.rs`. Nothing here names a type generated from
+//! This crate is markup only. It has no Slint dependency at run time (Slint is a dev-dependency, for the ui test binary)
+//! and no `build.rs`. Nothing here names a type generated from
 //! the markup, so Rust code in this crate never touches generated Slint types.
 //!
 //! What is in the crate:
@@ -138,5 +139,50 @@ pub mod fonts {
                 );
             }
         }
+    }
+}
+
+/// The icon pair (ST2.7): `ui/icons.slint` and the Lucide files in `assets/icons`. These tests read the folder relative to
+/// this crate, so they run from any checkout. The Rust side of the icon names (`IconName`) is in space_ui and checks
+/// against `ui/icons.slint` there.
+#[cfg(test)]
+mod icon_files {
+    use std::collections::BTreeSet;
+    use std::path::PathBuf;
+
+    fn icons_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/icons")
+    }
+
+    /// Every `@image-url("../assets/icons/<stem>.svg")` in `ui/icons.slint`, as file stems (`house`, `chart-column`, ...).
+    fn icon_stems_in_markup() -> BTreeSet<String> {
+        let text = std::fs::read_to_string(PathBuf::from(super::UI_DIR).join("icons.slint"))
+            .expect("read ui/icons.slint");
+        text.split("@image-url(\"../assets/icons/")
+            .skip(1)
+            .map(|rest| {
+                let end = rest.find(".svg\")").expect("icon path ends in .svg\")");
+                rest[..end].to_string()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_icon_named_by_the_markup_has_a_file() {
+        let stems = icon_stems_in_markup();
+        assert!(!stems.is_empty(), "ui/icons.slint names no icons");
+        for stem in stems {
+            let path = icons_dir().join(format!("{stem}.svg"));
+            assert!(path.is_file(), "{stem} has no file at {}", path.display());
+        }
+    }
+
+    #[test]
+    fn the_icon_licence_is_bundled() {
+        let licence = std::fs::read_to_string(icons_dir().join("LICENSE")).expect("icon LICENSE");
+        assert!(
+            licence.starts_with("ISC License"),
+            "icons are ISC (Lucide); the LICENSE file must be bundled"
+        );
     }
 }

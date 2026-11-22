@@ -16,6 +16,11 @@ The plan these crates follow is `docs/plan.md` in rimelight-space.
   - `crates/rimelight_ui`: Slint component library (ST2.3, not yet compiled): 65 component files (74 exported
     components), typography, icons, and bundled fonts. Markup only; the app crates compile it. The fonts are Noto Sans
     and JetBrains Mono, licensed under SIL OFL 1.1 (see `crates/rimelight_ui/ui/fonts/README.md`).
+  - `crates/rimelight_ui/tests/ui`: the one `ui` test binary for the components (ST2.7, not yet run): 26 test modules
+    moved from Space, with their markup in `tests/ui/markup/`, plus the icon-file checks in `src/lib.rs`. The decision
+    table is `docs/st2.7-tests.md`.
+  - `crates/rimelight_ui_test_slint`: test-only crate (not published) that compiles `rimelight_ui`'s test markup, one
+    module per file, for the ui test binary.
   - `apps/ui_check`: compile check. Its `ui/main.slint` places every exported component of `rimelight_ui` in one
     window, and its headless test creates that window. Not shipped.
   - `apps/`: other app crates that compile Slint come here.

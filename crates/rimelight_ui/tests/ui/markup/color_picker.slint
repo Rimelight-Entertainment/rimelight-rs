@@ -1,0 +1,19 @@
+// Test markup for tests/ui/color_picker.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { ColorPicker, ColorHex } from "@rimelight_ui/components/color-picker.slint";
+export { ColorHex }
+
+export component PickerWindow inherits Window {
+    width: 280px;
+    height: 460px;
+
+    in-out property <color> colour: #1659C4;
+    out property <int> changes: 0;
+
+    ColorPicker {
+        color <=> root.colour;
+        accessible-name: "Colour";
+        changed(c) => {
+            root.changes += 1;
+        }
+    }
+}

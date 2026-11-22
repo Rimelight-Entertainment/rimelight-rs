@@ -1,0 +1,52 @@
+// Test markup for tests/ui/tier3_b4.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { DescriptionList, DescriptionItem } from "@rimelight_ui/components/description-list.slint";
+import { Stat, DeltaDirection } from "@rimelight_ui/components/stat.slint";
+import { Timeline, TimelineEvent } from "@rimelight_ui/components/timeline.slint";
+import { ActivityFeed, ActivityItem } from "@rimelight_ui/components/activity-feed.slint";
+import { BadgeTone } from "@rimelight_ui/components/badge.slint";
+export { DescriptionItem, TimelineEvent, ActivityItem, BadgeTone }
+
+export component B4Form inherits Window {
+    width: 480px;
+    height: 900px;
+
+    in property <[DescriptionItem]> pairs;
+    in property <int> columns: 2;
+    in property <[TimelineEvent]> events;
+    in property <[ActivityItem]> feed;
+    in-out property <bool> more: true;
+    in-out property <int> loads: 0;
+
+    VerticalLayout {
+        spacing: 16px;
+        alignment: start;
+
+        DescriptionList {
+            width: 440px;
+            items: root.pairs;
+            columns: root.columns;
+        }
+        Stat {
+            width: 200px;
+            label: "Open issues";
+            value: "128";
+            delta: "+12 %";
+            direction: DeltaDirection.up;
+            caption: "Since last week";
+        }
+        Timeline {
+            width: 400px;
+            events: root.events;
+        }
+        activity := ActivityFeed {
+            width: 400px;
+            items: root.feed;
+            has-more <=> root.more;
+            load-more => { root.loads += 1; }
+        }
+    }
+
+    // Test hooks: the button's shown state, and the click the feed's button makes.
+    public function button-shown() -> bool { return activity.has-more; }
+    public function click-load-more() { activity.load-more(); }
+}

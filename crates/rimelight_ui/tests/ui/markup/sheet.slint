@@ -1,0 +1,107 @@
+// Test markup for tests/ui/sheet.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { Sheet, SheetPlacement, SheetSize } from "@rimelight_ui/components/sheet.slint";
+import { Tokens } from "@rimelight_design/tokens.slint";
+
+export { Tokens }
+
+// An 800 by 600 window: room for a scrim to click on beside a side sheet.
+export component SheetDesk inherits Window {
+    width: 800px;
+    height: 600px;
+
+    in property <SheetPlacement> placement: SheetPlacement.right;
+    in property <bool> dismissible: true;
+    out property <int> opens: 0;
+    out property <int> closes: 0;
+    out property <int> behind-clicks: 0;
+    out property <bool> open: sheet.is-open;
+    out property <bool> trigger-focused: trig.has-focus;
+    out property <bool> behind-focused: behind.has-focus;
+    out property <bool> keys-focused: sheet.keys-focused;
+    out property <bool> end-focused: sheet.end-focused;
+    out property <length> panel-width: sheet.panel-width;
+    out property <length> panel-height: sheet.panel-height;
+    out property <duration> slide-duration: sheet.slide-duration;
+
+    public function close-sheet() { sheet.close(); }
+    // Test hooks: the trigger's own click handler, and the sheet's close control.
+    public function click-open() { trig.clicked(); }
+    public function click-close() { sheet.close(); }
+
+    behind := Button {
+        x: 20px;
+        y: 300px;
+        width: 120px;
+        text: "Behind";
+        accessible-name: "Behind";
+        clicked => { root.behind-clicks += 1; }
+    }
+
+    trig := Button {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        text: "Open";
+        accessible-name: "Open";
+        clicked => {
+            trig.focus-me();
+            sheet.open();
+        }
+    }
+
+    sheet := Sheet {
+        title: "Filters";
+        description: "Narrow the list.";
+        placement: root.placement;
+        size: SheetSize.md;
+        dismissible: root.dismissible;
+        host-width: root.width;
+        host-height: root.height;
+        close-label: "Close filters";
+        actions: [{ text: "Apply", variant: ButtonVariant.primary }];
+        opened => { root.opens += 1; }
+        closed => { root.closes += 1; }
+
+        Button {
+            text: "Only open";
+            accessible-name: "Only open";
+        }
+    }
+}
+
+// A phone-width window (390 by 700): the right sheet must fit it.
+export component SheetPhone inherits Window {
+    width: 390px;
+    height: 700px;
+
+    in property <SheetPlacement> placement: SheetPlacement.right;
+    out property <bool> open: sheet.is-open;
+    out property <length> panel-width: sheet.panel-width;
+    out property <length> panel-height: sheet.panel-height;
+
+    trig := Button {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        text: "Open";
+        accessible-name: "Open";
+        clicked => {
+            trig.focus-me();
+            sheet.open();
+        }
+    }
+
+    sheet := Sheet {
+        title: "Filters";
+        placement: root.placement;
+        size: SheetSize.md;
+        host-width: root.width;
+        host-height: root.height;
+        close-label: "Close filters";
+    }
+
+    // Test hooks: the trigger's own click handler, and the sheet's close control.
+    public function click-open() { trig.clicked(); }
+    public function click-close() { sheet.close(); }
+}

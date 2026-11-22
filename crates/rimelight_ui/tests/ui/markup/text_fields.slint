@@ -1,0 +1,59 @@
+// Test markup for tests/ui/text_fields.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Input, InputSize } from "@rimelight_ui/components/input.slint";
+
+export component Form inherits Window {
+    width: 360px;
+    height: 240px;
+
+    // Name: clearable, reports every change and Enter.
+    out property <string> changed-value: "";
+    out property <int> changes: 0;
+    out property <string> submitted-value: "";
+    out property <int> submits: 0;
+    out property <string> name-text: name.text;
+    out property <string> disabled-text: disabled.text;
+    out property <string> readonly-text: readonly.text;
+    out property <bool> secret-revealed: secret.revealed;
+    out property <bool> secret-masked: secret.masked;
+
+    // Test hooks: a click on each labelled element, running the action its pointer area or button runs.
+    public function click-name() { name.test-focus(); }
+    public function click-disabled() { disabled.test-focus(); }
+    public function click-read-only() { readonly.test-focus(); }
+    public function click-clear-name() { name.test-clear(); }
+    public function click-secret() { secret.test-focus(); }
+    public function click-reveal() { secret.test-reveal(); }
+
+    VerticalLayout {
+        name := Input {
+            accessible-name: "Name";
+            placeholder: "Name";
+            clearable: true;
+            clear-label: "Clear name";
+            changed(value) => {
+                root.changed-value = value;
+                root.changes += 1;
+            }
+            submitted(value) => {
+                root.submitted-value = value;
+                root.submits += 1;
+            }
+        }
+        disabled := Input {
+            accessible-name: "Disabled";
+            text: "fixed";
+            enabled: false;
+        }
+        readonly := Input {
+            accessible-name: "Read only";
+            text: "locked";
+            read-only: true;
+        }
+        secret := Input {
+            accessible-name: "Secret";
+            password: true;
+            show-label: "Show password";
+            hide-label: "Hide password";
+        }
+    }
+}

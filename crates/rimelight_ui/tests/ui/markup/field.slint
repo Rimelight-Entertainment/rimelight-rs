@@ -1,0 +1,50 @@
+// Test markup for tests/ui/field.rs, compiled once by crates/rimelight_ui_test_slint (decision 0037, BT.4).
+import { Field, Form } from "@rimelight_ui/components/field.slint";
+import { Input } from "@rimelight_ui/components/input.slint";
+import { NumberInput } from "@rimelight_ui/components/number-input.slint";
+
+export component Harness inherits Window {
+    width: 360px;
+    height: 420px;
+
+    in-out property <string> error-text: "";
+    in-out property <bool> own-invalid: false;
+    out property <bool> name-invalid: name.invalid;
+    out property <bool> email-focused: email.has-focus;
+    out property <bool> qty-focused: qty.has-focus;
+    out property <string> qty-text: qty.text;
+
+    Form {
+        name-field := Field {
+            label: "Your name";
+            required: true;
+            error: root.error-text;
+
+            name := Input {
+                accessible-name: "Name";
+                invalid: name-field.invalid || root.own-invalid;
+            }
+        }
+        email-field := Field {
+            label: "Email";
+            help: "We never share it.";
+
+            email := Input {
+                accessible-name: "Email";
+            }
+        }
+        qty-field := Field {
+            label: "Quantity";
+
+            qty := NumberInput {
+                accessible-name: "Quantity";
+                minimum: 0;
+                maximum: 10;
+                value: 1;
+            }
+        }
+    }
+
+    // Test hook: focuses the Name input, as a click on it does.
+    public function focus-name() { name.focus(); }
+}
