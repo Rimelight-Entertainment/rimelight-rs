@@ -3690,6 +3690,9 @@ source = "git+https://github.com/Rimelight-Entertainment/rimelight.git?rev=d4420
 [[package]]
 name = "rimelight_shell"
 version = "0.1.0"
+dependencies = [
+ "rimelight_design",
+]
 
 [[package]]
 name = "rimelight_ui"

@@ -5,7 +5,11 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 repository.workspace = true
-description = "Rimelight app shell markup (rail, sidebar, status bar, tab bar, palette, quick action, About): markup only, compiled by the app crates."
+description = "Rimelight app shell: Slint markup (rail, sidebar, status bar, tab bar, palette, quick action, About) and the plain-Rust shell models (page tabs, history, tile groups, drop zones, workspaces and their saving)."
 
 [lints]
 workspace = true
+
+[dependencies]
+# The tile drop rules use the design tokens (`rimelight_design::tokens::size`).
+rimelight_design = { workspace = true }
