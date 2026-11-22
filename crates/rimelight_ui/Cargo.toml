@@ -1,0 +1,11 @@
+[package]
+name = "rimelight_ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight Slint component library: markup only, compiled by the app crates."
+
+[lints]
+workspace = true

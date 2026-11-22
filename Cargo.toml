@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/*", "xtask"]
+# The spike is its own workspace (spikes/slint-cross-crate), and vendored third-party crates are not members, so their
+# generated code is not linted.
+exclude = ["spikes/*", "vendor/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+repository = "https://github.com/Rimelight-Entertainment/rimelight-rs"
+
+# Workspace dependencies are added with the first crate that uses them (ST2.2 onward): slint =1.18.1 family, and
+# rimelight_design from the web monorepo (packages/design/crate, decision D1) pinned to a reviewed rev.
+
+[workspace.lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+unsafe_code = "forbid"
+
+[profile.dev]
+debug = "line-tables-only"
+# Build scripts and proc macros (slint-build, the slint! macro, serde derive) run optimised. The Slint compiler at
+# opt-level 0 is the slow part of every .slint change (decision 0037).
+# Dependencies carry no debug info: smaller objects, faster links. Workspace crates keep line tables.
+[profile.dev.package."*"]
+debug = false
+
+[profile.dev.build-override]
+opt-level = 3
+

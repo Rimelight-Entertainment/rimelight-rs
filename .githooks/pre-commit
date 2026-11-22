@@ -1,0 +1,49 @@
+#!/bin/sh
+# Pre-commit check for Rust, Slint and Cargo changes. Commits that touch none of those return at once.
+# Steps: (1) cargo fmt --all -- --check, (2) cargo clippy --workspace --all-targets -- -D warnings.
+# Always the whole workspace: one dependency build shared with every other check.
+# Dry run: RIMELIGHT_HOOK_DRY=1 prints the commands without running them.
+# Override the staged list: RIMELIGHT_HOOK_FILES="a b c" (dry runs and tests only).
+# Never bypass this hook with git commit --no-verify (AGENTS.md).
+# Reads no stdin.
+
+root=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
+cd "$root" || exit 1
+
+if [ -n "${RIMELIGHT_HOOK_FILES+set}" ]; then
+  staged=$(printf '%s\n' $RIMELIGHT_HOOK_FILES)
+else
+  staged=$(git diff --cached --name-only --diff-filter=ACMRD) || {
+    echo "pre-commit: could not read the staged files. Commit blocked." >&2
+    exit 1
+  }
+fi
+
+# Skip when nothing staged could change the build (docs, plain text, images).
+relevant=$(printf '%s\n' "$staged" | grep -E '(\.rs$|\.slint$|\.toml$|\.lock$|\.css$|\.json$|^\.cargo/|^\.githooks/|^\.github/|^vendor/)' || true)
+if [ -z "$relevant" ]; then
+  if [ "${RIMELIGHT_HOOK_DRY:-0}" = "1" ]; then
+    echo "pre-commit (dry run): nothing relevant staged, would exit 0 at once"
+  fi
+  exit 0
+fi
+
+if [ "${RIMELIGHT_HOOK_DRY:-0}" = "1" ]; then
+  echo "pre-commit (dry run): would run: cargo fmt --all -- --check"
+  echo "pre-commit (dry run): would run: cargo clippy --workspace --all-targets -- -D warnings"
+  exit 0
+fi
+
+echo "pre-commit: step 1/2: cargo fmt --all -- --check"
+cargo fmt --all -- --check || {
+  echo "pre-commit: FAILED at step 1/2 (cargo fmt --all -- --check). Run cargo fmt --all, then recommit." >&2
+  exit 1
+}
+
+echo "pre-commit: step 2/2: cargo clippy --workspace --all-targets -- -D warnings"
+cargo clippy --workspace --all-targets -- -D warnings || {
+  echo "pre-commit: FAILED at step 2/2 (clippy). Fix the warnings, then recommit." >&2
+  exit 1
+}
+
+exit 0

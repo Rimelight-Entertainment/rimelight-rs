@@ -1,0 +1,13 @@
+[registry]
+global-min-publish-age = "1 day"
+
+[alias]
+xtask = "run --package xtask --"
+
+# getrandom 0.3 on wasm32-unknown-unknown needs its JS backend selected by this cfg (the crate feature `wasm_js` alone is not enough).
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# Link with the LLVM linker shipped in the toolchain: much faster than MSVC link.exe for the Slint-heavy test binary.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
