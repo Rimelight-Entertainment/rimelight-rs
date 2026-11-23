@@ -3,7 +3,7 @@
 // thumb animation is a fixed 150 ms linear curve with no reduced-motion switch (README, "Slint port" S5).
 //
 // sizes sm (28 by 16 px track) and md (36 by 20 px),
-// the label on the left, the right, or as a settings row (label left, track at the right edge), an optional detail line under the label, disabled, and the focus ring around the track.
+// the label on the left or the right, an optional detail line under the label, disabled, and the focus ring around the track.
 //
 // Motion: the thumb moves with `animate x` over Tokens.motion-base (200 ms, or 0 under reduced motion) on an ease-in-out
 // curve. Under reduced motion the duration is 0, so the thumb jumps and is static.
@@ -18,9 +18,7 @@ import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "../typography.slint";
 
 export enum SwitchSize { sm, md }
-// left: the label beside the track, right-aligned. right: the track first, then the label. row: a settings row, the label (and
-// detail) left-aligned and filling the row, the track at the right edge.
-export enum SwitchLabelSide { left, right, row }
+export enum SwitchLabelSide { left, right }
 
 export component Switch inherits Rectangle {
     // The state, two-way: the switch edits it and the caller can set it.
@@ -75,15 +73,13 @@ export component Switch inherits Rectangle {
 
     height: root.detail != "" ? layout.preferred-height : (root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md);
     min-width: root.track-w;
-    // A settings row fills the width it is given (label left, track at the right edge); the other sides keep the content width.
-    horizontal-stretch: root.label-side == SwitchLabelSide.row ? 1 : 0;
-    max-width: root.label-side == SwitchLabelSide.row ? 100000px : layout.preferred-width;
+    horizontal-stretch: 0;
 
     layout := HorizontalLayout {
         spacing: Tokens.space-2;
         alignment: start;
 
-        if (root.label-side == SwitchLabelSide.left || root.label-side == SwitchLabelSide.row) && root.text != "" : VerticalLayout {
+        if root.label-side == SwitchLabelSide.left && root.text != "" : VerticalLayout {
             horizontal-stretch: 1;
             alignment: center;
             Text {
@@ -93,7 +89,7 @@ export component Switch inherits Rectangle {
                 font-size: Type.label.size;
                 font-weight: Type.label.weight;
                 vertical-alignment: center;
-                horizontal-alignment: root.label-side == SwitchLabelSide.row ? TextHorizontalAlignment.left : TextHorizontalAlignment.right;
+                horizontal-alignment: right;
                 wrap: word-wrap;
                 accessible-role: none;
             }
@@ -103,7 +99,7 @@ export component Switch inherits Rectangle {
                 font-family: Type.caption.family;
                 font-size: Type.caption.size;
                 font-weight: Type.caption.weight;
-                horizontal-alignment: root.label-side == SwitchLabelSide.row ? TextHorizontalAlignment.left : TextHorizontalAlignment.right;
+                horizontal-alignment: right;
                 wrap: word-wrap;
                 accessible-role: none;
             }
@@ -187,6 +183,54 @@ export component Switch inherits Rectangle {
                 return accept;
             }
             return reject;
+        }
+    }
+}
+
+// SwitchRow: a settings row. The label (and an optional detail line) fill the left, left-aligned; the switch sits at the
+// right edge. Built as a horizontal layout of a stretching label and a bare Switch (no text), so the switch is at the right
+// edge on every row whatever the label's length. A click on the switch toggles it; the label is not a click target.
+export component SwitchRow inherits HorizontalLayout {
+    in-out property <bool> checked: false;
+    in property <string> text;
+    in property <string> detail;
+    in property <SwitchSize> size: SwitchSize.md;
+    in property <bool> enabled: true;
+    callback changed(bool);
+
+    spacing: Tokens.space-3;
+    min-height: root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md;
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.enabled ? Tokens.text-primary : Tokens.disabled-text;
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            wrap: word-wrap;
+            accessible-role: none;
+        }
+        if root.detail != "" : Text {
+            text: root.detail;
+            color: root.enabled ? Tokens.text-muted : Tokens.disabled-text;
+            font-family: Type.caption.family;
+            font-size: Type.caption.size;
+            font-weight: Type.caption.weight;
+            wrap: word-wrap;
+            accessible-role: none;
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        Switch {
+            accessible-name: root.text;
+            size: root.size;
+            enabled: root.enabled;
+            checked <=> root.checked;
+            changed(on) => { root.changed(on); }
         }
     }
 }

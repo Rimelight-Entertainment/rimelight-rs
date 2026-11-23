@@ -22,7 +22,7 @@ import { NumberInput } from "@rimelight_ui/components/number-input.slint";
 import { Field, Form as FieldForm } from "@rimelight_ui/components/field.slint";
 import { Checkbox, CheckState, CheckboxSize } from "@rimelight_ui/components/checkbox.slint";
 import { RadioGroup, RadioOrientation } from "@rimelight_ui/components/radio-group.slint";
-import { Switch, SwitchSize, SwitchLabelSide } from "@rimelight_ui/components/switch.slint";
+import { Switch, SwitchRow, SwitchSize, SwitchLabelSide } from "@rimelight_ui/components/switch.slint";
 import { Slider } from "@rimelight_ui/components/slider.slint";
 import { ColorPicker, ColorField } from "@rimelight_ui/components/color-picker.slint";
 import { ToolbarRow, ToolDivider } from "@rimelight_ui/components/toolbar.slint";
@@ -1218,7 +1218,7 @@ export component SwitchStory inherits VerticalLayout {
     }
     CaptionRow {
         caption: "settings row (label left, switch at the right edge)";
-        Switch { text: "Start with Windows"; detail: "Launch in the tray when you sign in."; label-side: SwitchLabelSide.row; accessible-name: "Detail row"; width: 360px; }
+        SwitchRow { text: "Start with Windows"; detail: "Launch in the tray when you sign in."; width: 360px; }
     }
 
     SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
@@ -2851,7 +2851,7 @@ export component RecentListStory inherits VerticalLayout {
 }
 
 // ListPage (ST5.4, T-LIST): the header with its action, the search box, the bulk bar and the table, in the six variants of
-// the story: loaded, loading, empty, error, two rows selected, and per-row actions (variant 5).
+// the story: loaded, loading, empty, error, two rows selected, per-row actions (variant 5) and no heading (variant 6).
 export component ListPageStory inherits VerticalLayout {
     in property <bool> pt: false;
     in property <int> variant: 0;
@@ -2871,14 +2871,15 @@ export component ListPageStory inherits VerticalLayout {
             clip: true;
 
             ListPage {
-                title: "Employees";
+                // Variant 6: no title and no action, so the header row is left out and the page starts at the search box.
+                title: root.variant == 6 ? "" : "Employees";
                 state: root.variant == 1 ? PageLoadState.loading
                     : root.variant == 2 ? PageLoadState.empty
                     : root.variant == 3 ? PageLoadState.error
                     : PageLoadState.loaded;
                 error: root.variant == 3 ? "The server did not answer." : "";
                 empty-description: "Try another name, team or title.";
-                action-label: "New person";
+                action-label: root.variant == 6 ? "" : "New person";
                 search-placeholder: "Search people";
                 bulk-label: "Remove";
                 selected-count: root.variant == 4 ? 2 : 0;
@@ -2905,7 +2906,7 @@ export component ListPageStory inherits VerticalLayout {
 }
 
 // BoardPage (ST5.4, T-BOARD): columns of cards with an Add card button in each. The story does not drag (its column-at answers
-// -1), so the variants show the page's states: default, empty, error and a refused move.
+// -1), so the variants show the page's states: default, empty, error, a refused move, rich cards (4) and a drop target (5).
 export component BoardPageStory inherits VerticalLayout {
     in property <bool> pt: false;
     in property <int> variant: 0;
@@ -2924,7 +2925,32 @@ export component BoardPageStory inherits VerticalLayout {
             background: Tokens.surface-base;
             clip: true;
 
-            BoardPage {
+            // Variants 4 and 5: rich cards (badge, kind, priority, estimate, assignee, chips, the "Move to" button); 5 also
+            // outlines the second column as the drop target, as a drag over it does.
+            if root.variant >= 4 : BoardPage {
+                title: "Issues";
+                state: PageLoadState.loaded;
+                column-width: 260px;
+                add-label: "";
+                empty-column-label: "No issues";
+                drop-column: root.variant == 5 ? 1 : -1;
+                board: [
+                    { name: "To do", cards: [
+                        { key: "RL-12", title: "Board drag ghost", detail: "", badge: "RL-12", kind: "Task", priority: "High", meta: "3 pts", assignee: "AL",
+                          chips: [{ text: "Space", color: #3b82f6 }, { text: "UI", color: #a855f7 }] },
+                        { key: "RL-14", title: "Move to popover", detail: "Lists the other columns.", badge: "RL-14", kind: "Bug", priority: "Low", meta: "", assignee: "",
+                          chips: [{ text: "Shell", color: Colors.transparent }] },
+                    ] },
+                    { name: "In progress", cards: [
+                        { key: "RL-9", title: "Edge auto-scroll", detail: "", badge: "RL-9", kind: "Task", priority: "Medium", meta: "5 pts", assignee: "BH", chips: [] },
+                    ] },
+                    { name: "Done", cards: [] },
+                ];
+                column-at(px, column-px, gap-px, count) => {
+                    return -1;
+                }
+            }
+            if root.variant < 4 : BoardPage {
                 title: "Pipeline";
                 state: root.variant == 1 ? PageLoadState.empty
                     : root.variant == 2 ? PageLoadState.error
