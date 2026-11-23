@@ -1,28 +1,56 @@
 // BoardPage (ST5.4, T-BOARD). Columns of cards side by side in a horizontal scroll area. Each column has a name, its card count
-// through its cards, and an Add card button at the end.
+// through its cards, its cards (scrolled down inside the column) and an Add card button at the end.
 //
-// Moving a card. Drag a card over another column and release: the column under the pointer gets the card. The Left and
-// Right arrows move the focused card one column, which is the keyboard way to do the same. Both report `moved(key, column)`,
-// and the caller applies the move and sets `board` again. The page does not change its own data, so a refused move leaves
-// the card where it was. The caller sets `move-error` to say why.
+// Moving a card. Three ways, all reporting `moved(key, column)`; the caller applies the move and sets `board` again. The page
+// does not change its own data, so a refused move leaves the card where it was. The caller sets `move-error` to say why.
+//   - Drag: press a card and move more than 6 px. A ghost of the card follows the pointer, the column under the pointer is
+//     outlined, the board scrolls sideways while the pointer is within 48 px of its left or right edge, and Escape cancels.
+//     A release over another column moves the card there; a release anywhere else changes nothing.
+//   - Keyboard: Left and Right move the focused card one column.
+//   - "Move to": the ellipsis button on a card opens a popover listing the other columns (the pointer and touch way, as a
+//     touch drag can be taken by the column's scroll area). `show-move: false` hides the button.
 //
 // Drop targets. The page asks the caller which column is under a point through `column-at` (x in px from the first column,
 // the column width, the gap, and the count; the answer is a column index or -1). Wire it to `board::drop_column` in
 // rimelight_ui_kit. Without that callback no column is under the pointer and a drag drops nowhere.
 //
+// Cards. `BoardItem` has plain fields (Slint cannot put a slot in a repeated card); every field but `key` and `title` is
+// optional and an empty one draws nothing. Top to bottom: a header row (`badge`, the "Move to" button), the title, `detail`,
+// a meta row (`kind`, `priority`, `meta`, `assignee`) and the `chips`.
+//
 // Load state, empty and error come from `state`, through PageState. The board is drawn only when `state` is loaded.
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { Popover } from "@rimelight_ui/components/popover.slint";
+import { TooltipBounds } from "@rimelight_ui/components/tooltip.slint";
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { PageLoadState, PageState } from "@rimelight_ui/components/page-state.slint";
 import { Banner, BannerTone } from "@rimelight_ui/components/banner.slint";
 
-// One card. `detail` is a second line under the title (empty for none).
+// A chip on a card: its text and its colour (a tint behind, the colour as the outline). A transparent colour draws the
+// neutral outline.
+export struct BoardChip {
+    text: string,
+    color: color,
+}
+
+// One card. `key` is its identity (what `moved` and `picked` report); `title` is the main line. The rest is optional:
+// `detail` a second line, `badge` a leading mono label (for example an issue key), `kind` and `priority` small captions,
+// `meta` a trailing caption (for example an estimate), `assignee` a name or initials, `chips` coloured chips.
 export struct BoardItem {
     key: string,
     title: string,
     detail: string,
+    badge: string,
+    kind: string,
+    priority: string,
+    meta: string,
+    assignee: string,
+    chips: [BoardChip],
 }
 
 // One column: its name and its cards, top first.
@@ -34,29 +62,150 @@ export struct BoardLane {
 // A card. It is a press-and-drag target, and a focus stop for the arrow keys.
 component BoardCardView inherits Rectangle {
     in property <BoardItem> item;
-    // The column this card is in.
+    // The column this card is in, and all columns (the "Move to" list leaves this one out).
     in property <int> column;
-    // Pressed and dragged: the pointer's x in window px. Sent while the button is held.
-    callback drag-moved(string, length);
-    // Released: the card's key, its column and the pointer's x in window px.
-    callback dropped(string, int, length);
+    in property <[BoardLane]> lanes;
+    in property <bool> show-move: true;
+    in property <string> move-label: "Move to";
+    in property <string> move-tooltip: "Move to...";
+    in property <string> move-verb: "Move";
+    // Drag: the card, the pointer (window coordinates) and the grab offset inside the card; then the pointer on each move,
+    // the drop, and the cancel (Escape).
+    callback drag-begin(BoardItem, length, length, length, length);
+    callback drag-move(length, length);
+    callback drag-end(length, length);
+    callback drag-cancel();
     // Left or Right with the card focused: the key, its column and -1 or 1.
     callback step(string, int, int);
-    // A press that was not a drag.
+    // A press that was not a drag (or Enter or Space).
     callback picked(string);
+    // Chosen in the "Move to" popover: the key and the column.
+    callback moved(string, int);
 
-    // Set when the pointer moved while pressed, so the click that follows a drag does not also pick the card.
-    property <bool> dragged: false;
+    property <bool> dragging: false;
+    // True from the start of a drag until the next press, so the release of a drag does not also pick the card.
+    property <bool> was-dragged: false;
+    property <length> press-x;
+    property <length> press-y;
+    property <bool> has-meta: root.item.kind != "" || root.item.priority != "" || root.item.meta != "" || root.item.assignee != "";
+    property <string> who: root.item.badge != "" ? root.item.badge : root.item.title;
 
     background: Tokens.surface-raised;
     border-width: fs.has-focus ? 2px : 1px;
     border-color: fs.has-focus ? Tokens.focus-ring : Tokens.border-subtle;
     border-radius: Tokens.radius-r4;
     height: lay.preferred-height;
+    opacity: root.dragging ? 0.4 : 1;
+
+    fs := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        key-pressed(event) => {
+            if (event.text == Key.Escape && root.dragging) {
+                root.dragging = false;
+                root.was-dragged = true;
+                root.drag-cancel();
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                root.step(root.item.key, root.column, -1);
+                return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                root.step(root.item.key, root.column, 1);
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.picked(root.item.key);
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // Behind the content, so the button and the move list take their own presses.
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        accessible-role: button;
+        accessible-label: root.item.badge != "" ? root.item.badge + " " + root.item.title : root.item.title;
+        pointer-event(event) => {
+            if (event.button != PointerEventButton.left) {
+                // Other buttons are not a drag or a press.
+            } else if (event.kind == PointerEventKind.down) {
+                root.was-dragged = false;
+                fs.focus();
+                root.press-x = root.absolute-position.x + ta.mouse-x;
+                root.press-y = root.absolute-position.y + ta.mouse-y;
+            } else if (event.kind == PointerEventKind.up) {
+                if (root.dragging) {
+                    root.dragging = false;
+                    root.drag-end(root.absolute-position.x + ta.mouse-x, root.absolute-position.y + ta.mouse-y);
+                }
+            } else if (event.kind == PointerEventKind.cancel) {
+                if (root.dragging) {
+                    root.dragging = false;
+                    root.was-dragged = true;
+                    root.drag-cancel();
+                }
+            }
+        }
+        moved => {
+            if (!ta.pressed) {
+                // Hover only.
+            } else if (root.dragging) {
+                root.drag-move(root.absolute-position.x + ta.mouse-x, root.absolute-position.y + ta.mouse-y);
+            } else if (Math.abs(root.absolute-position.x + ta.mouse-x - root.press-x) + Math.abs(root.absolute-position.y + ta.mouse-y - root.press-y) > 6px) {
+                root.dragging = true;
+                root.was-dragged = true;
+                fs.focus();
+                root.drag-begin(
+                    root.item,
+                    root.absolute-position.x + ta.mouse-x,
+                    root.absolute-position.y + ta.mouse-y,
+                    root.press-x - root.absolute-position.x,
+                    root.press-y - root.absolute-position.y);
+            }
+        }
+        clicked => {
+            if (!root.dragging && !root.was-dragged) {
+                root.picked(root.item.key);
+            }
+        }
+    }
 
     lay := VerticalLayout {
         padding: Tokens.space-2;
         spacing: Tokens.space-1;
+
+        // Header row: the badge, and the "Move to" button (24 px tall).
+        if root.item.badge != "" || root.show-move : HorizontalLayout {
+            height: 24px;
+            spacing: Tokens.space-2;
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: root.item.badge;
+                color: Tokens.text-muted;
+                overflow: elide;
+                font-family: Type.code.family;
+                font-size: Type.code.size;
+                font-weight: Type.code.weight;
+            }
+            if root.show-move : ellipsis-btn := IconButton {
+                width: 24px;
+                height: 24px;
+                icon: Icons.ellipsis;
+                label: root.move-verb + " " + root.who;
+                tooltip: root.move-tooltip;
+                variant: ButtonVariant.ghost;
+                pointer-pressed => { move-pop.trigger-pressed(); }
+                clicked => {
+                    ellipsis-btn.focus-me();
+                    move-pop.trigger-clicked();
+                }
+            }
+        }
 
         Text {
             text: root.item.title;
@@ -74,45 +223,97 @@ component BoardCardView inherits Rectangle {
             font-size: Type.caption.size;
             font-weight: Type.caption.weight;
         }
+
+        if root.has-meta : HorizontalLayout {
+            spacing: Tokens.space-2;
+            Text {
+                text: root.item.kind;
+                color: Tokens.text-muted;
+                overflow: elide;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.priority;
+                color: Tokens.text-muted;
+                overflow: elide;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+            Text {
+                text: root.item.meta;
+                color: Tokens.text-muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+            Text {
+                text: root.item.assignee;
+                color: Tokens.text-primary;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+        }
+
+        if root.item.chips.length > 0 : HorizontalLayout {
+            spacing: Tokens.space-1;
+            alignment: start;
+
+            for chip in root.item.chips : Rectangle {
+                height: 20px;
+                width: chip-name.preferred-width + Tokens.space-2 * 2;
+                border-width: 1px;
+                border-radius: Tokens.radius-r4;
+                border-color: chip.color == Colors.transparent ? Tokens.border-subtle : chip.color;
+                background: chip.color == Colors.transparent ? Tokens.surface-sunken : chip.color.with-alpha(0.25);
+
+                chip-name := Text {
+                    text: chip.text;
+                    color: Tokens.text-primary;
+                    font-family: Type.caption.family;
+                    font-size: Type.caption.size;
+                    font-weight: Type.caption.weight;
+                }
+            }
+        }
     }
 
-    fs := FocusScope {
-        key-pressed(event) => {
-            if (event.text == Key.LeftArrow) {
-                root.step(root.item.key, root.column, -1);
-                return accept;
-            }
-            if (event.text == Key.RightArrow) {
-                root.step(root.item.key, root.column, 1);
-                return accept;
-            }
-            return reject;
-        }
-    }
+    // The "Move to" popover, at the ellipsis button, opening leftward from its right edge. Built from the lane names.
+    move-pop := Popover {
+        x: root.width - 24px - Tokens.space-2;
+        y: Tokens.space-2;
+        accessible-name: root.move-verb + " " + root.who + " to";
+        anchor-height: 24px;
+        anchor-width: 24px;
+        align-end: true;
+        panel-width: 200px;
+        bounds-width: TooltipBounds.width;
+        bottom-limit: TooltipBounds.height;
 
-    ta := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        accessible-role: button;
-        accessible-label: root.item.title;
-        moved => {
-            if (self.pressed) {
-                root.dragged = true;
-                root.drag-moved(root.item.key, self.absolute-position.x + self.mouse-x);
+        VerticalLayout {
+            spacing: Tokens.space-1;
+            Text {
+                text: root.move-label;
+                color: Tokens.text-muted;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.body-strong.weight;
             }
-        }
-        pointer-event(event) => {
-            if (event.kind == PointerEventKind.down) {
-                root.dragged = false;
-                fs.focus();
-            }
-            if (event.kind == PointerEventKind.up && root.dragged) {
-                root.dropped(root.item.key, root.column, self.absolute-position.x + self.mouse-x);
-            }
-        }
-        clicked => {
-            if (!root.dragged) {
-                root.picked(root.item.key);
+            for lane[index] in root.lanes : VerticalLayout {
+                if index != root.column : Button {
+                    text: lane.name;
+                    size: ButtonSize.sm;
+                    variant: ButtonVariant.secondary;
+                    accessible-name: root.move-verb + " " + root.item.title + " to " + lane.name;
+                    clicked => {
+                        move-pop.close();
+                        root.moved(root.item.key, index);
+                    }
+                }
             }
         }
     }
@@ -132,10 +333,23 @@ export component BoardPage inherits Rectangle {
     in property <[BoardLane]> board;
     // Each column's width. The gap between columns is space-3.
     in property <length> column-width: 272px;
-    // The Add card button at the foot of each column.
+    // The Add card button at the foot of each column. Empty hides it.
     in property <string> add-label: "Add card";
     // The message for a move the caller refused (empty hides it). Shown above the board.
     in property <string> move-error;
+    // What a column with no cards says (empty, the default, says nothing).
+    in property <string> empty-column-label;
+    // The "Move to" button on each card, and the words of its popover.
+    in property <bool> show-move: true;
+    in property <string> move-label: "Move to";
+    in property <string> move-tooltip: "Move to...";
+    in property <string> move-verb: "Move";
+    // The last word of each column's scroll area name ("<column> cards").
+    in property <string> cards-label: "cards";
+    // A column shown as the drop target without a drag (-1 for none). A real drag outlines the column under the pointer.
+    in property <int> drop-column: -1;
+    // True while a card is being dragged.
+    out property <bool> dragging: root.drag-active;
 
     // The column under a point, from the caller: x in px from the first column, the column width in px, the gap in px and
     // the count. Returns a column index, or -1. See the comment at the top of this file.
@@ -150,37 +364,77 @@ export component BoardPage inherits Rectangle {
     // A card was opened (a press that was not a drag): its key.
     callback picked(string);
 
-    // The key of the card being dragged, and the column it is over (-1 for none).
-    property <string> drag-key;
-    property <int> drag-over: -1;
+    property <bool> drag-active: false;
+    property <BoardItem> drag-item;
+    property <int> drag-from: -1;
+    property <length> drag-x;
+    property <length> drag-y;
+    property <length> grab-x;
+    property <length> grab-y;
+    // The column the dragged card would drop on, or -1.
+    property <int> over: -1;
 
     background: transparent;
     init => {
         root.opened();
     }
 
-    // Starts or updates a drag: the column under the pointer is shown as the drop target.
-    function drag(key: string, x: length) {
-        root.drag-key = key;
-        root.drag-over = root.column-at(
-            (x - board-scroll.absolute-position.x - board-scroll.content-x) / 1px,
-            root.column-width / 1px,
-            Tokens.space-3 / 1px,
-            root.board.length);
+    // The column under the pointer, or -1 when the pointer is outside the visible board or over no column. A caller that
+    // sets `drop-column` (the gallery story) shows that column as the target without a drag.
+    function refresh-drop() {
+        if (!root.drag-active) {
+            root.over = -1;
+        } else if (root.drag-x < board-scroll.absolute-position.x
+                || root.drag-x > board-scroll.absolute-position.x + board-scroll.width
+                || root.drag-y < board-scroll.absolute-position.y
+                || root.drag-y > board-scroll.absolute-position.y + board-scroll.height) {
+            root.over = -1;
+        } else {
+            root.over = root.column-at(
+                (root.drag-x - board-scroll.absolute-position.x - board-scroll.content-x) / 1px,
+                root.column-width / 1px,
+                Tokens.space-3 / 1px,
+                root.board.length);
+        }
+    }
+
+    function begin-drag(column: int, card: BoardItem, px: length, py: length, gx: length, gy: length) {
+        root.drag-from = column;
+        root.drag-item = card;
+        root.grab-x = gx;
+        root.grab-y = gy;
+        root.drag-x = px;
+        root.drag-y = py;
+        root.drag-active = true;
+        root.refresh-drop();
+    }
+
+    function move-drag(px: length, py: length) {
+        if (root.drag-active) {
+            root.drag-x = px;
+            root.drag-y = py;
+            root.refresh-drop();
+        }
     }
 
     // Ends a drag. Dropped over another column, the card moves there. Dropped anywhere else, nothing moves.
-    function drop(key: string, source: int, x: length) {
-        root.drag-over = -1;
-        root.drag-key = "";
-        let target = root.column-at(
-            (x - board-scroll.absolute-position.x - board-scroll.content-x) / 1px,
-            root.column-width / 1px,
-            Tokens.space-3 / 1px,
-            root.board.length);
-        if (target >= 0 && target != source) {
-            root.moved(key, target);
+    function end-drag(px: length, py: length) {
+        if (root.drag-active) {
+            root.move-drag(px, py);
+            let target = root.over;
+            let key = root.drag-item.key;
+            let from = root.drag-from;
+            root.drag-active = false;
+            root.over = -1;
+            if (target >= 0 && target != from) {
+                root.moved(key, target);
+            }
         }
+    }
+
+    function cancel-drag() {
+        root.drag-active = false;
+        root.over = -1;
     }
 
     VerticalLayout {
@@ -190,7 +444,7 @@ export component BoardPage inherits Rectangle {
         spacing: Tokens.space-3;
 
         // Header: the title and nothing else. The columns carry their own Add card buttons.
-        Text {
+        if root.title != "" : Text {
             text: root.title;
             color: Tokens.text-primary;
             overflow: elide;
@@ -235,9 +489,9 @@ export component BoardPage inherits Rectangle {
                     height: parent.height;
                     border-radius: Tokens.radius-r6;
                     clip: true;
-                    background: root.drag-over == index ? Tokens.surface-raised : Tokens.surface-sunken;
-                    border-width: root.drag-over == index ? 2px : 1px;
-                    border-color: root.drag-over == index ? Tokens.focus-ring : Tokens.border-subtle;
+                    background: (root.over == index || root.drop-column == index) ? Tokens.surface-raised : Tokens.surface-sunken;
+                    border-width: (root.over == index || root.drop-column == index) ? 2px : 1px;
+                    border-color: (root.over == index || root.drop-column == index) ? Tokens.focus-ring : Tokens.border-subtle;
 
                     VerticalLayout {
                         padding: Tokens.space-2;
@@ -266,26 +520,57 @@ export component BoardPage inherits Rectangle {
                             }
                         }
 
-                        for card in lane.cards : BoardCardView {
-                            item: card;
-                            column: index;
-                            drag-moved(key, x) => {
-                                root.drag(key, x);
-                            }
-                            dropped(key, source, x) => {
-                                root.drop(key, source, x);
-                            }
-                            step(key, source, direction) => {
-                                if (source + direction >= 0 && source + direction < root.board.length) {
-                                    root.moved(key, source + direction);
+                        ScrollArea {
+                            vertical-stretch: 1;
+                            accessible-name: lane.name + " " + root.cards-label;
+
+                            VerticalLayout {
+                                spacing: Tokens.space-2;
+                                alignment: start;
+
+                                if lane.cards.length == 0 && root.empty-column-label != "" : Text {
+                                    text: root.empty-column-label;
+                                    color: Tokens.text-muted;
+                                    font-family: Type.caption.family;
+                                    font-size: Type.caption.size;
+                                    font-weight: Type.caption.weight;
                                 }
-                            }
-                            picked(key) => {
-                                root.picked(key);
+                                for card in lane.cards : BoardCardView {
+                                    item: card;
+                                    column: index;
+                                    lanes: root.board;
+                                    show-move: root.show-move;
+                                    move-label: root.move-label;
+                                    move-tooltip: root.move-tooltip;
+                                    move-verb: root.move-verb;
+                                    drag-begin(item, px, py, gx, gy) => {
+                                        root.begin-drag(index, item, px, py, gx, gy);
+                                    }
+                                    drag-move(px, py) => {
+                                        root.move-drag(px, py);
+                                    }
+                                    drag-end(px, py) => {
+                                        root.end-drag(px, py);
+                                    }
+                                    drag-cancel() => {
+                                        root.cancel-drag();
+                                    }
+                                    step(key, source, direction) => {
+                                        if (source + direction >= 0 && source + direction < root.board.length) {
+                                            root.moved(key, source + direction);
+                                        }
+                                    }
+                                    picked(key) => {
+                                        root.picked(key);
+                                    }
+                                    moved(key, target) => {
+                                        root.moved(key, target);
+                                    }
+                                }
                             }
                         }
 
-                        Button {
+                        if root.add-label != "" : Button {
                             text: root.add-label;
                             variant: ButtonVariant.ghost;
                             size: ButtonSize.sm;
@@ -296,6 +581,54 @@ export component BoardPage inherits Rectangle {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Auto-scroll: while a drag is near the left or right edge of the board, scroll that way. Runs only during a drag.
+    Timer {
+        interval: 16ms;
+        running: root.drag-active;
+        triggered => {
+            if (root.drag-x < board-scroll.absolute-position.x + 48px && board-scroll.content-x < 0px) {
+                board-scroll.content-x = Math.min(0px, board-scroll.content-x + 6px);
+            } else if (root.drag-x > board-scroll.absolute-position.x + board-scroll.width - 48px
+                    && board-scroll.content-x > board-scroll.visible-width - board-scroll.content-width) {
+                board-scroll.content-x = Math.max(board-scroll.visible-width - board-scroll.content-width, board-scroll.content-x - 6px);
+            }
+            root.refresh-drop();
+        }
+    }
+
+    // The ghost: a copy of the card under the pointer, on top of the columns. It does not take presses.
+    if root.drag-active : Rectangle {
+        x: root.drag-x - root.absolute-position.x - root.grab-x;
+        y: root.drag-y - root.absolute-position.y - root.grab-y;
+        width: root.column-width - Tokens.space-2 * 2;
+        height: ghost-text.preferred-height;
+        background: Tokens.surface-raised;
+        border-width: 2px;
+        border-color: Tokens.focus-ring;
+        border-radius: Tokens.radius-r4;
+        opacity: 0.9;
+
+        ghost-text := VerticalLayout {
+            padding: Tokens.space-2;
+            spacing: Tokens.space-1;
+            if root.drag-item.badge != "" : Text {
+                text: root.drag-item.badge;
+                color: Tokens.text-muted;
+                font-family: Type.code.family;
+                font-size: Type.code.size;
+                font-weight: Type.code.weight;
+            }
+            Text {
+                text: root.drag-item.title;
+                color: Tokens.text-primary;
+                wrap: word-wrap;
+                font-family: Type.body-strong.family;
+                font-size: Type.body-strong.size;
+                font-weight: Type.body-strong.weight;
             }
         }
     }

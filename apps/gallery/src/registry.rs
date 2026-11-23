@@ -674,6 +674,14 @@ pub const STORIES: &[Story] = &[
                 name: "selected",
                 after_render: AfterRender::None,
             },
+            Variant {
+                name: "row-actions",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "no-title",
+                after_render: AfterRender::None,
+            },
         ],
     },
     Story {
@@ -692,6 +700,14 @@ pub const STORIES: &[Story] = &[
             },
             Variant {
                 name: "move-refused",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "rich-cards",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "drop-target",
                 after_render: AfterRender::None,
             },
         ],

@@ -43,6 +43,8 @@ export component ListPage inherits Rectangle {
     // The search box: the text (two-way, so the caller can clear it) and its placeholder.
     in-out property <string> search-text;
     in property <string> search-placeholder: "Search";
+    // The table's accessible name (the page has no visible title when it is empty).
+    in property <string> table-label;
     // The primary action in the header. Empty hides it.
     in property <string> action-label;
     // The bulk action for the selected rows (for example "Delete"). It shows with `selected-count` above zero. Empty hides
@@ -88,8 +90,9 @@ export component ListPage inherits Rectangle {
         padding: Tokens.space-4;
         spacing: Tokens.space-3;
 
-        // Header: title and the primary action.
-        HorizontalLayout {
+        // Header: title and the primary action. With no title and no action the whole row is left out, so it takes no
+        // height and no layout spacing.
+        if root.title != "" || root.action-label != "" : HorizontalLayout {
             spacing: Tokens.space-3;
             Text {
                 horizontal-stretch: 1;
@@ -167,7 +170,7 @@ export component ListPage inherits Rectangle {
 
         if root.state == PageLoadState.loaded && root.row-actions.length == 0 : Table {
             vertical-stretch: 1;
-            accessible-name: root.title;
+            accessible-name: root.table-label != "" ? root.table-label : root.title;
             columns: root.columns;
             rows: root.rows;
             sort-column: root.sort-column;
