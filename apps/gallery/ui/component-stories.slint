@@ -32,6 +32,7 @@ import { RecentList } from "@rimelight_ui/components/recent-list.slint";
 import { Select, SelectOption, SelectSize } from "@rimelight_ui/components/select.slint";
 import { Combobox } from "@rimelight_ui/components/combobox.slint";
 import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { LineChart, BarChart, DonutChart, ProgressRing, ChartPoint, ChartSlice, ChartPalette } from "@rimelight_ui/components/chart.slint";
 import { Avatar, AvatarStack, AvatarSize, Presence, AvatarItem } from "@rimelight_ui/components/avatar.slint";
 import { DescriptionList, DescriptionItem } from "@rimelight_ui/components/description-list.slint";
 import { Stat, DeltaDirection } from "@rimelight_ui/components/stat.slint";
@@ -65,7 +66,12 @@ import { FilterBar, FilterChip } from "@rimelight_ui/components/filter-bar.slint
 import { Tree, TreeRow } from "@rimelight_ui/components/tree.slint";
 import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
-import { PageLoadState } from "@rimelight_ui/components/page-state.slint";
+import { PageState, PageLoadState } from "@rimelight_ui/components/page-state.slint";
+import { DatePicker } from "@rimelight_ui/components/date-picker.slint";
+import { DateRangePicker } from "@rimelight_ui/components/date-range-picker.slint";
+import { TimePicker } from "@rimelight_ui/components/time-picker.slint";
+import { CalendarGrid, CalendarDay } from "@rimelight_ui/components/calendar-grid.slint";
+import { ViewSwitcher } from "@rimelight_ui/components/view-switcher.slint";
 import { ListPage } from "@rimelight_shell/templates/list-page.slint";
 import { BoardPage } from "@rimelight_shell/templates/board-page.slint";
 import { DetailPage } from "@rimelight_shell/templates/detail-page.slint";
@@ -3026,6 +3032,617 @@ export component DetailPageStory inherits VerticalLayout {
                     description: "Three reviews this week.";
                 }
             }
+        }
+    }
+}
+
+// The month of November 2026 as the calendar grid draws it: six weeks from Monday 26 October, with 15 November as today.
+// The caller owns the cells in an app (see src/slint_ui/calendar.rs); the stories pass fixed ones.
+global CalendarSample {
+    out property <[CalendarDay]> plain: [
+        { day: 26, in-month: false, today: false, selected: false, in-range: false },
+        { day: 27, in-month: false, today: false, selected: false, in-range: false },
+        { day: 28, in-month: false, today: false, selected: false, in-range: false },
+        { day: 29, in-month: false, today: false, selected: false, in-range: false },
+        { day: 30, in-month: false, today: false, selected: false, in-range: false },
+        { day: 31, in-month: false, today: false, selected: false, in-range: false },
+        { day: 1, in-month: true, today: false, selected: false, in-range: false },
+        { day: 2, in-month: true, today: false, selected: false, in-range: false },
+        { day: 3, in-month: true, today: false, selected: false, in-range: false },
+        { day: 4, in-month: true, today: false, selected: false, in-range: false },
+        { day: 5, in-month: true, today: false, selected: false, in-range: false },
+        { day: 6, in-month: true, today: false, selected: false, in-range: false },
+        { day: 7, in-month: true, today: false, selected: false, in-range: false },
+        { day: 8, in-month: true, today: false, selected: false, in-range: false },
+        { day: 9, in-month: true, today: false, selected: false, in-range: false },
+        { day: 10, in-month: true, today: false, selected: false, in-range: false },
+        { day: 11, in-month: true, today: false, selected: false, in-range: false },
+        { day: 12, in-month: true, today: false, selected: false, in-range: false },
+        { day: 13, in-month: true, today: false, selected: false, in-range: false },
+        { day: 14, in-month: true, today: false, selected: false, in-range: false },
+        { day: 15, in-month: true, today: true, selected: false, in-range: false },
+        { day: 16, in-month: true, today: false, selected: false, in-range: false },
+        { day: 17, in-month: true, today: false, selected: false, in-range: false },
+        { day: 18, in-month: true, today: false, selected: false, in-range: false },
+        { day: 19, in-month: true, today: false, selected: false, in-range: false },
+        { day: 20, in-month: true, today: false, selected: false, in-range: false },
+        { day: 21, in-month: true, today: false, selected: false, in-range: false },
+        { day: 22, in-month: true, today: false, selected: false, in-range: false },
+        { day: 23, in-month: true, today: false, selected: false, in-range: false },
+        { day: 24, in-month: true, today: false, selected: false, in-range: false },
+        { day: 25, in-month: true, today: false, selected: false, in-range: false },
+        { day: 26, in-month: true, today: false, selected: false, in-range: false },
+        { day: 27, in-month: true, today: false, selected: false, in-range: false },
+        { day: 28, in-month: true, today: false, selected: false, in-range: false },
+        { day: 29, in-month: true, today: false, selected: false, in-range: false },
+        { day: 30, in-month: true, today: false, selected: false, in-range: false },
+        { day: 1, in-month: false, today: false, selected: false, in-range: false },
+        { day: 2, in-month: false, today: false, selected: false, in-range: false },
+        { day: 3, in-month: false, today: false, selected: false, in-range: false },
+        { day: 4, in-month: false, today: false, selected: false, in-range: false },
+        { day: 5, in-month: false, today: false, selected: false, in-range: false },
+        { day: 6, in-month: false, today: false, selected: false, in-range: false },
+    ];
+    out property <[CalendarDay]> picked: [
+        { day: 26, in-month: false, today: false, selected: false, in-range: false },
+        { day: 27, in-month: false, today: false, selected: false, in-range: false },
+        { day: 28, in-month: false, today: false, selected: false, in-range: false },
+        { day: 29, in-month: false, today: false, selected: false, in-range: false },
+        { day: 30, in-month: false, today: false, selected: false, in-range: false },
+        { day: 31, in-month: false, today: false, selected: false, in-range: false },
+        { day: 1, in-month: true, today: false, selected: false, in-range: false },
+        { day: 2, in-month: true, today: false, selected: false, in-range: false },
+        { day: 3, in-month: true, today: false, selected: false, in-range: false },
+        { day: 4, in-month: true, today: false, selected: false, in-range: false },
+        { day: 5, in-month: true, today: false, selected: false, in-range: false },
+        { day: 6, in-month: true, today: false, selected: false, in-range: false },
+        { day: 7, in-month: true, today: false, selected: false, in-range: false },
+        { day: 8, in-month: true, today: false, selected: false, in-range: false },
+        { day: 9, in-month: true, today: false, selected: false, in-range: false },
+        { day: 10, in-month: true, today: false, selected: false, in-range: false },
+        { day: 11, in-month: true, today: false, selected: false, in-range: false },
+        { day: 12, in-month: true, today: false, selected: false, in-range: false },
+        { day: 13, in-month: true, today: false, selected: false, in-range: false },
+        { day: 14, in-month: true, today: false, selected: false, in-range: false },
+        { day: 15, in-month: true, today: true, selected: false, in-range: false },
+        { day: 16, in-month: true, today: false, selected: false, in-range: false },
+        { day: 17, in-month: true, today: false, selected: false, in-range: false },
+        { day: 18, in-month: true, today: false, selected: true, in-range: false },
+        { day: 19, in-month: true, today: false, selected: false, in-range: false },
+        { day: 20, in-month: true, today: false, selected: false, in-range: false },
+        { day: 21, in-month: true, today: false, selected: false, in-range: false },
+        { day: 22, in-month: true, today: false, selected: false, in-range: false },
+        { day: 23, in-month: true, today: false, selected: false, in-range: false },
+        { day: 24, in-month: true, today: false, selected: false, in-range: false },
+        { day: 25, in-month: true, today: false, selected: false, in-range: false },
+        { day: 26, in-month: true, today: false, selected: false, in-range: false },
+        { day: 27, in-month: true, today: false, selected: false, in-range: false },
+        { day: 28, in-month: true, today: false, selected: false, in-range: false },
+        { day: 29, in-month: true, today: false, selected: false, in-range: false },
+        { day: 30, in-month: true, today: false, selected: false, in-range: false },
+        { day: 1, in-month: false, today: false, selected: false, in-range: false },
+        { day: 2, in-month: false, today: false, selected: false, in-range: false },
+        { day: 3, in-month: false, today: false, selected: false, in-range: false },
+        { day: 4, in-month: false, today: false, selected: false, in-range: false },
+        { day: 5, in-month: false, today: false, selected: false, in-range: false },
+        { day: 6, in-month: false, today: false, selected: false, in-range: false },
+    ];
+    out property <[CalendarDay]> ranged: [
+        { day: 26, in-month: false, today: false, selected: false, in-range: false },
+        { day: 27, in-month: false, today: false, selected: false, in-range: false },
+        { day: 28, in-month: false, today: false, selected: false, in-range: false },
+        { day: 29, in-month: false, today: false, selected: false, in-range: false },
+        { day: 30, in-month: false, today: false, selected: false, in-range: false },
+        { day: 31, in-month: false, today: false, selected: false, in-range: false },
+        { day: 1, in-month: true, today: false, selected: false, in-range: false },
+        { day: 2, in-month: true, today: false, selected: false, in-range: false },
+        { day: 3, in-month: true, today: false, selected: false, in-range: false },
+        { day: 4, in-month: true, today: false, selected: false, in-range: false },
+        { day: 5, in-month: true, today: false, selected: false, in-range: false },
+        { day: 6, in-month: true, today: false, selected: false, in-range: false },
+        { day: 7, in-month: true, today: false, selected: false, in-range: false },
+        { day: 8, in-month: true, today: false, selected: false, in-range: false },
+        { day: 9, in-month: true, today: false, selected: false, in-range: false },
+        { day: 10, in-month: true, today: false, selected: true, in-range: false },
+        { day: 11, in-month: true, today: false, selected: false, in-range: true },
+        { day: 12, in-month: true, today: false, selected: false, in-range: true },
+        { day: 13, in-month: true, today: false, selected: false, in-range: true },
+        { day: 14, in-month: true, today: false, selected: false, in-range: true },
+        { day: 15, in-month: true, today: true, selected: false, in-range: true },
+        { day: 16, in-month: true, today: false, selected: false, in-range: true },
+        { day: 17, in-month: true, today: false, selected: false, in-range: true },
+        { day: 18, in-month: true, today: false, selected: false, in-range: true },
+        { day: 19, in-month: true, today: false, selected: false, in-range: true },
+        { day: 20, in-month: true, today: false, selected: true, in-range: false },
+        { day: 21, in-month: true, today: false, selected: false, in-range: false },
+        { day: 22, in-month: true, today: false, selected: false, in-range: false },
+        { day: 23, in-month: true, today: false, selected: false, in-range: false },
+        { day: 24, in-month: true, today: false, selected: false, in-range: false },
+        { day: 25, in-month: true, today: false, selected: false, in-range: false },
+        { day: 26, in-month: true, today: false, selected: false, in-range: false },
+        { day: 27, in-month: true, today: false, selected: false, in-range: false },
+        { day: 28, in-month: true, today: false, selected: false, in-range: false },
+        { day: 29, in-month: true, today: false, selected: false, in-range: false },
+        { day: 30, in-month: true, today: false, selected: false, in-range: false },
+        { day: 1, in-month: false, today: false, selected: false, in-range: false },
+        { day: 2, in-month: false, today: false, selected: false, in-range: false },
+        { day: 3, in-month: false, today: false, selected: false, in-range: false },
+        { day: 4, in-month: false, today: false, selected: false, in-range: false },
+        { day: 5, in-month: false, today: false, selected: false, in-range: false },
+        { day: 6, in-month: false, today: false, selected: false, in-range: false },
+    ];
+}
+
+// DatePicker (P0.17 batch 6): the trigger Button with the date the caller formatted, or the placeholder. The popover grid
+// opens from the trigger. 0 default (placeholder), 1 filled, 2 disabled.
+export component DatePickerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Seletor de data" : "DatePicker"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Sem data" : "No date";
+        DatePicker {
+            width: 240px;
+            placeholder: root.pt ? "Escolha uma data" : "Pick a date";
+            accessible-name: root.pt ? "Data" : "Date";
+            days: CalendarSample.plain;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Com data" : "With a date";
+        DatePicker {
+            width: 240px;
+            text: root.pt ? "18 nov 2026" : "18 Nov 2026";
+            accessible-name: root.pt ? "Data" : "Date";
+            days: CalendarSample.picked;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Desativado" : "Disabled";
+        DatePicker {
+            width: 240px;
+            text: root.pt ? "18 nov 2026" : "18 Nov 2026";
+            accessible-name: root.pt ? "Data" : "Date";
+            enabled: false;
+            days: CalendarSample.picked;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+}
+
+// DateRangePicker (P0.17 batch 6): the same trigger with a range. 0 default (placeholder), 1 filled, 2 disabled.
+export component DateRangePickerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Seletor de periodo" : "DateRangePicker"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Sem periodo" : "No range";
+        DateRangePicker {
+            width: 320px;
+            placeholder: root.pt ? "Escolha um periodo" : "Pick a date range";
+            accessible-name: root.pt ? "Periodo" : "Range";
+            days: CalendarSample.plain;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Com periodo" : "With a range";
+        DateRangePicker {
+            width: 320px;
+            text: root.pt ? "10 nov 2026 a 20 nov 2026" : "10 Nov 2026 to 20 Nov 2026";
+            accessible-name: root.pt ? "Periodo" : "Range";
+            range-complete: true;
+            days: CalendarSample.ranged;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Desativado" : "Disabled";
+        DateRangePicker {
+            width: 320px;
+            text: root.pt ? "10 nov 2026 a 20 nov 2026" : "10 Nov 2026 to 20 Nov 2026";
+            accessible-name: root.pt ? "Periodo" : "Range";
+            enabled: false;
+            range-complete: true;
+            days: CalendarSample.ranged;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+        }
+    }
+}
+
+// TimePicker (P0.17 batch 6): an hour and a minute. 0 default (09:00), 1 filled (14:30), 2 disabled.
+export component TimePickerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Seletor de hora" : "TimePicker"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Padrao" : "Default";
+        TimePicker { accessible-name: root.pt ? "Hora" : "Time"; }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Preenchido" : "Filled";
+        TimePicker { hour: 14; minute: 30; accessible-name: root.pt ? "Hora" : "Time"; }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Desativado" : "Disabled";
+        TimePicker { hour: 14; minute: 30; enabled: false; accessible-name: root.pt ? "Hora" : "Time"; }
+    }
+}
+
+// Calendar (CalendarGrid, P0.17 batch 6): one month. 0 default (today only), 1 selected day, 2 selected range.
+export component CalendarStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Calendario" : "Calendar"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Hoje" : "Today";
+        CalendarGrid {
+            width: 320px;
+            height: 304px;
+            days: CalendarSample.plain;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+            accessible-name: root.pt ? "Calendario" : "Calendar";
+            previous-label: root.pt ? "Mes anterior" : "Previous month";
+            next-label: root.pt ? "Proximo mes" : "Next month";
+            focus-index: 20;
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Dia escolhido" : "Selected day";
+        CalendarGrid {
+            width: 320px;
+            height: 304px;
+            days: CalendarSample.picked;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+            accessible-name: root.pt ? "Calendario" : "Calendar";
+            previous-label: root.pt ? "Mes anterior" : "Previous month";
+            next-label: root.pt ? "Proximo mes" : "Next month";
+            focus-index: 23;
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Periodo" : "Range";
+        CalendarGrid {
+            width: 320px;
+            height: 304px;
+            days: CalendarSample.ranged;
+            weekday-labels: root.pt ? ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            title: root.pt ? "Novembro 2026" : "November 2026";
+            accessible-name: root.pt ? "Calendario" : "Calendar";
+            previous-label: root.pt ? "Mes anterior" : "Previous month";
+            next-label: root.pt ? "Proximo mes" : "Next month";
+            focus-index: 15;
+        }
+    }
+}
+
+// ColorField (S5): a swatch and the hex on a button, which opens a ColorPicker. 0 default, 1 with presets.
+export component ColorFieldStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    property <color> field-colour: Tokens.ramp-primary-500;
+    property <color> preset-colour: Tokens.ramp-success-500;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Campo de cor" : "ColorField"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Padrao" : "Default";
+        ColorField { width: 220px; color <=> root.field-colour; accessible-name: root.pt ? "Cor da area" : "Area colour"; }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Com predefinidas" : "With presets";
+        ColorField {
+            width: 220px;
+            color <=> root.preset-colour;
+            presets: [Tokens.ramp-primary-500, Tokens.ramp-success-500, Tokens.ramp-error-500, Tokens.ramp-ideation-500];
+            accessible-name: root.pt ? "Cor da area" : "Area colour";
+        }
+    }
+}
+
+// Form (S5): a column of fields with the form spacing. 0 default (empty), 1 filled, 2 errors on two fields.
+export component FormStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Formulario" : "Form"; }
+
+    if root.variant == 0 : FieldForm {
+        width: 420px;
+        Field { label: root.pt ? "Nome" : "Name"; required: true;
+            Input { placeholder: root.pt ? "Nome completo" : "Full name"; accessible-name: root.pt ? "Nome" : "Name"; }
+        }
+        Field { label: "Email"; help: root.pt ? "Nunca compartilhamos." : "We never share it.";
+            Input { placeholder: "you@example.com"; leading-icon: Icons.mail; accessible-name: "Email"; }
+        }
+        Button { text: root.pt ? "Salvar" : "Save"; variant: ButtonVariant.primary; }
+    }
+    if root.variant == 1 : FieldForm {
+        width: 420px;
+        Field { label: root.pt ? "Nome" : "Name"; required: true;
+            Input { text: "Ada Lovelace"; accessible-name: root.pt ? "Nome" : "Name"; }
+        }
+        Field { label: "Email"; help: root.pt ? "Nunca compartilhamos." : "We never share it.";
+            Input { text: "ada@example.com"; leading-icon: Icons.mail; accessible-name: "Email"; }
+        }
+        Button { text: root.pt ? "Salvar" : "Save"; variant: ButtonVariant.primary; }
+    }
+    if root.variant == 2 : FieldForm {
+        width: 420px;
+        Field { label: root.pt ? "Nome" : "Name"; required: true; error: root.pt ? "O nome e obrigatorio." : "Name is required.";
+            Input { invalid: true; placeholder: root.pt ? "Nome completo" : "Full name"; accessible-name: root.pt ? "Nome" : "Name"; }
+        }
+        Field { label: "Email"; error: root.pt ? "Digite um email valido." : "Enter a valid email address.";
+            Input { text: "ada@"; invalid: true; leading-icon: Icons.mail; accessible-name: "Email"; }
+        }
+        Button { text: root.pt ? "Salvar" : "Save"; variant: ButtonVariant.primary; }
+    }
+}
+
+// FileTile (FileKindTile and the attachment tile): 0 default (the four file kinds), 1 sizes, 2 attachments.
+export component FileTileStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Bloco de arquivo" : "FileTile"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Tipos de arquivo" : "File kinds";
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            alignment: start;
+            FileKindTile { kind: "picture"; tile-size: Tokens.size-control-xl; }
+            FileKindTile { kind: "video"; tile-size: Tokens.size-control-xl; }
+            FileKindTile { kind: "music"; tile-size: Tokens.size-control-xl; }
+            FileKindTile { kind: "text"; tile-size: Tokens.size-control-xl; }
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Tamanhos" : "Sizes";
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            alignment: start;
+            FileKindTile { kind: "picture"; tile-size: Tokens.icon-medium; }
+            FileKindTile { kind: "picture"; tile-size: Tokens.size-control-lg; }
+            FileKindTile { kind: "picture"; tile-size: Tokens.size-control-xl; }
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Anexos" : "Attachments";
+        AttachmentGrid {
+            width: 520px;
+            items: [
+                { name: "screenshot.png", size: "240 KB", is-image: true, thumbnail: @image-url("../assets/stories/avatar-sample.svg"), changeable: false },
+                { name: "build-log.txt", size: "12 KB", is-image: false, changeable: false },
+            ];
+        }
+    }
+}
+
+// PageState (SP.3b): what a page shows in place of its data. 0 default (loading), 1 empty, 2 error.
+export component PageStateStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Estado da pagina" : "PageState"; }
+
+    Rectangle {
+        height: 320px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+
+        PageState {
+            width: parent.width;
+            height: parent.height;
+            alignment: center;
+            state: root.variant == 1 ? PageLoadState.empty : (root.variant == 2 ? PageLoadState.error : PageLoadState.loading);
+            icon: Icons.folder-open;
+            loading-text: root.pt ? "Carregando..." : "Loading...";
+            empty-title: root.pt ? "Nada aqui ainda" : "Nothing here yet";
+            empty-description: root.pt ? "Os itens criados aparecem aqui." : "Items you create show up here.";
+            error-title: root.pt ? "Nao foi possivel carregar" : "Could not load";
+            error-description: root.pt ? "Verifique a conexao e tente de novo." : "Check your connection and try again.";
+            error-details: "HTTP 503";
+            retry-label: root.pt ? "Tentar de novo" : "Try again";
+        }
+    }
+}
+
+// ViewSwitcher: the dropdown that picks a view of a page. 0 default (Table on show), 1 board on show, 2 three views.
+export component ViewSwitcherStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Alternador de visao" : "ViewSwitcher"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Tabela" : "Table";
+        ViewSwitcher {
+            width: 180px;
+            accessible-name: root.pt ? "Visao" : "View";
+            options: [
+                { label: root.pt ? "Tabela" : "Table", icon: Icons.table-properties },
+                { label: root.pt ? "Quadro" : "Board", icon: Icons.kanban },
+            ];
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Quadro" : "Board";
+        ViewSwitcher {
+            width: 180px;
+            active: 1;
+            accessible-name: root.pt ? "Visao" : "View";
+            options: [
+                { label: root.pt ? "Tabela" : "Table", icon: Icons.table-properties },
+                { label: root.pt ? "Quadro" : "Board", icon: Icons.kanban },
+            ];
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Tres visoes" : "Three views";
+        ViewSwitcher {
+            width: 180px;
+            active: 2;
+            accessible-name: root.pt ? "Visao" : "View";
+            options: [
+                { label: root.pt ? "Tabela" : "Table", icon: Icons.table-properties },
+                { label: root.pt ? "Quadro" : "Board", icon: Icons.kanban },
+                { label: root.pt ? "Calendario" : "Calendar", icon: Icons.calendar },
+            ];
+        }
+    }
+}
+
+// Charts: a fixed sample model drawn as every chart kind. 0 all kinds, 1 line, 2 bar, 3 donut, 4 empty (no data).
+export component ChartStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    property <[ChartPoint]> pts: [
+        { label: "Mon", value: 20 },
+        { label: "Tue", value: 45 },
+        { label: "Wed", value: 35 },
+        { label: "Thu", value: 70 },
+        { label: "Fri", value: 55 },
+    ];
+    property <[ChartSlice]> parts: [
+        { label: "A", value: 50, start: 0, span: 0.5, colour: ChartPalette.series[0] },
+        { label: "B", value: 30, start: 0.5, span: 0.3, colour: ChartPalette.series[1] },
+        { label: "C", value: 20, start: 0.8, span: 0.2, colour: ChartPalette.series[2] },
+    ];
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Graficos" : "Chart"; }
+
+    if root.variant == 0 || root.variant == 1 : CaptionRow { caption: root.pt ? "Linha" : "Line";
+        LineChart {
+            width: 320px;
+            height: 180px;
+            points: root.pts;
+            unit: "%";
+            accessible-name: root.pt ? "Grafico de linha" : "Line chart";
+        }
+    }
+    if root.variant == 0 || root.variant == 2 : CaptionRow { caption: root.pt ? "Barras" : "Bar";
+        BarChart {
+            width: 320px;
+            height: 180px;
+            points: root.pts;
+            unit: "%";
+            colour: ChartPalette.series[1];
+            accessible-name: root.pt ? "Grafico de barras" : "Bar chart";
+        }
+    }
+    if root.variant == 0 || root.variant == 3 : CaptionRow { caption: root.pt ? "Rosca" : "Donut";
+        DonutChart {
+            width: 160px;
+            height: 160px;
+            slices: root.parts;
+            centre-text: "100";
+            accessible-name: root.pt ? "Grafico de rosca" : "Donut chart";
+        }
+    }
+    if root.variant == 4 : CaptionRow { caption: root.pt ? "Linha vazia" : "Line, no data";
+        LineChart {
+            width: 320px;
+            height: 140px;
+            points: [];
+            empty-text: root.pt ? "Sem dados" : "No data yet";
+            accessible-name: root.pt ? "Grafico de linha" : "Line chart";
+        }
+    }
+    if root.variant == 4 : CaptionRow { caption: root.pt ? "Barras vazio" : "Bar, no data";
+        BarChart {
+            width: 320px;
+            height: 140px;
+            points: [];
+            empty-text: root.pt ? "Sem dados" : "No data yet";
+            accessible-name: root.pt ? "Grafico de barras" : "Bar chart";
+        }
+    }
+    if root.variant == 4 : CaptionRow { caption: root.pt ? "Rosca vazia" : "Donut, no data";
+        DonutChart {
+            width: 120px;
+            height: 120px;
+            slices: [];
+            empty-text: root.pt ? "Sem dados" : "No data yet";
+            accessible-name: root.pt ? "Grafico de rosca" : "Donut chart";
+        }
+    }
+}
+
+// Progress ring: 0 default (60 %, centre label), 1 partial (25 %, no label), 2 full, 3 empty.
+export component ProgressRingStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: root.pt ? "Anel de progresso" : "ProgressRing"; }
+
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Com rotulo" : "With centre label";
+        ProgressRing {
+            width: 96px;
+            height: 96px;
+            value: 0.6;
+            centre-text: "60 %";
+            accessible-name: root.pt ? "Progresso 60 por cento" : "Progress 60 percent";
+        }
+    }
+    if root.variant == 0 : CaptionRow { caption: root.pt ? "Sem rotulo" : "No label";
+        ProgressRing {
+            width: 96px;
+            height: 96px;
+            value: 0.6;
+            colour: ChartPalette.series[1];
+            accessible-name: root.pt ? "Progresso 60 por cento" : "Progress 60 percent";
+        }
+    }
+    if root.variant == 1 : CaptionRow { caption: root.pt ? "Parcial" : "Partial";
+        ProgressRing {
+            width: 96px;
+            height: 96px;
+            value: 0.25;
+            centre-text: "25 %";
+            colour: ChartPalette.series[2];
+            accessible-name: root.pt ? "Progresso 25 por cento" : "Progress 25 percent";
+        }
+    }
+    if root.variant == 2 : CaptionRow { caption: root.pt ? "Completo" : "Full";
+        ProgressRing {
+            width: 96px;
+            height: 96px;
+            value: 1;
+            centre-text: "100 %";
+            colour: ChartPalette.series[1];
+            accessible-name: root.pt ? "Progresso 100 por cento" : "Progress 100 percent";
+        }
+    }
+    if root.variant == 3 : CaptionRow { caption: root.pt ? "Vazio" : "Empty";
+        ProgressRing {
+            width: 96px;
+            height: 96px;
+            value: 0;
+            centre-text: "0 %";
+            accessible-name: root.pt ? "Progresso 0 por cento" : "Progress 0 percent";
         }
     }
 }

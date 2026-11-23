@@ -7,13 +7,13 @@
 import { ScrollView } from "std-widgets.slint";
 // The app's own stories (`--stories <dir>`), or an empty stub (ui/no-app-stories) when none are given.
 import { AppStories } from "@app_stories/stories.slint";
-import { ShellStory, TabsSplitStory, CommandPaletteStory, StatusBarStory } from "shell-stories.slint";
+import { ShellStory, TabsSplitStory, CommandPaletteStory, StatusBarStory, ShortcutsDialogStory, MoreDrawerStory, SignInScreenStory, QuickActionStory, AccountMenuStory } from "shell-stories.slint";
 import { PaletteRow } from "@rimelight_shell/components/command-palette.slint";
 import { RailItem, RailBadge } from "@rimelight_shell/components/rail.slint";
 import { SidebarItem } from "@rimelight_shell/components/sidebar.slint";
 import { Tokens, ThemeChoice } from "@rimelight_design/tokens.slint";
 import { TokensStory, TypographyStory, IconsStory, SpacingStory, MotionStory, AboutStory } from "stories.slint";
-import { ButtonStory, IconButtonStory, ButtonGroupStory, LinkStory, BadgeStory, TagStory, KbdStory, AvatarStory, AvatarStackStory, DividerStory, SkeletonStory, SpinnerStory, ProgressStory, EmptyStateStory, ErrorStateStory, InputStory, SearchFieldStory, TextareaStory, NumberInputStory, FieldStory, CheckboxStory, RadioGroupStory, SwitchStory, SliderStory, SelectStory, ComboboxStory, TooltipStory, PopoverStory, MenuStory, ContextMenuStory, DialogStory, SheetStory, ToastStory, BannerStory, CardStory, SectionStory, StatusDotStory, PresenceDotStory, BreadcrumbsStory, TabsStory, AccordionStory, StepperStory, PaginationStory, ToolbarStory, FilterBarStory, TreeStory, ScrollAreaStory, ResizablePanelStory, DescriptionListStory, StatStory, TimelineStory, ActivityFeedStory, ListStory, TableStory, ImageViewerStory, AttachmentGridStory, ColorPickerStory, ToolbarRowStory, ActionRowStory, TileStory, RecentListStory, ListPageStory, BoardPageStory, DetailPageStory } from "component-stories.slint";
+import { ButtonStory, IconButtonStory, ButtonGroupStory, LinkStory, BadgeStory, TagStory, KbdStory, AvatarStory, AvatarStackStory, DividerStory, SkeletonStory, SpinnerStory, ProgressStory, EmptyStateStory, ErrorStateStory, InputStory, SearchFieldStory, TextareaStory, NumberInputStory, FieldStory, CheckboxStory, RadioGroupStory, SwitchStory, SliderStory, SelectStory, ComboboxStory, TooltipStory, PopoverStory, MenuStory, ContextMenuStory, DialogStory, SheetStory, ToastStory, BannerStory, CardStory, SectionStory, StatusDotStory, PresenceDotStory, BreadcrumbsStory, TabsStory, AccordionStory, StepperStory, PaginationStory, ToolbarStory, FilterBarStory, TreeStory, ScrollAreaStory, ResizablePanelStory, DescriptionListStory, StatStory, TimelineStory, ActivityFeedStory, ListStory, TableStory, ImageViewerStory, AttachmentGridStory, ColorPickerStory, ToolbarRowStory, ActionRowStory, TileStory, RecentListStory, ListPageStory, BoardPageStory, DetailPageStory, DatePickerStory, DateRangePickerStory, TimePickerStory, CalendarStory, ColorFieldStory, FormStory, FileTileStory, PageStateStory, ViewSwitcherStory, ChartStory, ProgressRingStory } from "component-stories.slint";
 import { ListRow } from "@rimelight_ui/components/list.slint";
 import { TableColumn, TableRow } from "@rimelight_ui/components/table.slint";
 import { TooltipOverlay } from "@rimelight_ui/components/tooltip.slint";
@@ -111,7 +111,7 @@ export component GalleryWindow inherits Window {
     // Number of stories (selectable rows). Up and Down stay in 0 .. story-count - 1.
     in-out property <int> story-count: 0;
     // How many built-in stories the chain above shows (set by Rust). An app story is story N where N >= builtin-count.
-    in-out property <int> builtin-count: 74;
+    in-out property <int> builtin-count: 90;
     // The selected story, and its variant (see the registry).
     in-out property <int> story: 0;
     in-out property <int> variant: 0;
@@ -439,6 +439,22 @@ export component GalleryWindow inherits Window {
                                 if root.story == 71 : ListPageStory { pt: root.pt; variant: root.variant; }
                                 if root.story == 72 : BoardPageStory { pt: root.pt; variant: root.variant; }
                                 if root.story == 73 : DetailPageStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 74 : DatePickerStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 75 : DateRangePickerStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 76 : TimePickerStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 77 : CalendarStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 78 : ColorFieldStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 79 : FormStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 80 : FileTileStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 81 : PageStateStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 82 : ViewSwitcherStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 83 : ShortcutsDialogStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; host-width: root.width; host-height: root.height; }
+                                if root.story == 84 : MoreDrawerStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 85 : SignInScreenStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 86 : QuickActionStory { pt: root.pt; variant: root.variant; open-tick: root.popover-tick; }
+                                if root.story == 87 : AccountMenuStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 88 : ChartStory { pt: root.pt; variant: root.variant; }
+                                if root.story == 89 : ProgressRingStory { pt: root.pt; variant: root.variant; }
                                 // App stories (`--stories <dir>`, or the empty stub) render here, after the built-in chain.
                                 if root.story >= root.builtin-count : AppStories {
                                     story: root.story - root.builtin-count;

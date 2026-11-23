@@ -4570,7 +4570,7 @@ dependencies = [
 [[package]]
 name = "rimelight_design"
 version = "0.1.0"
-source = "git+https://github.com/Rimelight-Entertainment/rimelight.git?rev=d4420e634ee65c11f1e46666a4a1ccf3f713f653#d4420e634ee65c11f1e46666a4a1ccf3f713f653"
+source = "git+https://github.com/Rimelight-Entertainment/rimelight.git?rev=d1231382d6a7101bd175b8c5016726c1ed557802#d1231382d6a7101bd175b8c5016726c1ed557802"
 
 [[package]]
 name = "rimelight_gallery"

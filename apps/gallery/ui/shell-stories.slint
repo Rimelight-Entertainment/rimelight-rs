@@ -10,6 +10,13 @@ import { TabStrip } from "@rimelight_ui/components/tabs.slint";
 import { SplitPane } from "@rimelight_shell/components/split-pane.slint";
 import { CommandPalette, PaletteRow } from "@rimelight_shell/components/command-palette.slint";
 import { StatusBar } from "@rimelight_shell/components/status-bar.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { ShortcutsDialog } from "@rimelight_shell/components/shortcuts-dialog.slint";
+import { MoreDrawer } from "@rimelight_shell/components/more-drawer.slint";
+import { SignInScreen, SessionPhase } from "@rimelight_shell/components/sign-in-screen.slint";
+import { QuickAction } from "@rimelight_shell/components/quick-action.slint";
+import { AccountMenu, UserPresence } from "@rimelight_shell/components/account-menu.slint";
 
 component ShellHeading inherits Text {
     color: Tokens.text-primary;
@@ -196,5 +203,204 @@ export component StatusBarStory inherits VerticalLayout {
 
     StatusBar {
         width: 100%;
+    }
+}
+
+// Shortcuts dialog (IA section 9): a trigger Button and the dialog, which covers the window when open. 0 open (the
+// default list), 1 mac (Cmd and Option in the key chips). The gallery opens it after the first layout.
+component ShortcutsDemo inherits Rectangle {
+    in property <int> open-tick: 0;
+    in property <bool> mac-keys: false;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    height: Tokens.size-control-md;
+    width: 200px;
+
+    changed open-tick => {
+        trig.focus-me();
+        dlg.open();
+    }
+
+    trig := Button {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        text: "Keyboard shortcuts";
+        variant: ButtonVariant.secondary;
+        clicked => {
+            trig.focus-me();
+            dlg.open();
+        }
+    }
+
+    dlg := ShortcutsDialog {
+        mac-keys: root.mac-keys;
+        host-width: root.host-width;
+        host-height: root.host-height;
+    }
+}
+
+export component ShortcutsDialogStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <int> open-tick: 0;
+    in property <length> host-width: 10000px;
+    in property <length> host-height: 10000px;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Shortcuts dialog"; }
+
+    ShortcutsDemo {
+        mac-keys: root.variant == 1;
+        open-tick: root.open-tick;
+        host-width: root.host-width;
+        host-height: root.host-height;
+    }
+}
+
+// Phone More drawer (OQ24, OQ26, OQ29): the drawer in a bounded frame. 0 default (idle: no timer, no jobs), 1 busy (a running
+// timer and two background jobs).
+export component MoreDrawerStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "More drawer"; }
+
+    Rectangle {
+        height: 560px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+
+        HorizontalLayout {
+            alignment: start;
+            MoreDrawer {
+                timer-running: root.variant == 1;
+                timer-text: "1:02:03";
+                jobs: root.variant == 1 ? [
+                    { title: "Upload report.pdf", state: "40%" },
+                    { title: "Export payroll", state: "Queued" },
+                ] : [];
+                theme-icon: Icons.monitor;
+                theme-label: "Theme: system";
+                language-names: ["English", "Portugues"];
+                language-index: root.pt ? 1 : 0;
+                areas: [
+                    { label: "Projects", icon: Icons.folder-kanban },
+                    { label: "Finance", icon: Icons.banknote },
+                    { label: "People", icon: Icons.users },
+                    { label: "Support", icon: Icons.headset },
+                ];
+            }
+        }
+    }
+}
+
+// Sign-in screen: the screen in a bounded frame. 0 default (signed out), 1 loading, 2 waiting, 3 error, 4 unreachable.
+export component SignInScreenStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Sign-in screen"; }
+
+    Rectangle {
+        height: 420px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        clip: true;
+
+        SignInScreen {
+            width: parent.width;
+            height: parent.height;
+            phase: root.variant == 1 ? SessionPhase.loading
+                : (root.variant == 2 ? SessionPhase.waiting
+                : (root.variant == 4 ? SessionPhase.unreachable : SessionPhase.signed-out));
+            error-text: root.variant == 3 ? "Sign-in failed. Try again." : "";
+        }
+    }
+}
+
+// Quick action: the round button at the bottom right of a bounded frame. 0 default (closed), 1 open (the menu of category
+// sections, opened after the first layout).
+export component QuickActionStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    in property <int> open-tick: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Quick action"; }
+
+    Rectangle {
+        height: 420px * Tokens.text-factor;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        background: Tokens.surface-raised;
+
+        QuickAction {
+            x: parent.width - self.width - Tokens.space-4;
+            y: parent.height - self.height - Tokens.space-4;
+            open-request: root.open-tick;
+            item-count: 4;
+            categories: [
+                {
+                    title: "Create",
+                    items: [
+                        { id: "page", label: "New page", icon: Icons.file-text, enabled: true, hint: "" },
+                        { id: "project", label: "New project", icon: Icons.folder-kanban, enabled: true, hint: "" },
+                    ],
+                },
+                {
+                    title: "Capture",
+                    items: [
+                        { id: "task", label: "New task", icon: Icons.square-check, enabled: true, hint: "" },
+                        { id: "event", label: "New event", icon: Icons.calendar-plus, enabled: false, hint: "Needs a calendar" },
+                    ],
+                },
+            ];
+        }
+    }
+}
+
+// Account menu: the avatar popover content on a raised panel. 0 default (online), 1 away, 2 busy.
+export component AccountMenuStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    ShellHeading { text: "Account menu"; }
+
+    Rectangle {
+        width: 280px;
+        background: Tokens.surface-raised;
+        border-radius: Tokens.radius-control;
+        border-width: 1px;
+        border-color: Tokens.border-subtle;
+        horizontal-stretch: 0;
+
+        VerticalLayout {
+            padding: Tokens.space-2;
+            AccountMenu {
+                user-name: "Ada Lovelace";
+                user-initials: "AL";
+                user-email: "ada@rimelight.example";
+                presence: root.variant == 1 ? UserPresence.away : (root.variant == 2 ? UserPresence.busy : UserPresence.online);
+            }
+        }
     }
 }

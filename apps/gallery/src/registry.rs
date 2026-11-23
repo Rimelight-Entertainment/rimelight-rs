@@ -732,6 +732,269 @@ pub const STORIES: &[Story] = &[
             },
         ],
     },
+    Story {
+        id: "components/date-picker",
+        title: "DatePicker",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "filled",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "disabled",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/date-range-picker",
+        title: "DateRangePicker",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "filled",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "disabled",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/time-picker",
+        title: "TimePicker",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "filled",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "disabled",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/calendar",
+        title: "Calendar",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "selected",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "range",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/color-field",
+        title: "ColorField",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "presets",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/form",
+        title: "Form",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "filled",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "errors",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/file-tile",
+        title: "FileTile",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "sizes",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "attachments",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/page-state",
+        title: "PageState",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "error",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/view-switcher",
+        title: "ViewSwitcher",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "board",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "three-views",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "shell/shortcuts-dialog",
+        title: "Shortcuts dialog",
+        section: Section::Shell,
+        variants: &[
+            Variant {
+                name: "open",
+                after_render: AfterRender::OpenPopover,
+            },
+            Variant {
+                name: "mac",
+                after_render: AfterRender::OpenPopover,
+            },
+        ],
+    },
+    Story {
+        id: "shell/more-drawer",
+        title: "More drawer",
+        section: Section::Shell,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "busy",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "shell/sign-in-screen",
+        title: "Sign-in screen",
+        section: Section::Shell,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "loading",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "waiting",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "error",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "unreachable",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "shell/quick-action",
+        title: "Quick action",
+        section: Section::Shell,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "open",
+                after_render: AfterRender::OpenPopover,
+            },
+        ],
+    },
+    Story {
+        id: "shell/account-menu",
+        title: "Account menu",
+        section: Section::Shell,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "away",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "busy",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/chart",
+        title: "Chart",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "line",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "bar",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "donut",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "components/progress-ring",
+        title: "Progress ring",
+        section: Section::Components,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "partial",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "full",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
 ];
 
 /// The sidebar heading of the app stories.
@@ -1033,7 +1296,7 @@ mod tests {
             STORIES.len(),
             "ui/gallery.slint must show every built-in story"
         );
-        let builtin_count = markup.contains("in-out property <int> builtin-count: 74;");
+        let builtin_count = markup.contains("in-out property <int> builtin-count: 90;");
         assert!(
             builtin_count,
             "gallery.slint builtin-count must equal STORIES.len()"
