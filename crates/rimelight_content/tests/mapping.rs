@@ -211,3 +211,39 @@ fn registry_parses_and_lists_site_blocks() {
         .collect();
     assert_eq!(web_only, vec!["LivePreviewBlock", "ApiDocumentationBlock"]);
 }
+
+/// Cross-language check (MAPPING.md section 4): Loro bytes written by either side export to the same JSON.
+///
+/// `fixtures/loro/<name>.rust.bin` is written by this crate and `<name>.ts.bin` by the website's TypeScript
+/// mapping, each when `RIMELIGHT_WRITE_LORO_FIXTURES=1` is set; the `.bin` files are copied between the two
+/// repos and committed. Every `.bin` present must export to the normal form of its fixture.
+#[test]
+fn loro_bytes_from_both_languages_export_to_the_fixture() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/loro");
+    if std::env::var("RIMELIGHT_WRITE_LORO_FIXTURES").as_deref() == Ok("1") {
+        std::fs::create_dir_all(&dir).expect("create fixtures/loro");
+        for (name, page) in fixtures() {
+            let doc = doc::import_page(&page).expect("import");
+            let bytes = doc
+                .export(loro::ExportMode::Snapshot)
+                .expect("export snapshot");
+            std::fs::write(dir.join(format!("{name}.rust.bin")), bytes).expect("write bin");
+        }
+    }
+    let mut checked = 0;
+    for (name, page) in fixtures() {
+        for side in ["rust", "ts"] {
+            let path = dir.join(format!("{name}.{side}.bin"));
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue;
+            };
+            let doc = loro::LoroDoc::new();
+            doc::configure(&doc);
+            doc.import(&bytes).expect("import bytes");
+            let exported = doc::export_page(&doc).expect("export");
+            assert_eq!(exported, normalize_page(&page), "{name} from {side} bytes");
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "no Loro byte fixtures in {}", dir.display());
+}
