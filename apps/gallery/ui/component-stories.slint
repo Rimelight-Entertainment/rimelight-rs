@@ -1216,6 +1216,10 @@ export component SwitchStory inherits VerticalLayout {
         caption: "detail, left";
         Switch { text: "Start with Windows"; detail: "Launch in the tray when you sign in."; label-side: SwitchLabelSide.left; accessible-name: "Detail left"; }
     }
+    CaptionRow {
+        caption: "settings row (label left, switch at the right edge)";
+        Switch { text: "Start with Windows"; detail: "Launch in the tray when you sign in."; label-side: SwitchLabelSide.row; accessible-name: "Detail row"; width: 360px; }
+    }
 
     SectionCaption { text: root.pt ? "Em um campo" : "In a field"; }
     FieldForm {
