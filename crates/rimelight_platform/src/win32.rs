@@ -7,6 +7,7 @@
 //!   into a RECT / u32 of the size the attribute takes.
 //! - `each` (EnumWindows callback), `list_windows`: the callback's lparam is the `&mut Collect` alive for the call.
 //! - `file_types_changed`: SHChangeNotify with no items.
+//! - `keep_awake`: SetThreadExecutionState with flag bits only.
 //! - `ScreenGrabber::new`, `grab`, `Drop`: GDI set-up, BitBlt and cursor drawing, the DIB section read after GdiFlush;
 //!   every handle is released once in Drop (or on the failure path of `new`).
 //! - `cursor_monitor`: GetCursorPos, MonitorFromPoint, GetMonitorInfoW with cbSize set.
@@ -206,10 +207,28 @@ pub fn file_types_changed() {
     };
 }
 
+/// Keeps the display and the system awake (`on`), or restores normal power management (`!on`). The state is per
+/// thread: the call takes effect for the calling thread's execution state, so call it on the UI thread.
+pub fn keep_awake(on: bool) {
+    let flags = if on {
+        ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+    } else {
+        ES_CONTINUOUS
+    };
+    // SAFETY: SetThreadExecutionState takes only flag bits and no pointers. Its result (the previous state, or 0 on
+    // failure) is not needed, so it is dropped.
+    unsafe {
+        SetThreadExecutionState(flags);
+    }
+}
+
 use windows_sys::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleDC, CreateDIBSection,
     DIB_RGB_COLORS, DeleteDC, DeleteObject, GdiFlush, GetDC, HBITMAP, HDC, HGDIOBJ, ReleaseDC,
     SRCCOPY, SelectObject,
+};
+use windows_sys::Win32::System::Power::{
+    ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CURSOR_SHOWING, CURSORINFO, DI_NORMAL, DrawIconEx, GetCursorInfo, GetIconInfo, ICONINFO,

@@ -1,0 +1,468 @@
+// Charts (Slint port of the web charts used by the idantity pages): a line chart, a bar chart, a progress ring and a
+// donut. Drawn with Rectangle and Path only, from models and Tokens (no literal colours). Used by the measurements and
+// fasting history, budget pacing and the overview numbers.
+//
+// Data: a list of ChartPoint { label, value } in the order to show (oldest first). The caller sets the value range
+// (`y-min`, `y-max`) and the series colour; the markup has no loop to find the range itself, so the caller passes it.
+// For a donut, each ChartSlice carries its `start` and `span` as fractions of the whole circle (0 to 1, clockwise from
+// the top), with the colour; the caller computes those from its values.
+//
+// Axes: line and bar charts draw five horizontal guides with the value at each (y-min to y-max) on the left, and the
+// point labels below the plot. `x-label-every` shows every nth label when there are many points.
+//
+// Hover: each point (line or bar) has its own hit area; hovering shows a tooltip with "label: value" and the unit.
+// The donut shows its `centre-text` and has no per-slice hover (the caller lists the values beside it).
+//
+// Empty state: with no points or slices the chart draws its frame and `empty-text`.
+//
+// Accessibility: each chart is an image with `accessible-name`. The values are not announced per point; the caller
+// puts the numbers in a list or table when they must be read by a screen reader.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "../typography.slint";
+
+export struct ChartPoint {
+    label: string,
+    value: float,
+}
+
+// One part of a donut. start and span are fractions of the whole (0 to 1). The colour comes from the caller (ChartPalette).
+export struct ChartSlice {
+    label: string,
+    value: float,
+    start: float,
+    span: float,
+    colour: color,
+}
+
+// The series colours, from the Tokens palette: accent first, then status hues. Charts take their colour from here.
+export global ChartPalette {
+    out property <[color]> series: [
+        Tokens.accent-default,
+        Tokens.status-success,
+        Tokens.status-warning,
+        Tokens.status-danger,
+        Tokens.status-info,
+    ];
+}
+
+// A line through the points, with a dot on each. The value range is set by the caller.
+export component LineChart inherits Rectangle {
+    in property <[ChartPoint]> points;
+    in property <float> y-min: 0;
+    in property <float> y-max: 100;
+    // Suffix for the tooltip value, for example "kg" or "%".
+    in property <string> unit: "";
+    // Show every nth x label (1 shows all; use 2 or more when there are many points).
+    in property <int> x-label-every: 1;
+    in property <color> colour: ChartPalette.series[0];
+    in property <string> empty-text: "No data yet";
+    in property <string> accessible-name;
+
+    property <length> pad-left: 44px * Tokens.zoom-factor;
+    property <length> pad-right: 12px * Tokens.zoom-factor;
+    property <length> pad-top: 12px * Tokens.zoom-factor;
+    property <length> pad-bottom: 24px * Tokens.zoom-factor;
+    property <length> plot-w: max(0px, root.width - root.pad-left - root.pad-right);
+    property <length> plot-h: max(0px, root.height - root.pad-top - root.pad-bottom);
+    property <int> count: root.points.length;
+    property <length> slot: root.count > 0 ? root.plot-w / root.count : 0px;
+    property <float> span-y: root.y-max - root.y-min;
+
+    // The position of a value in the range: 0 at y-min, 1 at y-max.
+    function frac(v: float) -> float {
+        return root.span-y > 0 ? max(0, min(1, (v - root.y-min) / root.span-y)) : 0;
+    }
+    // The x of point i (the centre of its slot).
+    function fx(i: int) -> length {
+        return root.pad-left + root.slot * (i * 1.0 + 0.5);
+    }
+    // The y of value v, in the chart's own box.
+    function fy(v: float) -> length {
+        return root.pad-top + root.plot-h * (1 - root.frac(v));
+    }
+
+    accessible-role: image;
+    accessible-label: root.accessible-name;
+    min-width: 160px * Tokens.zoom-factor;
+    min-height: 120px * Tokens.zoom-factor;
+    background: transparent;
+
+    // Guides and their value labels: five levels from y-min to y-max.
+    for level[k] in [0.0, 0.25, 0.5, 0.75, 1.0] : Rectangle {
+        x: root.pad-left;
+        width: root.plot-w;
+        y: root.pad-top + root.plot-h * (1 - level);
+        height: 1px;
+        background: Tokens.border-subtle;
+    }
+    for level[k] in [0.0, 0.25, 0.5, 0.75, 1.0] : Text {
+        x: 0px;
+        width: root.pad-left - 6px * Tokens.zoom-factor;
+        y: root.pad-top + root.plot-h * (1 - level) - self.height / 2;
+        text: "\{round(root.y-min + level * root.span-y)}";
+        color: Tokens.text-muted;
+        horizontal-alignment: right;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+
+    // The line: one short Path per segment (Slint has no for-in inside a Path). Each Path's viewbox is the chart box,
+    // so its coordinates are the chart's own.
+    for point[i] in root.points : Path {
+        visible: i > 0;
+        width: root.width;
+        height: root.height;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: transparent;
+        stroke: root.colour;
+        stroke-width: 2px * Tokens.zoom-factor;
+        MoveTo {
+            x: (root.fx(max(i - 1, 0))) / 1px;
+            y: (root.fy(root.points[max(i - 1, 0)].value)) / 1px;
+        }
+        LineTo {
+            x: (root.fx(i)) / 1px;
+            y: (root.fy(point.value)) / 1px;
+        }
+    }
+
+    // One column per point: its dot, its x label and the hover area with the tooltip.
+    for point[i] in root.points : Rectangle {
+        x: root.pad-left + root.slot * i;
+        y: root.pad-top;
+        width: root.slot;
+        height: root.plot-h;
+        background: transparent;
+
+        hit := TouchArea { }
+
+        Rectangle {
+            x: root.slot / 2 - 4px * Tokens.zoom-factor;
+            y: root.fy(point.value) - root.pad-top - 4px * Tokens.zoom-factor;
+            width: 8px * Tokens.zoom-factor;
+            height: 8px * Tokens.zoom-factor;
+            border-radius: Tokens.radius-pill;
+            background: root.colour;
+        }
+
+        if hit.has-hover : Rectangle {
+            x: root.slot / 2 - self.width / 2;
+            y: root.fy(point.value) - root.pad-top - self.height - 10px * Tokens.zoom-factor;
+            width: tip-text.preferred-width + 2 * Tokens.space-2;
+            height: tip-text.preferred-height + 2 * Tokens.space-1;
+            border-radius: Tokens.radius-control;
+            background: Tokens.surface-overlay;
+            tip-text := Text {
+                x: Tokens.space-2;
+                y: Tokens.space-1;
+                text: "\{point.label}: \{point.value}\{root.unit}";
+                color: Tokens.text-primary;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+        }
+    }
+
+    for point[i] in root.points : Text {
+        visible: Math.mod(i, root.x-label-every) == 0;
+        x: root.pad-left + root.slot * i;
+        y: root.height - root.pad-bottom + 4px * Tokens.zoom-factor;
+        width: root.slot;
+        text: point.label;
+        color: Tokens.text-muted;
+        horizontal-alignment: center;
+        overflow: elide;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+
+    if root.count == 0 : Text {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        text: root.empty-text;
+        color: Tokens.text-muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+    }
+}
+
+// Vertical bars from the bottom of the plot (y-min) to each value. Same axes and tooltip as LineChart.
+export component BarChart inherits Rectangle {
+    in property <[ChartPoint]> points;
+    in property <float> y-min: 0;
+    in property <float> y-max: 100;
+    in property <string> unit: "";
+    in property <int> x-label-every: 1;
+    in property <color> colour: ChartPalette.series[0];
+    in property <string> empty-text: "No data yet";
+    in property <string> accessible-name;
+
+    property <length> pad-left: 44px * Tokens.zoom-factor;
+    property <length> pad-right: 12px * Tokens.zoom-factor;
+    property <length> pad-top: 12px * Tokens.zoom-factor;
+    property <length> pad-bottom: 24px * Tokens.zoom-factor;
+    property <length> plot-w: max(0px, root.width - root.pad-left - root.pad-right);
+    property <length> plot-h: max(0px, root.height - root.pad-top - root.pad-bottom);
+    property <int> count: root.points.length;
+    property <length> slot: root.count > 0 ? root.plot-w / root.count : 0px;
+    property <float> span-y: root.y-max - root.y-min;
+
+    function frac(v: float) -> float {
+        return root.span-y > 0 ? max(0, min(1, (v - root.y-min) / root.span-y)) : 0;
+    }
+
+    accessible-role: image;
+    accessible-label: root.accessible-name;
+    min-width: 160px * Tokens.zoom-factor;
+    min-height: 120px * Tokens.zoom-factor;
+    background: transparent;
+
+    for level[k] in [0.0, 0.25, 0.5, 0.75, 1.0] : Rectangle {
+        x: root.pad-left;
+        width: root.plot-w;
+        y: root.pad-top + root.plot-h * (1 - level);
+        height: 1px;
+        background: Tokens.border-subtle;
+    }
+    for level[k] in [0.0, 0.25, 0.5, 0.75, 1.0] : Text {
+        x: 0px;
+        width: root.pad-left - 6px * Tokens.zoom-factor;
+        y: root.pad-top + root.plot-h * (1 - level) - self.height / 2;
+        text: "\{round(root.y-min + level * root.span-y)}";
+        color: Tokens.text-muted;
+        horizontal-alignment: right;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+
+    for point[i] in root.points : Rectangle {
+        x: root.pad-left + root.slot * i;
+        y: root.pad-top;
+        width: root.slot;
+        height: root.plot-h;
+        background: transparent;
+
+        hit := TouchArea { }
+
+        Rectangle {
+            x: root.slot * 0.2;
+            width: root.slot * 0.6;
+            height: root.plot-h * root.frac(point.value);
+            y: root.plot-h - self.height;
+            border-radius: Tokens.radius-r4;
+            background: hit.has-hover ? root.colour.transparentize(0.25) : root.colour;
+        }
+
+        if hit.has-hover : Rectangle {
+            x: root.slot / 2 - self.width / 2;
+            y: root.plot-h - root.plot-h * root.frac(point.value) - self.height - 6px * Tokens.zoom-factor;
+            width: tip-text.preferred-width + 2 * Tokens.space-2;
+            height: tip-text.preferred-height + 2 * Tokens.space-1;
+            border-radius: Tokens.radius-control;
+            background: Tokens.surface-overlay;
+            tip-text := Text {
+                x: Tokens.space-2;
+                y: Tokens.space-1;
+                text: "\{point.label}: \{point.value}\{root.unit}";
+                color: Tokens.text-primary;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                font-weight: Type.caption.weight;
+            }
+        }
+    }
+
+    for point[i] in root.points : Text {
+        visible: Math.mod(i, root.x-label-every) == 0;
+        x: root.pad-left + root.slot * i;
+        y: root.height - root.pad-bottom + 4px * Tokens.zoom-factor;
+        width: root.slot;
+        text: point.label;
+        color: Tokens.text-muted;
+        horizontal-alignment: center;
+        overflow: elide;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+    }
+
+    if root.count == 0 : Text {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        text: root.empty-text;
+        color: Tokens.text-muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+    }
+}
+
+// A progress ring: a track with an arc from the top, clockwise, to `value` (0 to 1). `centre-text` sits in the middle
+// (for example "72 %"). Used for goal progress and the fasting timer.
+export component ProgressRing inherits Rectangle {
+    in property <float> value: 0;
+    in property <color> colour: ChartPalette.series[0];
+    in property <string> centre-text;
+    in property <length> thickness: 8px * Tokens.zoom-factor;
+    in property <string> accessible-name;
+
+    property <float> fraction: max(0, min(1, root.value));
+    property <length> d: min(root.width, root.height);
+    property <length> rr: max(0px, root.d / 2 - root.thickness / 2);
+
+    accessible-role: image;
+    accessible-label: root.accessible-name;
+    min-width: 64px * Tokens.zoom-factor;
+    min-height: 64px * Tokens.zoom-factor;
+    background: transparent;
+
+    // The track: the full circle.
+    Rectangle {
+        x: (root.width - root.d) / 2;
+        y: (root.height - root.d) / 2;
+        width: root.d;
+        height: root.d;
+        border-radius: root.d / 2;
+        border-width: root.thickness;
+        border-color: Tokens.border-subtle;
+        background: transparent;
+    }
+
+    // The arc. Drawn only above zero; a full ring is the track filled with the arc ending at the top again.
+    if root.fraction > 0.001 : Path {
+        width: root.width;
+        height: root.height;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: transparent;
+        stroke: root.colour;
+        stroke-width: root.thickness;
+        MoveTo {
+            x: (root.width / 2) / 1px;
+            y: (root.height / 2 - root.rr) / 1px;
+        }
+        ArcTo {
+            x: (root.width / 2 + root.rr * Math.sin(root.fraction * 360deg)) / 1px;
+            y: (root.height / 2 - root.rr * Math.cos(root.fraction * 360deg)) / 1px;
+            radius-x: (root.rr) / 1px;
+            radius-y: (root.rr) / 1px;
+            large-arc: root.fraction > 0.5;
+            sweep: true;
+        }
+    }
+
+    Text {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        text: root.centre-text;
+        color: Tokens.text-primary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+    }
+}
+
+// A donut of slices, each an arc in its own colour (see ChartSlice for start and span). Same track as ProgressRing
+// when there are no slices. Use ProgressRing for one value that fills the whole circle.
+export component DonutChart inherits Rectangle {
+    in property <[ChartSlice]> slices;
+    in property <string> centre-text;
+    in property <string> empty-text: "No data yet";
+    in property <length> thickness: 14px * Tokens.zoom-factor;
+    in property <string> accessible-name;
+
+    property <length> d: min(root.width, root.height);
+    property <length> rr: max(0px, root.d / 2 - root.thickness / 2);
+
+    accessible-role: image;
+    accessible-label: root.accessible-name;
+    min-width: 96px * Tokens.zoom-factor;
+    min-height: 96px * Tokens.zoom-factor;
+    background: transparent;
+
+    Rectangle {
+        x: (root.width - root.d) / 2;
+        y: (root.height - root.d) / 2;
+        width: root.d;
+        height: root.d;
+        border-radius: root.d / 2;
+        border-width: root.thickness;
+        border-color: Tokens.border-subtle;
+        background: transparent;
+    }
+
+    for slice[i] in root.slices : Path {
+        width: root.width;
+        height: root.height;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: transparent;
+        stroke: slice.colour;
+        stroke-width: root.thickness;
+        MoveTo {
+            x: (root.width / 2 + root.rr * Math.sin(slice.start * 360deg)) / 1px;
+            y: (root.height / 2 - root.rr * Math.cos(slice.start * 360deg)) / 1px;
+        }
+        ArcTo {
+            x: (root.width / 2 + root.rr * Math.sin((slice.start + slice.span) * 360deg)) / 1px;
+            y: (root.height / 2 - root.rr * Math.cos((slice.start + slice.span) * 360deg)) / 1px;
+            radius-x: (root.rr) / 1px;
+            radius-y: (root.rr) / 1px;
+            large-arc: slice.span > 0.5;
+            sweep: true;
+        }
+    }
+
+    if root.slices.length == 0 : Text {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        text: root.empty-text;
+        color: Tokens.text-muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-family: Type.caption.family;
+        font-size: Type.caption.size;
+        font-weight: Type.caption.weight;
+        wrap: word-wrap;
+    }
+
+    if root.centre-text != "" : Text {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        text: root.centre-text;
+        color: Tokens.text-primary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-family: Type.label.family;
+        font-size: Type.label.size;
+        font-weight: Type.label.weight;
+    }
+}

@@ -3,7 +3,7 @@
 //
 // rows, auto-grow up to a maximum row count,
 // and the same states as Input (default, hover, focus, disabled, read-only, invalid), with changed and submitted-free
-// editing (Enter inserts a line break; there is no submit on Enter).
+// editing. Enter inserts a line break unless `submit-on-enter` is set, then Enter submits and Shift+Enter inserts a break.
 //
 // Auto-grow: the height follows the number of line breaks in the text, clamped to `rows` (minimum) and `max-rows`
 // (maximum). Lines produced by soft wrapping are not counted (Slint 1.18.1 gives no measured line count to a plain
@@ -39,6 +39,13 @@ export component Textarea inherits Rectangle {
     out property <int> visible-rows: max(root.rows, min(root.max-rows, max(root.line-count, root.measured-lines)));
 
     callback changed(string);
+    // When true, Return (without Shift) calls `submitted(text)` and inserts no line break; Shift+Return still inserts one
+    // (the chat-composer pattern). False (the default) keeps the plain field: Return inserts a line break.
+    in property <bool> submit-on-enter: false;
+    // The submit key's text. Fires only when `submit-on-enter` is set.
+    callback submitted(string);
+    // Escape. Fires on every Escape; the key is passed on (not consumed) so an enclosing dialog still closes.
+    callback cancelled();
 
     property <bool> hovered: (hover-area.has-hover && root.enabled && !root.read-only) || root.forced-state == 1;
     property <bool> focused: ti.has-focus || root.forced-state == 2;
@@ -123,6 +130,17 @@ export component Textarea inherits Rectangle {
             read-only: root.read-only;
             enabled: root.enabled;
             accessible-role: none;
+
+            key-pressed(event) => {
+                if (root.submit-on-enter && event.text == Key.Return && !event.modifiers.shift) {
+                    root.submitted(self.text);
+                    return accept;
+                }
+                if (event.text == Key.Escape) {
+                    root.cancelled();
+                }
+                return reject;
+            }
 
             edited => {
                 root.changed(self.text);

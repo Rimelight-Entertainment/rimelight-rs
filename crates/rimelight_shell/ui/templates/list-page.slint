@@ -1,0 +1,262 @@
+// ListPage (ST5.4, T-LIST). A list of records: a header with the title and one primary action, a search box, a filter row
+// (the caller's children), a bulk bar while rows are selected, the table, and Load more. Its data is the caller's: `columns`,
+// `rows` (the rows' cells and selection, already in display order) and the sort. The page reports each change and the
+// caller answers by setting those properties again.
+//
+// The load state, the empty message and the error come from `state`, through the PageState component. The table is drawn
+// only when `state` is loaded. Every label is a property, so the caller passes the words for its language.
+//
+// Keyboard: the search box and the table keep their own keys (the table moves with the arrow keys and picks with Space
+// and Return). The primary action and the bulk action are buttons. Each has an accessible name.
+//
+// The filter row is the children. A caller that has no filters adds none, and the row takes no space.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { SearchField } from "@rimelight_ui/components/search-field.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { PageLoadState, PageState } from "@rimelight_ui/components/page-state.slint";
+import { Table, TableColumn, TableRow } from "@rimelight_ui/components/table.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+
+// One action shown at the end of every row (an icon button with its label as tooltip and accessible name). `id` is what
+// the page gets back in `row-action`. `danger` draws it as a destructive action. A toggle (pin) keeps one id: the caller
+// flips its state in response, and the label says what the click does ("Pin or unpin").
+export struct ListRowAction {
+    id: string,
+    label: string,
+    icon: image,
+    danger: bool,
+}
+
+export component ListPage inherits Rectangle {
+    // The page heading.
+    in property <string> title;
+    // loading, loaded, empty or error. Anything but loaded hides the table.
+    in property <PageLoadState> state: PageLoadState.loading;
+    // The server's message for a failed load, shown under the error.
+    in property <string> error;
+    // What the empty and error messages say, and the icon the empty message draws.
+    in property <image> empty-icon;
+    in property <string> empty-title: "Nothing here yet";
+    in property <string> empty-description;
+    in property <string> error-description: "The list could not be loaded.";
+    // The search box: the text (two-way, so the caller can clear it) and its placeholder.
+    in-out property <string> search-text;
+    in property <string> search-placeholder: "Search";
+    // The primary action in the header. Empty hides it.
+    in property <string> action-label;
+    // The bulk action for the selected rows (for example "Delete"). It shows with `selected-count` above zero. Empty hides
+    // the bulk bar.
+    in property <string> bulk-label;
+    in property <int> selected-count: 0;
+    // The table: its columns, its rows (cells and selection), and the sorted column (-1 for none).
+    in property <[TableColumn]> columns;
+    in property <[TableRow]> rows;
+    in property <int> sort-column: -1;
+    in property <bool> sort-descending: false;
+    // Load more: shown when the list has a next page. The button waits while `loading-more` is set.
+    in property <bool> has-more: false;
+    in property <bool> loading-more: false;
+    // Per-row actions, shown at the end of every row. Empty (the default) keeps the table as it was. With actions, the
+    // rows are drawn as a list: each row has one cell per column (in column order), a button for its first cell (the
+    // row pick, reachable by keyboard), and one icon button per action.
+    in property <[ListRowAction]> row-actions;
+    // A row action was pressed: the row's index in `rows` and the action's `id`.
+    callback row-action(int, string);
+
+    // The search text changed.
+    callback search(string);
+    // A column header was pressed: the column index (the caller flips the direction on a second press).
+    callback sort(int);
+    // A row was picked: its index in `rows`, and whether shift or ctrl was held.
+    callback picked(int, bool, bool);
+    callback action();
+    callback bulk-action();
+    callback load-more();
+    callback retry();
+    // Sent from init, so the first page loads as soon as the page is shown.
+    callback opened();
+
+    background: transparent;
+    init => {
+        root.opened();
+    }
+
+    VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding: Tokens.space-4;
+        spacing: Tokens.space-3;
+
+        // Header: title and the primary action.
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            Text {
+                horizontal-stretch: 1;
+                text: root.title;
+                color: Tokens.text-primary;
+                vertical-alignment: center;
+                overflow: elide;
+                font-family: Type.heading.family;
+                font-size: Type.heading.size;
+                font-weight: Type.heading.weight;
+                accessible-role: text;
+                accessible-label: root.title;
+            }
+            if root.action-label != "" : Button {
+                text: root.action-label;
+                variant: ButtonVariant.primary;
+                accessible-name: root.action-label;
+                clicked => {
+                    root.action();
+                }
+            }
+        }
+
+        // Search.
+        SearchField {
+            text <=> root.search-text;
+            placeholder: root.search-placeholder;
+            accessible-name: root.search-placeholder;
+            changed(text) => {
+                root.search(text);
+            }
+        }
+
+        // Filters: the caller's children, in a row.
+        HorizontalLayout {
+            spacing: Tokens.space-2;
+            alignment: start;
+            @children
+        }
+
+        // Bulk bar: the count of selected rows and the bulk action.
+        if root.bulk-label != "" && root.selected-count > 0 : HorizontalLayout {
+            spacing: Tokens.space-3;
+            Text {
+                horizontal-stretch: 1;
+                text: "\{root.selected-count} selected";
+                color: Tokens.text-muted;
+                vertical-alignment: center;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+            }
+            Button {
+                text: root.bulk-label;
+                variant: ButtonVariant.secondary;
+                accessible-name: root.bulk-label;
+                clicked => {
+                    root.bulk-action();
+                }
+            }
+        }
+
+        // Load state, or the table.
+        if root.state != PageLoadState.loaded : PageState {
+            state: root.state;
+            icon: root.empty-icon;
+            empty-title: root.empty-title;
+            empty-description: root.empty-description;
+            error-description: root.error-description;
+            error-details: root.error;
+            retry => {
+                root.retry();
+            }
+        }
+
+        if root.state == PageLoadState.loaded && root.row-actions.length == 0 : Table {
+            vertical-stretch: 1;
+            accessible-name: root.title;
+            columns: root.columns;
+            rows: root.rows;
+            sort-column: root.sort-column;
+            sort-descending: root.sort-descending;
+            sort-requested(column) => {
+                root.sort(column);
+            }
+            picked(index, shift, ctrl) => {
+                root.picked(index, shift, ctrl);
+            }
+        }
+
+        // The rows with per-row actions (see `row-actions`).
+        if root.state == PageLoadState.loaded && root.row-actions.length > 0 : VerticalLayout {
+            vertical-stretch: 1;
+            spacing: Tokens.space-1;
+
+            // Column titles, and the space the action buttons take.
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+
+                for column in root.columns : Text {
+                    width: column.width;
+                    text: column.title;
+                    overflow: elide;
+                    color: Tokens.text-muted;
+                    font-family: Type.caption.family;
+                    font-size: Type.caption.size;
+                    font-weight: Type.caption.weight;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                Rectangle {
+                    width: Tokens.size-control-md * root.row-actions.length;
+                }
+            }
+
+            Flickable {
+                vertical-stretch: 1;
+                interactive: true;
+                content-height: action-rows.preferred-height;
+
+                action-rows := VerticalLayout {
+                    width: parent.width;
+                    spacing: Tokens.space-1;
+
+                    for row[index] in root.rows : HorizontalLayout {
+                        spacing: Tokens.space-2;
+                        height: Tokens.size-control-md;
+
+                        for cell[cell-index] in row.cells : Button {
+                            width: root.columns[cell-index].width;
+                            text: cell;
+                            variant: ButtonVariant.ghost;
+                            size: ButtonSize.sm;
+                            accessible-name: cell;
+                            clicked => {
+                                root.picked(index, false, false);
+                            }
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+                        for action in root.row-actions : IconButton {
+                            width: Tokens.size-control-md;
+                            icon: action.icon;
+                            label: action.label;
+                            tooltip: action.label;
+                            variant: action.danger ? ButtonVariant.danger : ButtonVariant.ghost;
+                            size: ButtonSize.sm;
+                            clicked => {
+                                root.row-action(index, action.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.state == PageLoadState.loaded && root.has-more : Button {
+            text: "Load more";
+            variant: ButtonVariant.secondary;
+            accessible-name: "Load more";
+            enabled: !root.loading-more;
+            loading: root.loading-more;
+            clicked => {
+                root.load-more();
+            }
+        }
+    }
+}

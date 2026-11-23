@@ -65,6 +65,10 @@ import { FilterBar, FilterChip } from "@rimelight_ui/components/filter-bar.slint
 import { Tree, TreeRow } from "@rimelight_ui/components/tree.slint";
 import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { ResizablePanel } from "@rimelight_ui/components/resizable-panel.slint";
+import { PageLoadState } from "@rimelight_ui/components/page-state.slint";
+import { ListPage } from "@rimelight_shell/templates/list-page.slint";
+import { BoardPage } from "@rimelight_shell/templates/board-page.slint";
+import { DetailPage } from "@rimelight_shell/templates/detail-page.slint";
 
 component StoryHeading inherits Text {
     color: Tokens.text-primary;
@@ -903,6 +907,10 @@ export component TextareaStory inherits VerticalLayout {
     CaptionRow {
         caption: "auto-grow";
         Textarea { text: "one\ntwo\nthree\nfour"; rows: 2; max-rows: 6; line-count: 4; accessible-name: "Grown"; }
+    }
+    CaptionRow {
+        caption: "submit on enter";
+        Textarea { placeholder: "Message"; rows: 2; accessible-name: "Message"; submit-on-enter: true; }
     }
     CaptionRow {
         caption: "hover";
@@ -2834,6 +2842,160 @@ export component RecentListStory inherits VerticalLayout {
                 { name: "song.mp3", detail: "Music", kind: "audio", index: 1 },
                 { name: "notes.txt", detail: "Documents", kind: "text", index: 2 }
             ];
+        }
+    }
+}
+
+// ListPage (ST5.4, T-LIST): the header with its action, the search box, the bulk bar and the table, in the six variants of
+// the story: loaded, loading, empty, error, two rows selected, and per-row actions (variant 5).
+export component ListPageStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "List page"; }
+
+    CaptionRow { caption: "Records";
+        Rectangle {
+            width: 640px;
+            height: 360px;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+            border-radius: Tokens.radius-surface;
+            background: Tokens.surface-base;
+            clip: true;
+
+            ListPage {
+                title: "Employees";
+                state: root.variant == 1 ? PageLoadState.loading
+                    : root.variant == 2 ? PageLoadState.empty
+                    : root.variant == 3 ? PageLoadState.error
+                    : PageLoadState.loaded;
+                error: root.variant == 3 ? "The server did not answer." : "";
+                empty-description: "Try another name, team or title.";
+                action-label: "New person";
+                search-placeholder: "Search people";
+                bulk-label: "Remove";
+                selected-count: root.variant == 4 ? 2 : 0;
+                columns: [
+                    { title: "Name", width: 220px, sortable: true },
+                    { title: "Team", width: 180px, sortable: true },
+                    { title: "Status", width: 120px, sortable: false },
+                ];
+                rows: [
+                    { cells: ["Ada Lovelace", "Design", "Active"], selected: root.variant == 4 },
+                    { cells: ["Brook Hale", "Platform", "Away"], selected: root.variant == 4 },
+                    { cells: ["Chen Wu", "Support", "Active"], selected: false },
+                    { cells: ["Dara Okafor", "Growth", "Active"], selected: false },
+                ];
+                sort-column: 0;
+                // Variant 5: per-row actions at the end of each row (the rows are then drawn as a list, see the template).
+                row-actions: root.variant == 5 ? [
+                    { id: "edit", label: "Edit", icon: Icons.pencil, danger: false },
+                    { id: "remove", label: "Remove", icon: Icons.trash, danger: true },
+                ] : [];
+            }
+        }
+    }
+}
+
+// BoardPage (ST5.4, T-BOARD): columns of cards with an Add card button in each. The story does not drag (its column-at answers
+// -1), so the variants show the page's states: default, empty, error and a refused move.
+export component BoardPageStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Board page"; }
+
+    CaptionRow { caption: "Columns";
+        Rectangle {
+            width: 880px;
+            height: 380px;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+            border-radius: Tokens.radius-surface;
+            background: Tokens.surface-base;
+            clip: true;
+
+            BoardPage {
+                title: "Pipeline";
+                state: root.variant == 1 ? PageLoadState.empty
+                    : root.variant == 2 ? PageLoadState.error
+                    : PageLoadState.loaded;
+                error: "The pipeline could not be loaded.";
+                empty-description: "Add a candidate to start the pipeline.";
+                move-error: root.variant == 3 ? "The card could not be moved. Try again." : "";
+                column-width: 240px;
+                board: [
+                    { name: "Applied", cards: [
+                        { key: "P-1", title: "Phone screen", detail: "Ada Lovelace" },
+                        { key: "P-2", title: "Take-home", detail: "Brook Hale" },
+                    ] },
+                    { name: "Interview", cards: [
+                        { key: "P-3", title: "Panel", detail: "Chen Wu" },
+                    ] },
+                    { name: "Offer", cards: [] },
+                ];
+                // The story has no drop target: the page's drag needs the app's column rule (board::drop_column).
+                column-at(px, column-px, gap-px, count) => {
+                    return -1;
+                }
+            }
+        }
+    }
+}
+
+// DetailPage (ST5.4, T-DETAIL): the header with Back and an action, the tabs, sections in the body and the side panel. The
+// variants are default, loading, not found (empty) and error.
+export component DetailPageStory inherits VerticalLayout {
+    in property <bool> pt: false;
+    in property <int> variant: 0;
+    spacing: Tokens.space-6;
+    alignment: start;
+
+    StoryHeading { text: "Detail page"; }
+
+    CaptionRow { caption: "Record";
+        Rectangle {
+            width: 860px;
+            height: 420px;
+            border-width: 1px;
+            border-color: Tokens.border-subtle;
+            border-radius: Tokens.radius-surface;
+            background: Tokens.surface-base;
+            clip: true;
+
+            DetailPage {
+                title: "Ada Lovelace";
+                subtitle: "Design lead, Design team";
+                action-label: "Edit";
+                state: root.variant == 1 ? PageLoadState.loading
+                    : root.variant == 2 ? PageLoadState.empty
+                    : root.variant == 3 ? PageLoadState.error
+                    : PageLoadState.loaded;
+                error: "The server returned an error.";
+                empty-description: "This person does not exist, or you cannot see them.";
+                tabs: [{ label: "Overview" }, { label: "Activity" }, { label: "Files" }];
+                active-tab: 0;
+                side-items: [
+                    { term: "Email", value: "ada@example.com" },
+                    { term: "Team", value: "Design" },
+                    { term: "Start date", value: "2024-03-01" },
+                ];
+                wide: true;
+
+                Section {
+                    title: "About";
+                    description: "Leads the design system and the review of the component library.";
+                }
+                Section {
+                    title: "Recent work";
+                    description: "Three reviews this week.";
+                }
+            }
         }
     }
 }

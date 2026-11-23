@@ -1,0 +1,161 @@
+// DetailPage (ST5.4, T-DETAIL). One record: a header (Back, the title and subtitle, and one primary action), a tab strip when
+// `tabs` is not empty, the body, and a side panel of label and value pairs.
+//
+// The body is the children. The caller places its sections there (Section, Card, DescriptionList, ...), and the body scrolls.
+// The side panel is data, not a slot: `side-items` is shown as a DescriptionList in a Card to the right of the body. It shows
+// only when `wide` is set (the caller decides from the window width) and `side-items` is not empty.
+//
+// The load state comes from `state`, through PageState. "Not found" is the empty state, with `empty-title` and
+// `empty-description`. The body is hidden until the record is loaded.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Icons } from "@rimelight_ui/icons.slint";
+import { Button, ButtonVariant } from "@rimelight_ui/components/button.slint";
+import { IconButton } from "@rimelight_ui/components/icon-button.slint";
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
+import { PageLoadState, PageState } from "@rimelight_ui/components/page-state.slint";
+import { Tabs, ContentTab } from "@rimelight_ui/components/content-tabs.slint";
+import { DescriptionList, DescriptionItem } from "@rimelight_ui/components/description-list.slint";
+import { Card } from "@rimelight_ui/components/card.slint";
+
+export component DetailPage inherits Rectangle {
+    // The record's title and an optional line under it (empty for none).
+    in property <string> title;
+    in property <string> subtitle;
+    // The Back button, and its label (also the tooltip and the accessible name).
+    in property <bool> show-back: true;
+    in property <string> back-label: "Back";
+    // loading, loaded, empty (not found) or error. Anything but loaded hides the body.
+    in property <PageLoadState> state: PageLoadState.loading;
+    in property <string> error;
+    in property <image> empty-icon;
+    in property <string> empty-title: "Not found";
+    in property <string> empty-description: "This record does not exist, or you cannot see it.";
+    in property <string> error-description: "This record could not be loaded.";
+    // The primary action in the header. Empty hides it.
+    in property <string> action-label;
+    // The tab strip. Empty hides it. `active-tab` is the selected tab (two-way).
+    in property <[ContentTab]> tabs;
+    in-out property <int> active-tab: 0;
+    // The side panel: its title and its label and value pairs. Shown when `wide` is set and there is at least one pair.
+    in property <string> side-title: "Details";
+    in property <[DescriptionItem]> side-items;
+    in property <bool> wide: true;
+
+    callback opened();
+    callback retry();
+    callback back();
+    callback action();
+    // A tab was picked: its index. `active-tab` already holds it.
+    callback tab-changed(int);
+
+    background: transparent;
+    init => {
+        root.opened();
+    }
+
+    VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding: Tokens.space-4;
+        spacing: Tokens.space-3;
+
+        // Header: Back, the title and subtitle, and the primary action.
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            if root.show-back : IconButton {
+                icon: Icons.arrow-left;
+                label: root.back-label;
+                tooltip: root.back-label;
+                accessible-name: root.back-label;
+                clicked => {
+                    root.back();
+                }
+            }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: Tokens.space-1;
+                Text {
+                    text: root.title;
+                    color: Tokens.text-primary;
+                    overflow: elide;
+                    font-family: Type.heading.family;
+                    font-size: Type.heading.size;
+                    font-weight: Type.heading.weight;
+                    accessible-role: text;
+                    accessible-label: root.title;
+                }
+                if root.subtitle != "" : Text {
+                    text: root.subtitle;
+                    color: Tokens.text-muted;
+                    overflow: elide;
+                    font-family: Type.body.family;
+                    font-size: Type.body.size;
+                    font-weight: Type.body.weight;
+                }
+            }
+            if root.action-label != "" && root.state == PageLoadState.loaded : Button {
+                text: root.action-label;
+                variant: ButtonVariant.primary;
+                accessible-name: root.action-label;
+                clicked => {
+                    root.action();
+                }
+            }
+        }
+
+        // Tab strip, when the record has tabs.
+        if root.tabs.length > 0 && root.state == PageLoadState.loaded : Tabs {
+            tabs: root.tabs;
+            active <=> root.active-tab;
+            accessible-name: root.title + " sections";
+            activated(index) => {
+                root.tab-changed(index);
+            }
+        }
+
+        // Load state, or nothing (the body takes the space below).
+        if root.state != PageLoadState.loaded : PageState {
+            state: root.state;
+            icon: root.empty-icon;
+            empty-title: root.empty-title;
+            empty-description: root.empty-description;
+            error-description: root.error-description;
+            error-details: root.error;
+            retry => {
+                root.retry();
+            }
+        }
+
+        // The body and the side panel. They stay in the tree (hidden until loaded), so the layout keeps its place.
+        HorizontalLayout {
+            spacing: Tokens.space-4;
+            vertical-stretch: root.state == PageLoadState.loaded ? 1 : 0;
+            visible: root.state == PageLoadState.loaded;
+
+            ScrollArea {
+                horizontal-stretch: 1;
+                accessible-name: root.title;
+
+                VerticalLayout {
+                    spacing: Tokens.space-6;
+                    alignment: start;
+                    padding-right: Tokens.space-2;
+                    @children
+                }
+            }
+
+            if root.wide && root.side-items.length > 0 : Card {
+                title: root.side-title;
+                width: 280px;
+                vertical-stretch: 0;
+
+                DescriptionList {
+                    items: root.side-items;
+                    columns: 1;
+                }
+            }
+        }
+    }
+}

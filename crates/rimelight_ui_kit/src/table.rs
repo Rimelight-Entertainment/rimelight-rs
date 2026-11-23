@@ -54,7 +54,23 @@ struct SortKey {
 impl SortKey {
     fn of(cell: &str) -> SortKey {
         let trimmed = cell.trim();
-        match trimmed.parse::<f64>() {
+        // A number wrapped in symbols ("★ 10", "$3.50", "75%") sorts as that number. Cells with letters around the
+        // number ("Alien 3", "10 kg") stay text, so titles sort by their text.
+        let bare = trimmed
+            .trim_matches(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+'));
+        let wrapped_in_symbols = !bare.is_empty()
+            && !trimmed
+                .replacen(bare, "", 1)
+                .chars()
+                .any(char::is_alphanumeric);
+        let number = trimmed.parse::<f64>().or_else(|e| {
+            if wrapped_in_symbols {
+                bare.parse::<f64>()
+            } else {
+                Err(e)
+            }
+        });
+        match number {
             Ok(value) if value.is_finite() => SortKey {
                 number: Some(value),
                 text: String::new(),
@@ -232,6 +248,16 @@ mod tests {
         let rows = names(&["10", "9", "x", "2", "", "NaN", "apple"]);
         let sorted = sort_rows(&rows, |r| r.clone(), false);
         assert_eq!(sorted, names(&["2", "9", "10", "", "apple", "NaN", "x"]));
+    }
+
+    #[test]
+    fn numbers_wrapped_in_symbols_sort_by_value_but_titles_stay_text() {
+        let rows = names(&["★ 10", "★ 9", "$3.50", "75%"]);
+        let sorted = sort_rows(&rows, |r| r.clone(), false);
+        assert_eq!(sorted, names(&["$3.50", "★ 9", "★ 10", "75%"]));
+        let titles = names(&["Alien 3", "Alien", "Brave"]);
+        let sorted = sort_rows(&titles, |r| r.clone(), false);
+        assert_eq!(sorted, names(&["Alien", "Alien 3", "Brave"]));
     }
 
     #[test]

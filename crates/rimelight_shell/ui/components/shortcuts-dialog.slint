@@ -112,8 +112,13 @@ export component ShortcutsDialog inherits Rectangle {
     property <string> ctrl: root.mac-keys ? "Cmd" : "Ctrl";
     property <string> alt: root.mac-keys ? "Option" : "Alt";
 
-    // The rows, by group. Read by the tests (a popup's children cannot be read from outside the popup, so the rows live here).
-    out property <[ShortcutSection]> sections: [
+    // The dialog's heading and its one-line note under it.
+    in property <string> title: "Keyboard shortcuts";
+    in property <string> description: "Shortcuts marked Planned are not built yet.";
+
+    // The rows, by group. An app passes its own; the default is Space's list. Read by the tests (a popup's children cannot be
+    // read from outside the popup, so the rows live here).
+    in property <[ShortcutSection]> sections: [
         {
             title: "Navigation",
             rows: [
@@ -160,8 +165,8 @@ export component ShortcutsDialog inherits Rectangle {
     height: 0px;
 
     dlg := Dialog {
-        title: "Keyboard shortcuts";
-        description: "Shortcuts marked Planned are not built yet.";
+        title: root.title;
+        description: root.description;
         size: DialogSize.lg;
         close-label: "Close keyboard shortcuts";
         // "?" opens the list and closes it again (the same text match as the shell's "?" key).

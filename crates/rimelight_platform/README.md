@@ -20,6 +20,8 @@ comment, and the audit list is at the top of each module.
 |---|---|
 | `virtual_screen()`, `cursor_monitor()` | Physical pixels. |
 | `list_windows(WindowList)` | Presets: `WindowList::capturable(keep)` (Media) and `WindowList::popout_owners(exclude)` (Space). |
+| `pick_files(filter, multiple)`, `pick_folder()`, `save_file_dialog(name, filter)` | Native dialogs (Windows, `rfd`, synchronous). `filter` is `FileFilter`: `&[(name, &["png", ...])]`. Empty or `None` elsewhere. |
+| `keep_awake(on)` | Windows: `SetThreadExecutionState`, per UI thread. Android: no-op (the app sets the screen-on window flag). |
 | `exclude_from_capture(hwnd)`, `set_window_alpha(hwnd, u8)`, `set_always_on_bottom(hwnd, bool)`, `set_owner(hwnd, owner)` | `hwnd` is an `HWND` as `isize`. The last three return `Result<(), String>`. |
 | `start_no_window_animations(class)` | Pass the window class the app sets. |
 | `start_win_shift_s_hook()`, `take_win_shift_s()` | |
@@ -39,5 +41,8 @@ Android: `rimelight_platform::android::{open_url, intent_data, save_download}`, 
 ```toml
 rimelight_platform = { path = "../../crates/rimelight_platform" }
 ```
+
+File drops are not a platform call. Winit delivers `WindowEvent::DroppedFile` (one event per file, with its path) on
+desktop, and the app forwards it to the UI. This crate does not wire a drop target; the app's event loop does.
 
 Callers need no `cfg`. A Windows-only feature (a pop-out, a hotkey) is still `cfg`-gated by the app where it is wired.

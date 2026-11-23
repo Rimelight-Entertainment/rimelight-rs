@@ -26,6 +26,7 @@ windows-sys = { version = "0.59", features = [
     "Win32_Storage_Xps",
     "Win32_System_Com",
     "Win32_System_LibraryLoader",
+    "Win32_System_Power",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_UI_Accessibility",
@@ -49,6 +50,10 @@ windows = { version = "0.62", features = [
     "Win32_System_Com",
     "Win32_UI_Shell",
 ] }
+
+# Native file, folder and save dialogs (Windows only). Synchronous, no parent window. Default features off: the Windows
+# backend needs none, and the Linux portal and GTK backends are not built.
+rfd = { version = "0.15", default-features = false }
 
 # Android OS calls through JNI: the browser, the activity's intent and the Downloads folder.
 [target.'cfg(target_os = "android")'.dependencies]

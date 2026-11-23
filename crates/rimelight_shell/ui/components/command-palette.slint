@@ -14,9 +14,13 @@ import { ScrollView } from "std-widgets.slint";
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { SearchField } from "@rimelight_ui/components/search-field.slint";
 
+// One row. `subtitle` is a second line under the title, and `category` a caption above the route. Each is drawn only when
+// it is not empty, so a row with both empty looks as it did before they existed.
 export struct PaletteRow {
     title: string,
     route: string,
+    subtitle: string,
+    category: string,
 }
 
 export component CommandPalette inherits Rectangle {
@@ -29,8 +33,9 @@ export component CommandPalette inherits Rectangle {
     in property <string> search-label: "Search pages";
     in property <string> empty-text: "No matching pages";
     in property <length> panel-width: 480px;
-    // Height of one row. The scroll-into-view arithmetic uses it.
-    property <length> row-height: Tokens.size-control-md;
+    // Height of one row. The scroll-into-view arithmetic uses it. A row with a subtitle or a category needs more height
+    // than the default, so the caller passes it.
+    in property <length> row-height: Tokens.size-control-md;
 
     // Height of the visible part of the list, for the layout tests.
     out property <length> list-visible-height: list.visible-height;
@@ -131,30 +136,63 @@ export component CommandPalette inherits Rectangle {
                         border-radius: Tokens.radius-control;
                         background: i == root.highlight ? Tokens.accent-fill : transparent;
 
+                        // The title, with the subtitle under it when the row has one.
                         Text {
                             x: Tokens.space-3;
                             width: parent.width * 0.6 - Tokens.space-3;
-                            height: parent.height;
+                            y: 0px;
+                            height: row.subtitle == "" ? parent.height : parent.height / 2;
                             text: row.title;
                             color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-primary;
                             font-family: Tokens.type-body-family;
                             font-size: Tokens.type-body-size;
                             font-weight: Tokens.type-body-weight;
-                            vertical-alignment: center;
+                            vertical-alignment: row.subtitle == "" ? center : bottom;
                             overflow: elide;
                         }
 
+                        if row.subtitle != "" : Text {
+                            x: Tokens.space-3;
+                            width: parent.width * 0.6 - Tokens.space-3;
+                            y: parent.height / 2;
+                            height: parent.height / 2;
+                            text: row.subtitle;
+                            color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-muted;
+                            font-family: Tokens.type-caption-family;
+                            font-size: Tokens.type-caption-size;
+                            font-weight: Tokens.type-caption-weight;
+                            vertical-alignment: top;
+                            overflow: elide;
+                        }
+
+                        // The route on the right, with the category above it when the row has one.
                         Text {
                             x: parent.width * 0.6;
                             width: parent.width * 0.4 - Tokens.space-3;
-                            height: parent.height;
+                            y: 0px;
+                            height: row.category == "" ? parent.height : parent.height / 2;
+                            text: row.category == "" ? row.route : row.category;
+                            color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-muted;
+                            font-family: Tokens.type-caption-family;
+                            font-size: Tokens.type-caption-size;
+                            font-weight: Tokens.type-caption-weight;
+                            horizontal-alignment: right;
+                            vertical-alignment: row.category == "" ? center : bottom;
+                            overflow: elide;
+                        }
+
+                        if row.category != "" : Text {
+                            x: parent.width * 0.6;
+                            width: parent.width * 0.4 - Tokens.space-3;
+                            y: parent.height / 2;
+                            height: parent.height / 2;
                             text: row.route;
                             color: i == root.highlight ? Tokens.text-on-accent : Tokens.text-muted;
                             font-family: Tokens.type-caption-family;
                             font-size: Tokens.type-caption-size;
                             font-weight: Tokens.type-caption-weight;
                             horizontal-alignment: right;
-                            vertical-alignment: center;
+                            vertical-alignment: top;
                             overflow: elide;
                         }
 

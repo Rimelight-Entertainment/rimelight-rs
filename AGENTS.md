@@ -1,5 +1,18 @@
 # Agent rules for rimelight-rs
 
+## How we work: build ONCE, at the very end (owner rule, overrides everything else)
+
+Builds fill the owner's disk, lag the whole PC and used to take most of every session. So:
+
+- **Write the features first, in big batches.** Many steps, across repos if needed, with no build, check, test,
+  clippy, gate, measurement or screenshot in between.
+- **Then run ONE build and test pass** to find what broke along the way, fix it all, and commit.
+- **Never** build per step, per agent, per repo, before a push, after a pin bump, to "measure first", or to "just check".
+  A plan document's per-step gate (`gate quick`, "gate per run", "measure first") does not override this.
+- Subagents never run cargo, `vp`, npm builds or tests at all.
+- Before the one build, if the disk has under 40 GB free, delete `debug/incremental` in the target folder.
+- Never sit idle waiting on a build. If something must be built, it is the final pass.
+
 Shared Rust crates for Rimelight's native apps. The plan these crates follow is `docs/plan.md` in rimelight-space
 (sections 4 and 5, WS2). Read it before starting a step.
 

@@ -16,6 +16,7 @@ import { Button } from "@rimelight_ui/components/button.slint";
 import { CalendarGrid } from "@rimelight_ui/components/calendar-grid.slint";
 import { Card } from "@rimelight_ui/components/card.slint";
 import { Checkbox } from "@rimelight_ui/components/checkbox.slint";
+import { BarChart, ChartPalette, DonutChart, LineChart, ProgressRing } from "@rimelight_ui/components/chart.slint";
 import { ClipboardWriter } from "@rimelight_ui/components/clipboard-writer.slint";
 import { ColorPicker, ColorField } from "@rimelight_ui/components/color-picker.slint";
 import { Combobox } from "@rimelight_ui/components/combobox.slint";
@@ -169,6 +170,40 @@ export component CheckWindow inherits Window {
             Skeleton { }
             Slider { }
             Spinner { }
+            LineChart {
+                width: 320px;
+                height: 200px;
+                points: [{ label: "Jan", value: 75.4 }, { label: "Feb", value: 74.8 }, { label: "Mar", value: 73.9 }];
+                y-min: 70;
+                y-max: 80;
+                unit: "kg";
+                accessible-name: "Weight by month";
+            }
+            BarChart {
+                width: 320px;
+                height: 200px;
+                points: [{ label: "Mon", value: 3 }, { label: "Tue", value: 5 }, { label: "Wed", value: 2 }];
+                y-min: 0;
+                y-max: 6;
+                accessible-name: "Fasting hours by day";
+            }
+            ProgressRing {
+                width: 120px;
+                height: 120px;
+                value: 0.72;
+                centre-text: "72 %";
+                accessible-name: "Goal progress";
+            }
+            DonutChart {
+                width: 160px;
+                height: 160px;
+                centre-text: "100";
+                slices: [
+                    { label: "Rent", value: 60, start: 0, span: 0.6, colour: ChartPalette.series[0] },
+                    { label: "Food", value: 40, start: 0.6, span: 0.4, colour: ChartPalette.series[1] },
+                ];
+                accessible-name: "Budget split";
+            }
             Stat { }
             StatusDot { }
             Stepper { }

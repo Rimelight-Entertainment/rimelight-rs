@@ -19,10 +19,17 @@ pub mod win32;
 pub mod android;
 
 #[cfg(windows)]
+mod dialogs;
+
+#[cfg(windows)]
 use win32 as imp;
 
 #[cfg(not(windows))]
 use portable as imp;
+
+/// File-type choices for the dialogs: each pair is a display name and its extensions without the dot, for example
+/// `&[("Images", &["png", "jpg"]), ("All files", &["*"])]`. An empty slice shows every file.
+pub type FileFilter<'a> = &'a [(&'a str, &'a [&'a str])];
 
 /// A rectangle in physical screen pixels (virtual-desktop coordinates, can be negative).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -226,6 +233,54 @@ pub fn set_owner(hwnd: isize, owner: isize) -> Result<(), String> {
     imp::set_owner(hwnd, owner)
 }
 
+/// Keeps the display and the system awake while `on` is true (Windows: SetThreadExecutionState). Call it on the UI
+/// thread: the state belongs to the thread that set it, and it ends when the process ends. `false` restores normal
+/// power management. On Android and the other targets this does nothing: the app must hold the screen-on flag itself
+/// (a window flag, set from the activity) to keep the screen on there.
+pub fn keep_awake(on: bool) {
+    imp::keep_awake(on)
+}
+
+/// The open-file dialog (Windows only): the paths the person picked, empty when they cancel or on other targets.
+/// `multiple` allows several files. Blocks until the person answers.
+pub fn pick_files(filter: FileFilter<'_>, multiple: bool) -> Vec<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        dialogs::pick_files(filter, multiple)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (filter, multiple);
+        Vec::new()
+    }
+}
+
+/// The folder dialog (Windows only): None when the person cancels or on other targets. Blocks until they answer.
+pub fn pick_folder() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        dialogs::pick_folder()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+/// The save dialog (Windows only) starting with file name `name`: the chosen path, or None when the person cancels
+/// or on other targets. Blocks until they answer. Write the file yourself after this returns.
+pub fn save_file_dialog(name: &str, filter: FileFilter<'_>) -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        dialogs::save_file_dialog(name, filter)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (name, filter);
+        None
+    }
+}
+
 /// Portable answers for targets without the Windows calls (Android, macOS, Linux, wasm32). Nothing is captured,
 /// nothing is hooked, and each call that would act on the OS says so.
 #[cfg(not(windows))]
@@ -244,6 +299,7 @@ mod portable {
         Vec::new()
     }
     pub fn file_types_changed() {}
+    pub fn keep_awake(_: bool) {}
     pub fn exclude_from_capture(_: isize) {}
     pub fn start_no_window_animations(_: &str) {}
     pub fn start_win_shift_s_hook() {}

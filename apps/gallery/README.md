@@ -21,6 +21,11 @@ Stories in Foundations: `foundations/tokens` (variant `focus`), `foundations/typ
 `foundations/icons`, `foundations/spacing-and-radius`, `foundations/motion`, `foundations/about` (variant `sidebar-focus`).
 Components, Templates and Shell hold the component stories and the shell stories.
 
+Templates (ST5.4, the page templates in `rimelight_shell/ui/templates/`): `templates/list-page` (variants `loading`, `empty`,
+`error`, `selected`), `templates/board-page` (variants `empty`, `error`, `move-refused`) and `templates/detail-page` (variants
+`loading`, `empty`, `error`). Each story carries its own sample data. The board story has no drop target (its `column-at` answers
+-1), so it shows the states but not the drag.
+
 ## Run
 
 ```

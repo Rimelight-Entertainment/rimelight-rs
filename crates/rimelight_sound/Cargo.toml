@@ -1,0 +1,16 @@
+[package]
+name = "rimelight_sound"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Short tones and a metronome for the Rimelight apps: sine tones with a click-free envelope, a beat schedule, and desktop playback through cpal (silent elsewhere)."
+
+[lints]
+workspace = true
+
+# Desktop audio output through the platform's own API (WASAPI on Windows, CoreAudio, ALSA). Not built for Android or
+# wasm32: there `play` and `Metronome::start` are silent stubs until a platform backend is added.
+[target.'cfg(not(any(target_os = "android", target_arch = "wasm32")))'.dependencies]
+cpal = "0.18"

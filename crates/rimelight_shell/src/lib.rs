@@ -7,6 +7,11 @@
 //! library paths in its `build.rs`: `rimelight_shell` to [`UI_DIR`], `rimelight_ui` to `rimelight_ui::UI_DIR` and
 //! `rimelight_design` to `rimelight_design::UI_DIR`, then importing, for example, `@rimelight_shell/components/rail.slint`.
 //!
+//! The page templates (ST5.4) are in `ui/templates/`: `@rimelight_shell/templates/list-page.slint` (`ListPage`, the T-LIST
+//! shape), `board-page.slint` (`BoardPage`, the T-BOARD shape) and `detail-page.slint` (`DetailPage`, the T-DETAIL shape). They
+//! are compositions of `rimelight_ui` components, so they live here with the rest of the page chrome, not in
+//! `rimelight_ui_kit`, which holds only plain Rust. Their state is in `rimelight_ui_kit` (`page_state`, `list`, `board`).
+//!
 //! The plain-Rust models: the page tabs ([`tabs`]), their back and forward [`history`], the tile groups ([`tiles`]), the
 //! tab drop zones ([`tile_drop`]), and the top-level workspaces and their saving ([`workspace`]). They are generic over
 //! the app's [`Routes`], which give the route titles, the Home route and the rail areas.

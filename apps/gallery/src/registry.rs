@@ -651,6 +651,71 @@ pub const STORIES: &[Story] = &[
         section: Section::Components,
         variants: &[DEFAULT],
     },
+    Story {
+        id: "templates/list-page",
+        title: "List page",
+        section: Section::Templates,
+        // The variants pick the page's state (loaded, loading, empty, error) and a selection of two rows.
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "loading",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "error",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "selected",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "templates/board-page",
+        title: "Board page",
+        section: Section::Templates,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "error",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "move-refused",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
+    Story {
+        id: "templates/detail-page",
+        title: "Detail page",
+        section: Section::Templates,
+        variants: &[
+            DEFAULT,
+            Variant {
+                name: "loading",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "empty",
+                after_render: AfterRender::None,
+            },
+            Variant {
+                name: "error",
+                after_render: AfterRender::None,
+            },
+        ],
+    },
 ];
 
 /// The sidebar heading of the app stories.
@@ -952,7 +1017,7 @@ mod tests {
             STORIES.len(),
             "ui/gallery.slint must show every built-in story"
         );
-        let builtin_count = markup.contains("in-out property <int> builtin-count: 71;");
+        let builtin_count = markup.contains("in-out property <int> builtin-count: 74;");
         assert!(
             builtin_count,
             "gallery.slint builtin-count must equal STORIES.len()"
