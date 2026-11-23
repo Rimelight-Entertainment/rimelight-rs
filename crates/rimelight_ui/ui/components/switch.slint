@@ -75,7 +75,9 @@ export component Switch inherits Rectangle {
 
     height: root.detail != "" ? layout.preferred-height : (root.size == SwitchSize.sm ? Tokens.size-control-sm : Tokens.size-control-md);
     min-width: root.track-w;
-    horizontal-stretch: 0;
+    // A settings row fills the width it is given (label left, track at the right edge); the other sides keep the content width.
+    horizontal-stretch: root.label-side == SwitchLabelSide.row ? 1 : 0;
+    max-width: root.label-side == SwitchLabelSide.row ? 100000px : layout.preferred-width;
 
     layout := HorizontalLayout {
         spacing: Tokens.space-2;
