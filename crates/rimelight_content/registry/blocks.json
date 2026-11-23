@@ -1,0 +1,538 @@
+{
+  "version": 1,
+  "blocks": [
+    {
+      "type": "ParagraphBlock",
+      "label": { "en": "Text", "pt": "Text", "es": "Text" },
+      "icon": "i-lucide-pilcrow",
+      "category": "text",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": "text",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "text": [] },
+      "initialChildren": null,
+      "fields": {}
+    },
+    {
+      "type": "SectionBlock",
+      "label": { "en": "Section", "pt": "Section", "es": "Section" },
+      "icon": "i-lucide-heading",
+      "category": "structure",
+      "children": "*",
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": 5,
+      "inlineText": "title",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "title": [] },
+      "initialChildren": null,
+      "fields": {
+        "title": { "type": "richtext", "label": { "en": "Heading", "pt": "Heading", "es": "Heading" } },
+        "description": { "type": "richtext", "label": { "en": "Subtitle", "pt": "Subtitle", "es": "Subtitle" } },
+        "mainArticleSlug": { "type": "text", "label": { "en": "Main article slug", "pt": "Main article slug", "es": "Main article slug" } }
+      }
+    },
+    {
+      "type": "CalloutBlock",
+      "label": { "en": "Callout", "pt": "Callout", "es": "Callout" },
+      "icon": "i-lucide-info",
+      "category": "text",
+      "children": ["ParagraphBlock", "UnorderedListBlock", "OrderedListBlock", "ImageBlock", "CodeBlock", "TableBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "variant": "info" },
+      "initialChildren": [{ "id": "", "type": "ParagraphBlock", "props": { "text": [] } }],
+      "fields": {
+        "variant": {
+          "type": "select",
+          "label": { "en": "Variant", "pt": "Variant", "es": "Variant" },
+          "options": [
+            { "value": "info", "label": "Info" },
+            { "value": "success", "label": "Success" },
+            { "value": "warning", "label": "Warning" },
+            { "value": "error", "label": "Error" },
+            { "value": "commentary", "label": "Commentary" },
+            { "value": "ideation", "label": "Ideation" },
+            { "value": "source", "label": "Source" }
+          ]
+        },
+        "to": { "type": "url", "label": { "en": "Link", "pt": "Link", "es": "Link" } }
+      }
+    },
+    {
+      "type": "UnorderedListBlock",
+      "label": { "en": "Bulleted list", "pt": "Bulleted list", "es": "Bulleted list" },
+      "icon": "i-lucide-list",
+      "category": "text",
+      "children": ["ListItemBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {},
+      "initialChildren": [{ "id": "", "type": "ListItemBlock", "props": { "content": [] } }],
+      "fields": {}
+    },
+    {
+      "type": "OrderedListBlock",
+      "label": { "en": "Numbered list", "pt": "Numbered list", "es": "Numbered list" },
+      "icon": "i-lucide-list-ordered",
+      "category": "text",
+      "children": ["ListItemBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {},
+      "initialChildren": [{ "id": "", "type": "ListItemBlock", "props": { "content": [] } }],
+      "fields": {}
+    },
+    {
+      "type": "ListItemBlock",
+      "label": { "en": "List item", "pt": "List item", "es": "List item" },
+      "icon": "i-lucide-dot",
+      "category": "text",
+      "children": ["UnorderedListBlock", "OrderedListBlock"],
+      "parents": ["UnorderedListBlock", "OrderedListBlock"],
+      "nestedOnly": true,
+      "maxNesting": null,
+      "inlineText": "content",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "content": [] },
+      "initialChildren": null,
+      "fields": {}
+    },
+    {
+      "type": "ImageBlock",
+      "label": { "en": "Image", "pt": "Image", "es": "Image" },
+      "icon": "i-lucide-image",
+      "category": "media",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "src": "", "alt": "" },
+      "initialChildren": null,
+      "fields": {
+        "src": { "type": "media", "label": { "en": "Image", "pt": "Image", "es": "Image" }, "required": true },
+        "alt": { "type": "text", "label": { "en": "Alt text", "pt": "Alt text", "es": "Alt text" }, "required": true },
+        "caption": { "type": "text", "label": { "en": "Caption", "pt": "Caption", "es": "Caption" } },
+        "width": { "type": "number", "label": { "en": "Width", "pt": "Width", "es": "Width" } },
+        "height": { "type": "number", "label": { "en": "Height", "pt": "Height", "es": "Height" } }
+      }
+    },
+    {
+      "type": "CodeBlock",
+      "label": { "en": "Code", "pt": "Code", "es": "Code" },
+      "icon": "i-lucide-code",
+      "category": "text",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "code": "", "language": "ts" },
+      "initialChildren": null,
+      "fields": {
+        "language": { "type": "text", "label": { "en": "Language", "pt": "Language", "es": "Language" } },
+        "filename": { "type": "text", "label": { "en": "Filename", "pt": "Filename", "es": "Filename" } },
+        "showLineNumbers": { "type": "boolean", "label": { "en": "Line numbers", "pt": "Line numbers", "es": "Line numbers" } },
+        "code": { "type": "textarea", "label": { "en": "Code", "pt": "Code", "es": "Code" } }
+      }
+    },
+    {
+      "type": "TableBlock",
+      "label": { "en": "Table", "pt": "Table", "es": "Table" },
+      "icon": "i-lucide-table",
+      "category": "data",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {
+        "columns": [
+          { "key": "a", "header": "Column A" },
+          { "key": "b", "header": "Column B" }
+        ],
+        "rows": [{ "a": "", "b": "" }]
+      },
+      "initialChildren": null,
+      "fields": {
+        "caption": { "type": "text", "label": { "en": "Caption", "pt": "Caption", "es": "Caption" } },
+        "striped": { "type": "boolean", "label": { "en": "Striped", "pt": "Striped", "es": "Striped" } },
+        "bordered": { "type": "boolean", "label": { "en": "Bordered", "pt": "Bordered", "es": "Bordered" } }
+      }
+    },
+    {
+      "type": "TabsBlock",
+      "label": { "en": "Tabs", "pt": "Tabs", "es": "Tabs" },
+      "icon": "i-lucide-panels-top-left",
+      "category": "structure",
+      "children": ["TabItemBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {},
+      "initialChildren": [
+        {
+          "id": "",
+          "type": "TabItemBlock",
+          "props": { "label": { "en": "Tab 1", "pt": "Tab 1", "es": "Tab 1" } },
+          "children": []
+        }
+      ],
+      "fields": {}
+    },
+    {
+      "type": "TabItemBlock",
+      "label": { "en": "Tab", "pt": "Tab", "es": "Tab" },
+      "icon": "i-lucide-panel-top",
+      "category": "structure",
+      "children": "*",
+      "parents": ["TabsBlock"],
+      "nestedOnly": true,
+      "maxNesting": null,
+      "inlineText": "label",
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "label": "Tab" },
+      "initialChildren": null,
+      "fields": {
+        "label": { "type": "text", "label": { "en": "Label", "pt": "Label", "es": "Label" } },
+        "icon": { "type": "text", "label": { "en": "Icon", "pt": "Icon", "es": "Icon" } }
+      }
+    },
+    {
+      "type": "StepsBlock",
+      "label": { "en": "Steps", "pt": "Steps", "es": "Steps" },
+      "icon": "i-lucide-list-checks",
+      "category": "structure",
+      "children": ["StepItemBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {},
+      "initialChildren": [
+        {
+          "id": "",
+          "type": "StepItemBlock",
+          "props": { "title": [{ "type": "text", "text": "Step 1" }] },
+          "children": []
+        }
+      ],
+      "fields": {}
+    },
+    {
+      "type": "StepItemBlock",
+      "label": { "en": "Step", "pt": "Step", "es": "Step" },
+      "icon": "i-lucide-circle-check",
+      "category": "structure",
+      "children": "*",
+      "parents": ["StepsBlock"],
+      "nestedOnly": true,
+      "maxNesting": null,
+      "inlineText": "title",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "title": [] },
+      "initialChildren": null,
+      "fields": {
+        "title": { "type": "richtext", "label": { "en": "Title", "pt": "Title", "es": "Title" } },
+        "description": { "type": "textarea", "label": { "en": "Description", "pt": "Description", "es": "Description" } }
+      }
+    },
+    {
+      "type": "CardsBlock",
+      "label": { "en": "Cards", "pt": "Cards", "es": "Cards" },
+      "icon": "i-lucide-layout-grid",
+      "category": "structure",
+      "children": ["CardBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "columns": 2 },
+      "initialChildren": [{ "id": "", "type": "CardBlock", "props": { "title": "Card" } }],
+      "fields": {
+        "columns": {
+          "type": "select",
+          "label": { "en": "Columns", "pt": "Columns", "es": "Columns" },
+          "options": [
+            { "value": "1", "label": "1" },
+            { "value": "2", "label": "2" },
+            { "value": "3", "label": "3" },
+            { "value": "4", "label": "4" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "CardBlock",
+      "label": { "en": "Card", "pt": "Card", "es": "Card" },
+      "icon": "i-lucide-square",
+      "category": "structure",
+      "children": null,
+      "parents": ["CardsBlock"],
+      "nestedOnly": true,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "title": "" },
+      "initialChildren": null,
+      "fields": {
+        "title": { "type": "text", "label": { "en": "Title", "pt": "Title", "es": "Title" } },
+        "description": { "type": "textarea", "label": { "en": "Description", "pt": "Description", "es": "Description" } },
+        "icon": { "type": "text", "label": { "en": "Icon", "pt": "Icon", "es": "Icon" } },
+        "href": { "type": "url", "label": { "en": "Link", "pt": "Link", "es": "Link" } },
+        "badge": { "type": "text", "label": { "en": "Badge", "pt": "Badge", "es": "Badge" } }
+      }
+    },
+    {
+      "type": "FileTreeBlock",
+      "label": { "en": "File tree", "pt": "File tree", "es": "File tree" },
+      "icon": "i-lucide-folder-tree",
+      "category": "data",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "tree": [] },
+      "initialChildren": null,
+      "fields": {
+        "tree": { "type": "json", "label": { "en": "Tree", "pt": "Tree", "es": "Tree" } }
+      }
+    },
+    {
+      "type": "LivePreviewBlock",
+      "label": { "en": "Live preview", "pt": "Live preview", "es": "Live preview" },
+      "icon": "i-lucide-play",
+      "category": "embed",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": true,
+      "defaultProps": { "componentCode": "", "framework": "solid", "height": "320px" },
+      "initialChildren": null,
+      "fields": {
+        "componentCode": { "type": "textarea", "label": { "en": "Component code", "pt": "Component code", "es": "Component code" } },
+        "height": { "type": "text", "label": { "en": "Height", "pt": "Height", "es": "Height" } },
+        "editable": { "type": "boolean", "label": { "en": "Editable", "pt": "Editable", "es": "Editable" } }
+      }
+    },
+    {
+      "type": "DividerBlock",
+      "label": { "en": "Divider", "pt": "Divider", "es": "Divider" },
+      "icon": "i-lucide-minus",
+      "category": "text",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {},
+      "initialChildren": null,
+      "fields": {}
+    },
+    {
+      "type": "QuoteBlock",
+      "label": { "en": "Quote", "pt": "Quote", "es": "Quote" },
+      "icon": "i-lucide-quote",
+      "category": "text",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": "text",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "text": [], "attribution": "" },
+      "initialChildren": null,
+      "fields": {
+        "attribution": { "type": "text", "label": { "en": "Attribution", "pt": "Attribution", "es": "Attribution" } }
+      }
+    },
+    {
+      "type": "EmbedBlock",
+      "label": { "en": "Video", "pt": "Video", "es": "Video" },
+      "icon": "i-lucide-video",
+      "category": "embed",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "url": "", "caption": "" },
+      "initialChildren": null,
+      "fields": {
+        "url": { "type": "url", "label": { "en": "URL", "pt": "URL", "es": "URL" }, "required": true },
+        "caption": { "type": "text", "label": { "en": "Caption", "pt": "Caption", "es": "Caption" } }
+      }
+    },
+    {
+      "type": "ScriptBlock",
+      "label": { "en": "Script", "pt": "Script", "es": "Script" },
+      "icon": "i-lucide-clapperboard",
+      "category": "screenplay",
+      "children": ["SceneBlock"],
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": { "title": "", "synopsis": "", "characters": [] },
+      "initialChildren": null,
+      "fields": {
+        "title": { "type": "text", "label": { "en": "Title", "pt": "Title", "es": "Title" } },
+        "synopsis": { "type": "textarea", "label": { "en": "Synopsis", "pt": "Synopsis", "es": "Synopsis" } },
+        "characters": { "type": "tags", "label": { "en": "Characters", "pt": "Characters", "es": "Characters" } },
+        "aPlot": { "type": "textarea", "label": { "en": "A plot", "pt": "A plot", "es": "A plot" } },
+        "bPlot": { "type": "textarea", "label": { "en": "B plot", "pt": "B plot", "es": "B plot" } },
+        "cPlot": { "type": "textarea", "label": { "en": "C plot", "pt": "C plot", "es": "C plot" } },
+        "stinger": { "type": "textarea", "label": { "en": "Stinger", "pt": "Stinger", "es": "Stinger" } }
+      }
+    },
+    {
+      "type": "SceneBlock",
+      "label": { "en": "Scene", "pt": "Scene", "es": "Scene" },
+      "icon": "i-lucide-film",
+      "category": "screenplay",
+      "children": ["DialogueBlock", "ParagraphBlock", "CalloutBlock"],
+      "parents": ["ScriptBlock"],
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": false,
+      "defaultProps": {
+        "location": "",
+        "timeOfDay": "MORNING",
+        "setting": "INTERIOR",
+        "transition": "CUT_TO",
+        "description": []
+      },
+      "initialChildren": null,
+      "fields": {
+        "location": { "type": "text", "label": { "en": "Location", "pt": "Location", "es": "Location" } },
+        "setting": {
+          "type": "select",
+          "label": { "en": "Setting", "pt": "Setting", "es": "Setting" },
+          "options": [
+            { "value": "INTERIOR", "label": "INTERIOR" },
+            { "value": "EXTERIOR", "label": "EXTERIOR" },
+            { "value": "OTHER", "label": "OTHER" }
+          ]
+        },
+        "timeOfDay": {
+          "type": "select",
+          "label": { "en": "Time of day", "pt": "Time of day", "es": "Time of day" },
+          "options": [
+            { "value": "MORNING", "label": "MORNING" },
+            { "value": "NOON", "label": "NOON" },
+            { "value": "AFTERNOON", "label": "AFTERNOON" },
+            { "value": "EVENING", "label": "EVENING" },
+            { "value": "NIGHT", "label": "NIGHT" },
+            { "value": "OTHER", "label": "OTHER" }
+          ]
+        },
+        "transition": {
+          "type": "select",
+          "label": { "en": "Transition", "pt": "Transition", "es": "Transition" },
+          "options": [
+            { "value": "CUT_TO", "label": "CUT_TO" },
+            { "value": "CUT_BACK_TO", "label": "CUT_BACK_TO" },
+            { "value": "FADE_TO", "label": "FADE_TO" },
+            { "value": "NONE", "label": "NONE" }
+          ]
+        },
+        "description": { "type": "richtext", "label": { "en": "Description", "pt": "Description", "es": "Description" } }
+      }
+    },
+    {
+      "type": "DialogueBlock",
+      "label": { "en": "Dialogue", "pt": "Dialogue", "es": "Dialogue" },
+      "icon": "i-lucide-message-square-quote",
+      "category": "screenplay",
+      "children": null,
+      "parents": ["SceneBlock"],
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": "line",
+      "richText": true,
+      "webOnly": false,
+      "defaultProps": { "character": [], "parenthetical": "", "line": [] },
+      "initialChildren": null,
+      "fields": {
+        "character": { "type": "richtext", "label": { "en": "Character", "pt": "Character", "es": "Character" } },
+        "parenthetical": { "type": "text", "label": { "en": "Parenthetical", "pt": "Parenthetical", "es": "Parenthetical" } }
+      }
+    },
+    {
+      "type": "ApiDocumentationBlock",
+      "label": { "en": "API documentation", "pt": "API documentation", "es": "API documentation" },
+      "icon": "i-lucide-book-open",
+      "category": "embed",
+      "children": null,
+      "parents": null,
+      "nestedOnly": false,
+      "maxNesting": null,
+      "inlineText": null,
+      "richText": false,
+      "webOnly": true,
+      "defaultProps": {
+        "componentName": "",
+        "sections": { "props": true, "slots": true, "emits": true, "theme": true, "changelog": false },
+        "hide": [],
+        "show": []
+      },
+      "initialChildren": null,
+      "fields": {
+        "componentName": { "type": "text", "label": { "en": "Component", "pt": "Component", "es": "Component" }, "required": true },
+        "sections": { "type": "json", "label": { "en": "Sections", "pt": "Sections", "es": "Sections" } },
+        "hide": { "type": "tags", "label": { "en": "Hide props", "pt": "Hide props", "es": "Hide props" } },
+        "show": { "type": "tags", "label": { "en": "Only show props", "pt": "Only show props", "es": "Only show props" } }
+      }
+    }
+  ]
+}

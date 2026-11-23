@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "slug": "docs/components/button",
+    "type": "docs",
+    "title": { "en": "Button API" },
+    "templateId": null
+  },
+  "content": {
+    "blocks": [
+      {
+        "id": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e01",
+        "type": "LivePreviewBlock",
+        "props": {
+          "componentCode": "export default function Demo() {\n  return <button>Hi</button>;\n}",
+          "framework": "solid",
+          "height": "320px",
+          "editable": false
+        }
+      },
+      {
+        "id": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e02",
+        "type": "ApiDocumentationBlock",
+        "props": {
+          "componentName": "Button",
+          "sections": {
+            "props": true,
+            "slots": true,
+            "emits": true,
+            "theme": true,
+            "changelog": false
+          },
+          "hide": ["class"],
+          "show": []
+        }
+      },
+      {
+        "id": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e03",
+        "type": "FutureBlock",
+        "props": {
+          "mode": "experimental",
+          "options": { "depth": 3, "tags": ["a", "b"] },
+          "text": "kept as is"
+        },
+        "children": [
+          {
+            "id": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e04",
+            "type": "ParagraphBlock",
+            "props": {
+              "text": [{ "type": "text", "text": "Inside the future block." }]
+            }
+          }
+        ]
+      }
+    ],
+    "properties": {}
+  }
+}

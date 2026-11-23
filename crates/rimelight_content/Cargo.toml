@@ -1,0 +1,17 @@
+[package]
+name = "rimelight_content"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight content model: block registry, rich text and the Loro document mapping shared by the CMS editor and the content service."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+loro = "1.18"
+thiserror = "2"

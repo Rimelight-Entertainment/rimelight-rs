@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "slug": "characters/aria-vance",
+    "type": "character",
+    "title": { "en": "Aria Vance", "pt-BR": "Aria Vance" },
+    "description": { "en": "Pilot of the Rimelight.", "pt-BR": "Piloto do Rimelight." },
+    "templateId": "tpl-character",
+    "templateVersion": 2,
+    "tags": [{ "en": "crew" }, { "en": "pilot" }]
+  },
+  "content": {
+    "blocks": [
+      {
+        "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a01",
+        "type": "SectionBlock",
+        "props": {
+          "title": {
+            "en": [{ "type": "text", "text": "Background" }],
+            "pt-BR": [{ "type": "text", "text": "Histórico" }]
+          }
+        },
+        "isTemplated": true,
+        "templatedProps": true,
+        "allowedRoles": ["editor", "admin"],
+        "requiredPermission": "cms.characters.edit",
+        "visibility": "public",
+        "children": [
+          {
+            "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a02",
+            "type": "ParagraphBlock",
+            "props": {
+              "text": {
+                "en": [
+                  { "type": "text", "text": "Aria grew up on " },
+                  {
+                    "type": "mention",
+                    "entryId": "c9e8d7f6-1a2b-4c3d-8e4f-5a6b7c8d9e02",
+                    "collection": "places",
+                    "slug": "the-docks"
+                  },
+                  { "type": "text", "text": " docks." }
+                ],
+                "pt-BR": [
+                  { "type": "text", "text": "Aria cresceu nas " },
+                  { "type": "text", "text": "docas", "marks": ["italic"] },
+                  { "type": "text", "text": "." }
+                ]
+              }
+            }
+          },
+          {
+            "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a03",
+            "type": "ParagraphBlock",
+            "props": {
+              "text": [{ "type": "text", "text": "Short bio." }]
+            },
+            "templatedProps": ["text"]
+          },
+          {
+            "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a04",
+            "type": "CalloutBlock",
+            "props": { "variant": "ideation" },
+            "visibility": "internal",
+            "children": [
+              {
+                "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a05",
+                "type": "ParagraphBlock",
+                "props": {
+                  "text": [{ "type": "text", "text": "Ideas for a sequel." }]
+                }
+              }
+            ]
+          },
+          {
+            "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a06",
+            "type": "QuoteBlock",
+            "props": {
+              "text": {
+                "en": [{ "type": "text", "text": "Keep flying." }],
+                "pt-BR": [{ "type": "text", "text": "Continue voando." }]
+              },
+              "attribution": "Aria Vance"
+            },
+            "requiredPermission": "cms.characters.view"
+          },
+          {
+            "id": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a07",
+            "type": "ImageBlock",
+            "props": {
+              "src": {
+                "id": "d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6",
+                "src": "https://cdn.example.com/aria.png",
+                "alt": "Portrait",
+                "width": 800,
+                "height": 800,
+                "format": "png",
+                "provider": "r2"
+              },
+              "alt": { "en": "Portrait", "pt-BR": "Retrato" },
+              "caption": "Concept art"
+            },
+            "allowedRoles": ["editor"]
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "species": "human",
+      "age": 34,
+      "active": true,
+      "homeworld": "Ferrous Drift",
+      "factions": ["Rimelight", "Ferrous Drift"]
+    }
+  }
+}

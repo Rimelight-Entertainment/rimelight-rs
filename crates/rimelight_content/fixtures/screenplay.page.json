@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "slug": "episodes/pilot",
+    "type": "episode",
+    "title": { "en": "Pilot" },
+    "templateId": null
+  },
+  "content": {
+    "blocks": [
+      {
+        "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c01",
+        "type": "ScriptBlock",
+        "props": {
+          "title": "Pilot",
+          "synopsis": "The crew arrives.",
+          "characters": ["Aria", "Dev"],
+          "aPlot": "Arrival",
+          "bPlot": "",
+          "cPlot": "",
+          "stinger": ""
+        },
+        "children": [
+          {
+            "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c02",
+            "type": "SceneBlock",
+            "props": {
+              "location": "Bridge",
+              "timeOfDay": "NIGHT",
+              "setting": "INTERIOR",
+              "transition": "CUT_TO",
+              "description": [{ "type": "text", "text": "Lights flicker." }]
+            },
+            "children": [
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c03",
+                "type": "ParagraphBlock",
+                "props": {
+                  "text": [
+                    { "type": "text", "text": "Action: " },
+                    { "type": "text", "text": "Aria checks the console.", "marks": ["italic"] }
+                  ]
+                }
+              },
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c04",
+                "type": "DialogueBlock",
+                "props": {
+                  "character": [
+                    {
+                      "type": "mention",
+                      "entryId": "c9e8d7f6-1a2b-4c3d-8e4f-5a6b7c8d9e03",
+                      "collection": "characters",
+                      "slug": "aria-vance",
+                      "title": "Aria Vance"
+                    }
+                  ],
+                  "parenthetical": "(whispering)",
+                  "line": [{ "type": "text", "text": "We are not alone." }]
+                }
+              },
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c05",
+                "type": "CalloutBlock",
+                "props": { "variant": "commentary" },
+                "children": [
+                  {
+                    "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c06",
+                    "type": "ParagraphBlock",
+                    "props": {
+                      "text": [{ "type": "text", "text": "Beat: tension rises." }]
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c07",
+                "type": "DialogueBlock",
+                "props": {
+                  "character": [
+                    {
+                      "type": "mention",
+                      "entryId": "c9e8d7f6-1a2b-4c3d-8e4f-5a6b7c8d9e04",
+                      "collection": "characters",
+                      "slug": "dev-kade",
+                      "title": "Dev Kade"
+                    }
+                  ],
+                  "parenthetical": "",
+                  "line": [{ "type": "text", "text": "Who?" }]
+                }
+              }
+            ]
+          },
+          {
+            "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c08",
+            "type": "SceneBlock",
+            "props": {
+              "location": "Hangar",
+              "timeOfDay": "MORNING",
+              "setting": "EXTERIOR",
+              "transition": "FADE_TO",
+              "description": []
+            },
+            "children": [
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c09",
+                "type": "DialogueBlock",
+                "props": {
+                  "character": [
+                    {
+                      "type": "mention",
+                      "entryId": "c9e8d7f6-1a2b-4c3d-8e4f-5a6b7c8d9e04",
+                      "collection": "characters",
+                      "slug": "dev-kade",
+                      "title": "Dev Kade"
+                    }
+                  ],
+                  "parenthetical": "(smiling)",
+                  "line": [{ "type": "text", "text": "Ready when you are." }]
+                }
+              },
+              {
+                "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c10",
+                "type": "ParagraphBlock",
+                "props": {
+                  "text": [{ "type": "text", "text": "Engines hum." }]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "episode": 1,
+      "runtime": "24:00"
+    }
+  }
+}

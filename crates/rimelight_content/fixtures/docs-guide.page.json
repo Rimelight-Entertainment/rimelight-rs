@@ -1,0 +1,323 @@
+{
+  "meta": {
+    "slug": "docs/guide",
+    "type": "docs",
+    "title": { "en": "Guide" },
+    "description": { "en": "Everything the docs blocks can do." },
+    "templateId": null,
+    "tags": [{ "en": "docs" }]
+  },
+  "content": {
+    "blocks": [
+      {
+        "id": "3f9c2a10-7b4e-4d1a-9e2b-5c8f1d0a6b01",
+        "type": "SectionBlock",
+        "props": {
+          "title": [{ "type": "text", "text": "Getting started" }]
+        },
+        "children": [
+          {
+            "id": "0f7c6a52-3b1e-4d8a-9c2f-6e1a2b3c4d01",
+            "type": "ParagraphBlock",
+            "props": {
+              "text": [
+                { "type": "text", "text": "Plain start, " },
+                { "type": "text", "text": "bold", "marks": ["bold"] },
+                { "type": "text", "text": " italic", "marks": ["italic"] },
+                { "type": "text", "text": " under", "marks": ["underline"] },
+                { "type": "text", "text": " strike", "marks": ["strikethrough"] },
+                { "type": "text", "text": " code", "marks": ["code"] },
+                { "type": "text", "text": " all", "marks": ["bold", "italic", "underline", "strikethrough", "code"] },
+                { "type": "text", "text": " then " },
+                {
+                  "type": "link",
+                  "url": "https://example.com/docs",
+                  "openInNewTab": true,
+                  "children": [
+                    { "type": "text", "text": "read " },
+                    { "type": "text", "text": "this", "marks": ["bold"] }
+                  ]
+                },
+                { "type": "text", "text": " now, " },
+                {
+                  "type": "mention",
+                  "entryId": "c9e8d7f6-1a2b-4c3d-8e4f-5a6b7c8d9e01",
+                  "collection": "characters",
+                  "slug": "aria-vance",
+                  "title": "Aria Vance"
+                },
+                { "type": "text", "text": " " },
+                { "type": "emoji", "emoji": "🔥", "shortcode": "fire" },
+                { "type": "text", "text": " " },
+                { "type": "icon", "name": "i-lucide-sword", "label": "Sword" },
+                { "type": "text", "text": " done." }
+              ]
+            }
+          },
+          {
+            "id": "0f7c6a52-3b1e-4d8a-9c2f-6e1a2b3c4d02",
+            "type": "ParagraphBlock",
+            "props": {
+              "text": [{ "type": "text", "text": "Second paragraph, plain." }]
+            }
+          },
+          {
+            "id": "3f9c2a10-7b4e-4d1a-9e2b-5c8f1d0a6b02",
+            "type": "SectionBlock",
+            "props": {
+              "title": [{ "type": "text", "text": "Nested level" }]
+            },
+            "children": [
+              {
+                "id": "3f9c2a10-7b4e-4d1a-9e2b-5c8f1d0a6b03",
+                "type": "SectionBlock",
+                "props": {
+                  "title": [{ "type": "text", "text": "Deepest level" }]
+                },
+                "children": [
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d01",
+                    "type": "CalloutBlock",
+                    "props": {
+                      "variant": "warning",
+                      "to": "https://example.com/warning"
+                    },
+                    "children": [
+                      {
+                        "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d02",
+                        "type": "ParagraphBlock",
+                        "props": {
+                          "text": [
+                            { "type": "text", "text": "Careful with " },
+                            { "type": "text", "text": "this", "marks": ["code"] }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d03",
+                    "type": "UnorderedListBlock",
+                    "props": {},
+                    "children": [
+                      {
+                        "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d04",
+                        "type": "ListItemBlock",
+                        "props": {
+                          "content": [{ "type": "text", "text": "First item" }]
+                        }
+                      },
+                      {
+                        "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d05",
+                        "type": "ListItemBlock",
+                        "props": {
+                          "content": [{ "type": "text", "text": "Second item", "marks": ["underline"] }]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d06",
+                    "type": "OrderedListBlock",
+                    "props": {},
+                    "children": [
+                      {
+                        "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d07",
+                        "type": "ListItemBlock",
+                        "props": {
+                          "content": [{ "type": "text", "text": "Step one" }]
+                        }
+                      },
+                      {
+                        "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d08",
+                        "type": "ListItemBlock",
+                        "props": {
+                          "content": [{ "type": "text", "text": "Step two" }]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d09",
+                    "type": "QuoteBlock",
+                    "props": {
+                      "text": [
+                        { "type": "text", "text": "Keep it " },
+                        { "type": "text", "text": "simple", "marks": ["italic"] }
+                      ],
+                      "attribution": "Anonymous"
+                    }
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d0a",
+                    "type": "CodeBlock",
+                    "props": {
+                      "code": "const a = 1;\nconsole.log(a);",
+                      "language": "ts",
+                      "filename": "example.ts",
+                      "showLineNumbers": true
+                    }
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d0b",
+                    "type": "DividerBlock",
+                    "props": {}
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d0c",
+                    "type": "ImageBlock",
+                    "props": {
+                      "src": {
+                        "id": "e7f8a9b0-c1d2-4e3f-8a4b-5c6d7e8f9a0b",
+                        "src": "https://cdn.example.com/img/sword.png",
+                        "alt": "A sword",
+                        "width": 640,
+                        "height": 480,
+                        "format": "png",
+                        "size": 52311,
+                        "provider": "r2"
+                      },
+                      "alt": "A sword",
+                      "caption": "Sword",
+                      "width": 640,
+                      "height": 480
+                    }
+                  },
+                  {
+                    "id": "7a1e9d33-2c4f-4b6a-8d5e-9f0a1b2c3d0d",
+                    "type": "TableBlock",
+                    "props": {
+                      "caption": "Stats",
+                      "columns": [
+                        { "key": "name", "header": "Name", "align": "left" },
+                        { "key": "value", "header": "Value", "align": "right" }
+                      ],
+                      "rows": [
+                        { "name": "HP", "value": "10" },
+                        { "name": "Attack", "value": "4" }
+                      ],
+                      "striped": true
+                    }
+                  },
+                  {
+                    "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e01",
+                    "type": "TabsBlock",
+                    "props": { "defaultValue": "one" },
+                    "children": [
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e02",
+                        "type": "TabItemBlock",
+                        "props": { "label": "One", "value": "one" },
+                        "children": [
+                          {
+                            "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e03",
+                            "type": "ParagraphBlock",
+                            "props": { "text": [{ "type": "text", "text": "First tab." }] }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e04",
+                        "type": "TabItemBlock",
+                        "props": { "label": "Two", "value": "two", "icon": "i-lucide-star" },
+                        "children": [
+                          {
+                            "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e05",
+                            "type": "ParagraphBlock",
+                            "props": { "text": [{ "type": "text", "text": "Second tab." }] }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e06",
+                    "type": "StepsBlock",
+                    "props": {},
+                    "children": [
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e07",
+                        "type": "StepItemBlock",
+                        "props": {
+                          "title": [{ "type": "text", "text": "Install" }],
+                          "description": "Run the installer."
+                        },
+                        "children": [
+                          {
+                            "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e08",
+                            "type": "ParagraphBlock",
+                            "props": { "text": [{ "type": "text", "text": "Needs admin rights." }] }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e09",
+                        "type": "StepItemBlock",
+                        "props": {
+                          "title": [{ "type": "text", "text": "Configure" }],
+                          "description": "Edit the config."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e0a",
+                    "type": "CardsBlock",
+                    "props": { "columns": 2 },
+                    "children": [
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e0b",
+                        "type": "CardBlock",
+                        "props": {
+                          "title": "Guide",
+                          "description": "Read the guide.",
+                          "icon": "i-lucide-book",
+                          "href": "https://example.com/guide",
+                          "badge": "New"
+                        }
+                      },
+                      {
+                        "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e0c",
+                        "type": "CardBlock",
+                        "props": {
+                          "title": "API",
+                          "description": "Reference."
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e0d",
+                    "type": "FileTreeBlock",
+                    "props": {
+                      "tree": [
+                        {
+                          "name": "src",
+                          "isDir": true,
+                          "children": [{ "name": "main.rs", "comment": "entry point" }]
+                        },
+                        { "name": "Cargo.toml" }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "b4d2f071-5a6c-4e8b-9f1d-2a3b4c5d6e0e",
+                    "type": "EmbedBlock",
+                    "props": {
+                      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                      "caption": "A short video"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "audience": "developers",
+      "order": 1
+    }
+  }
+}
