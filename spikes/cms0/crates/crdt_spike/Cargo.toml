@@ -1,0 +1,14 @@
+[package]
+name = "crdt_spike"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "crdt_spike"
+path = "src/main.rs"
+
+[dependencies]
+yrs = { workspace = true }
+loro = { workspace = true }
+serde_json = { workspace = true }

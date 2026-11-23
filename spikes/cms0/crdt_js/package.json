@@ -1,0 +1,14 @@
+{
+  "name": "crdt-js-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CRDT spike: JS side (Yjs and loro-crdt) interop with the Rust crdt_spike crate",
+  "dependencies": {
+    "yjs": "^13.6.0",
+    "loro-crdt": "^1.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

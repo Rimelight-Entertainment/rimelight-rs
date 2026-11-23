@@ -1,0 +1,15 @@
+# Spike: can Slint 1.18 give an editable rich-text paragraph (TextInput sink over a read-only StyledText)?
+[package]
+name = "richtext_spike"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "richtext_spike"
+path = "src/main.rs"
+
+[dependencies]
+slint = { workspace = true }
+
+[build-dependencies]
+slint-build = { workspace = true }

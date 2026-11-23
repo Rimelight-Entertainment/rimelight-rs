@@ -1,0 +1,107 @@
+import { Button, CheckBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    title: "richtext spike";
+    width: 800px;
+    height: 500px;
+    background: #f7f6f2;
+
+    // Model -> view: the markdown rendered by Rust (read-only StyledText).
+    in-out property <styled-text> styled;
+    // Plain text, two-way with the TextInput sink.
+    in-out property <string> plain;
+    in-out property <string> markdown-debug;
+    in-out property <bool> show-layer: false;
+
+    out property <int> caret: input.cursor-position-byte-offset;
+    out property <int> anchor: input.anchor-position-byte-offset;
+    out property <string> preedit: input.preedit-text;
+
+    callback text-edited();
+    callback toggle-mark(string);
+    callback insert-mention();
+
+    public function set-selection(a: int, f: int) {
+        input.set-selection-offsets(a, f);
+    }
+
+    public function focus-input() {
+        input.focus();
+    }
+
+    HorizontalLayout {
+        x: 16px;
+        y: 8px;
+        width: 768px;
+        height: 40px;
+        spacing: 6px;
+
+        Button { text: "B"; clicked => { root.toggle-mark("bold"); } }
+        Button { text: "I"; clicked => { root.toggle-mark("italic"); } }
+        Button { text: "U"; clicked => { root.toggle-mark("underline"); } }
+        Button { text: "S"; clicked => { root.toggle-mark("strike"); } }
+        Button { text: "Code"; clicked => { root.toggle-mark("code"); } }
+        Button { text: "@ mention"; clicked => { root.insert-mention(); } }
+        CheckBox { text: "Show input layer"; checked <=> root.show-layer; }
+    }
+
+    Rectangle {
+        x: 16px;
+        y: 60px;
+        width: 768px;
+        height: 240px;
+        background: #ffffff;
+        border-color: #9a9a9a;
+        border-width: 1px;
+        clip: true;
+
+        // Bottom layer: what the user sees (rich text).
+        StyledText {
+            x: 8px;
+            y: 8px;
+            width: parent.width - 16px;
+            text: root.styled;
+            default-font-size: 16px;
+            default-color: #1a1a1a;
+            link-color: #2a6fdb;
+        }
+
+        // Top layer: the input sink. Owns focus, keyboard, IME, caret, selection.
+        input := TextInput {
+            x: 8px;
+            y: 8px;
+            width: parent.width - 16px;
+            height: parent.height - 16px;
+            text <=> root.plain;
+            font-size: 16px;
+            wrap: word-wrap;
+            single-line: false;
+            vertical-alignment: top;
+            color: root.show-layer ? #ff000080 : transparent;
+            selection-background-color: #3584e480;
+            selection-foreground-color: transparent;
+            text-cursor-width: 2px;
+
+            edited => { root.text-edited(); }
+
+            key-pressed(event) => {
+                if (event.modifiers.control) {
+                    if (event.text == "b" || event.text == "B") { root.toggle-mark("bold"); return accept; }
+                    if (event.text == "i" || event.text == "I") { root.toggle-mark("italic"); return accept; }
+                    if (event.text == "u" || event.text == "U") { root.toggle-mark("underline"); return accept; }
+                }
+                return reject;
+            }
+        }
+    }
+
+    Text {
+        x: 16px;
+        y: 312px;
+        width: 768px;
+        wrap: word-wrap;
+        font-family: "Consolas";
+        font-size: 13px;
+        text: "caret=\{root.caret}  anchor=\{root.anchor}  preedit=\"\{root.preedit}\"\n\{root.markdown-debug}";
+    }
+}

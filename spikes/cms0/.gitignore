@@ -1,0 +1,4 @@
+target/
+crdt_js/node_modules/
+crdt_js/data/
+crdt_js/.size-out/
