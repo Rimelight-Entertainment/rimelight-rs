@@ -658,9 +658,66 @@ impl EditorController {
                 let mut view = row_view(block, &text, self.selection.contains(&block.id), presence, web_url);
                 view.fallback = fallback;
                 view.comment_count = self.open_comment_count(&block.id);
+                view.marker = self.list_marker(block);
+                view.accent = self.accent_of(block);
+                view.indent = self.indent_of(block);
                 view
             })
             .collect()
+    }
+
+    /// The marker of a list item: a bullet in a bulleted list, its number in a numbered list. Empty for other blocks.
+    fn list_marker(&self, block: &BlockRow) -> String {
+        if block.block_type != LIST_ITEM {
+            return String::new();
+        }
+        let parent = block
+            .parent
+            .as_deref()
+            .and_then(|id| self.rows.iter().find(|r| r.id == id));
+        match parent.map(|p| p.block_type.as_str()) {
+            Some(ORDERED_LIST) => format!("{}.", block.index + 1),
+            _ => "\u{2022}".to_string(),
+        }
+    }
+
+    /// The box a row is drawn in: the nearest callout (itself or an ancestor) as "callout-<variant>", a quote as
+    /// "quote". Empty when the row is in neither.
+    fn indent_of(&self, block: &BlockRow) -> usize {
+        let mut indent = 0;
+        let mut parent = block.parent.as_deref();
+        while let Some(id) = parent {
+            let Some(row) = self.rows.iter().find(|r| r.id == id) else {
+                break;
+            };
+            if row.block_type != "SectionBlock" && row.block_type != "CalloutBlock" {
+                indent += 1;
+            }
+            parent = row.parent.as_deref();
+        }
+        indent
+    }
+
+    fn accent_of(&self, block: &BlockRow) -> String {
+        if block.block_type == QUOTE {
+            return "quote".to_string();
+        }
+        let mut current = Some(block);
+        while let Some(row) = current {
+            if row.block_type == "CalloutBlock" {
+                let variant = row
+                    .props
+                    .get("variant")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("info");
+                return format!("callout-{variant}");
+            }
+            current = row
+                .parent
+                .as_deref()
+                .and_then(|id| self.rows.iter().find(|r| r.id == id));
+        }
+        String::new()
     }
 
     /// The remote carets in this locale, positioned with parley at the current text and width.
@@ -1765,6 +1822,70 @@ impl EditorController {
         vec![ControllerEffect::RowsChanged]
     }
 
+    /// The page's title or description (`key` is "title" or "description") in the current locale, else English.
+    pub fn meta_text(&self, key: &str) -> String {
+        let Ok(page) = self.doc.page() else {
+            return String::new();
+        };
+        let value = &page["meta"][key];
+        value[self.locale.as_str()]
+            .as_str()
+            .or_else(|| value["en"].as_str())
+            .or_else(|| value.as_str())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    /// The title or description was edited in the current locale.
+    pub fn meta_edited(&mut self, key: &str, text: &str) -> Vec<ControllerEffect> {
+        match self.doc.set_meta_text(key, &self.locale, text) {
+            Ok(()) => vec![ControllerEffect::SyncNeeded],
+            Err(err) => error(err),
+        }
+    }
+
+    /// The page's collection properties (`meta.properties`), for the page panel.
+    pub fn properties(&self) -> serde_json::Map<String, Value> {
+        self.doc
+            .page()
+            .ok()
+            .and_then(|p| p["content"]["properties"].as_object().cloned())
+            .unwrap_or_default()
+    }
+
+    /// One collection property changed in the page panel.
+    pub fn property_changed(&mut self, key: &str, value: Value) -> Vec<ControllerEffect> {
+        match self.doc.set_property(key, value) {
+            Ok(()) => vec![ControllerEffect::SyncNeeded],
+            Err(err) => error(err),
+        }
+    }
+
+    /// The row's + button (the web editor's "add block below"): inserts an empty block after the row and opens the
+    /// insert menu on it. Inside a list the new block is a list item, elsewhere a paragraph.
+    pub fn add_below(&mut self, row: usize) -> Vec<ControllerEffect> {
+        let Some(block) = self.rows.get(row).cloned() else {
+            return Vec::new();
+        };
+        let kind = if block.block_type == LIST_ITEM {
+            LIST_ITEM
+        } else {
+            PARAGRAPH
+        };
+        match self
+            .doc
+            .insert_block(block.parent.as_deref(), Some(&block.id), kind)
+        {
+            Ok(new_id) => {
+                let eff = self.after_change();
+                let mut out = self.land(&new_id, 0, 0, eff);
+                out.extend(self.type_at_caret("/"));
+                out
+            }
+            Err(err) => error(err),
+        }
+    }
+
     /// A row was long-pressed (phone grip) or right-clicked (desktop handle): opens the block menu for it.
     pub fn long_pressed(&mut self, row: usize) -> Vec<ControllerEffect> {
         let Some(block) = self.rows.get(row) else {
@@ -1860,6 +1981,19 @@ impl EditorController {
     /// A toolbar action: `bold`, `italic`, `underline`, `strike`, `code`, `link`, `mention`, `emoji`, `insert`,
     /// `block-menu`, `indent`, `outdent`, `move-up`, `move-down`, `comment` or `done`. Unknown names do nothing.
     pub fn toolbar(&mut self, action: &str) -> Vec<ControllerEffect> {
+        // Undo and redo of this user's own changes (the web toolbar's arrows).
+        if action == "undo" || action == "redo" {
+            let changed = if action == "undo" {
+                self.doc.undo()
+            } else {
+                self.doc.redo()
+            };
+            return if changed {
+                self.after_change()
+            } else {
+                Vec::new()
+            };
+        }
         let mark = match action {
             "bold" => Some(MarkKind::Bold),
             "italic" => Some(MarkKind::Italic),

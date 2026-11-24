@@ -6,6 +6,7 @@ export struct EditorRow {
     id: string,
     block-type: string,
     depth: int,
+    indent: int,
     index: int,
     text: string,
     markdown: styled-text,
@@ -26,7 +27,13 @@ export struct EditorRow {
     // True when the text is the `en` text shown for a locale that has none yet: greyed and read-only until typed in.
     fallback: bool,
     // Open comments on this block (the badge). 0 hides it.
-    comment-count: int
+    comment-count: int,
+    // A list item's marker ("•" or "1."), empty for other blocks.
+    marker: string,
+    // The box the row sits in: "callout-<variant>" or "quote", empty for none.
+    accent: string,
+    // A code block's language.
+    language: string
 }
 
 // A co-editor's caret, in the coordinates of its row's text box.

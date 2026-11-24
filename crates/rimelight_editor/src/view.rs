@@ -10,6 +10,8 @@ pub struct RowView {
     pub id: String,
     pub block_type: String,
     pub depth: usize,
+    /// How far the block is drawn in: its depth less the section and callout parents (their children line up with them).
+    pub indent: usize,
     /// Position among the siblings (the row's `index`).
     pub index: usize,
     /// Plain text of the inline field, what the `TextInput` edits. Empty when the block has no inline field.
@@ -36,6 +38,13 @@ pub struct RowView {
     pub fallback: bool,
     /// Open (unresolved, top-level) comments on this block, for the badge.
     pub comment_count: usize,
+    /// The list marker drawn before a list item: "•" in a bulleted list, "1." (its number) in a numbered one.
+    pub marker: String,
+    /// The box the row is drawn in: "callout-<variant>" for a callout and the blocks inside it, "quote" for a quote,
+    /// empty otherwise.
+    pub accent: String,
+    /// A code block's language, shown on its box.
+    pub language: String,
 }
 
 /// Font size of a block's text, in logical pixels. Sections take the heading sizes (h2 to h6 by level), code takes
@@ -76,13 +85,16 @@ pub fn row_view(
         id: row.id.clone(),
         block_type: row.block_type.clone(),
         depth: row.depth,
+        indent: row.depth,
         index: row.index,
         text: if inline {
             text.plain.clone()
         } else {
             String::new()
         },
-        markdown: if inline {
+        markdown: if inline && row.block_type == "SectionBlock" && !text.plain.is_empty() {
+            format!("**{}**", to_markdown(text))
+        } else if inline {
             to_markdown(text)
         } else {
             String::new()
@@ -98,6 +110,14 @@ pub fn row_view(
         selected,
         presence,
         fallback: false,
+        marker: String::new(),
+        accent: String::new(),
+        language: row
+            .props
+            .get("language")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
         comment_count: 0,
     }
 }

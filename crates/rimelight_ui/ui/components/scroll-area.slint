@@ -93,6 +93,8 @@ export component ScrollArea inherits Rectangle {
         horizontal-scrollbar-policy: always-off;
         vertical-scrollbar-policy: always-off;
         content-height: column.preferred-height;
+        // No horizontal scrolling: the content is exactly as wide as the visible area.
+        content-width: self.visible-width;
 
         column := VerticalLayout {
             width: parent.width;

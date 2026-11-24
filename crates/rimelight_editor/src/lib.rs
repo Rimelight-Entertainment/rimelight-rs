@@ -120,6 +120,7 @@ macro_rules! wire_block_editor {
                 id: ::slint::SharedString::from(view.id.as_str()),
                 block_type: ::slint::SharedString::from(view.block_type.as_str()),
                 depth: view.depth as i32,
+                indent: view.indent as i32,
                 index: view.index as i32,
                 text: ::slint::SharedString::from(view.text.as_str()),
                 markdown: ::slint::StyledText::from_markdown(&view.markdown)
@@ -138,6 +139,9 @@ macro_rules! wire_block_editor {
                 presence_name: name,
                 fallback: view.fallback,
                 comment_count: view.comment_count as i32,
+                marker: view.marker.as_str().into(),
+                accent: view.accent.as_str().into(),
+                language: view.language.as_str().into(),
             }
         }
 
@@ -288,6 +292,14 @@ macro_rules! wire_block_editor {
                 }
                 *self.shown.borrow_mut() = views;
 
+                let title = controller.meta_text("title");
+                if bridge.get_title().as_str() != title {
+                    bridge.set_title(title.into());
+                }
+                let description = controller.meta_text("description");
+                if bridge.get_description().as_str() != description {
+                    bridge.set_description(description.into());
+                }
                 bridge.set_carets(model(
                     controller.caret_views().iter().map(caret_row).collect(),
                 ));
@@ -458,6 +470,27 @@ macro_rules! wire_block_editor {
             let b = binding.clone();
             bridge.on_handle_clicked(move |row| {
                 let effects = b.current().borrow_mut().handle_clicked(row_index(row));
+                b.apply(effects);
+            });
+
+            let b = binding.clone();
+            bridge.on_title_edited(move |text| {
+                let effects = b.current().borrow_mut().meta_edited("title", text.as_str());
+                b.apply(effects);
+            });
+
+            let b = binding.clone();
+            bridge.on_description_edited(move |text| {
+                let effects = b
+                    .current()
+                    .borrow_mut()
+                    .meta_edited("description", text.as_str());
+                b.apply(effects);
+            });
+
+            let b = binding.clone();
+            bridge.on_add_below(move |row| {
+                let effects = b.current().borrow_mut().add_below(row_index(row));
                 b.apply(effects);
             });
 

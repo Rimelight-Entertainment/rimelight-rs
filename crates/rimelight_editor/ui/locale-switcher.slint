@@ -3,38 +3,44 @@
 // text greyed until the user types.
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
-import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
 import { LocaleItem } from "types.slint";
 
-export component LocaleSwitcher inherits Rectangle {
+// A column of rows, so it fits a side panel: the chosen locale is highlighted, a missing one says "Add".
+export component LocaleSwitcher inherits VerticalLayout {
     in property <[LocaleItem]> locales;
 
     callback chosen(string);
 
-    height: Tokens.component-toolbar-height;
-    background: Tokens.surface-raised;
+    spacing: 2px;
 
-    HorizontalLayout {
-        padding: Tokens.space-1;
-        spacing: Tokens.space-1;
-        alignment: start;
-
-        Text {
-            text: "Language";
-            font-family: Type.label.family;
-            font-size: Type.label.size;
-            font-weight: Type.label.weight;
-            color: Tokens.text-muted;
-            vertical-alignment: center;
-        }
-
-        for item in root.locales : Button {
-            text: item.present ? item.label : "+ " + item.label;
-            size: ButtonSize.sm;
-            variant: item.active ? ButtonVariant.primary : ButtonVariant.ghost;
-            clicked => {
-                root.chosen(item.code);
+    for item in root.locales : Rectangle {
+        height: 32px;
+        border-radius: Tokens.radius-control;
+        background: item.active ? Tokens.palette-primary-soft : touch.has-hover ? Tokens.surface-hover : transparent;
+        accessible-role: button;
+        accessible-label: item.label;
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            Text {
+                horizontal-stretch: 1;
+                text: item.label;
+                vertical-alignment: center;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: item.active ? 600 : 400;
+                color: item.present ? Tokens.text-primary : Tokens.text-muted;
             }
+            Text {
+                text: item.present ? "" : "Add";
+                vertical-alignment: center;
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                color: Tokens.text-muted;
+            }
+        }
+        touch := TouchArea {
+            clicked => { root.chosen(item.code); }
         }
     }
 }

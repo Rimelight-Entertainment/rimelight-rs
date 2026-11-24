@@ -1,23 +1,39 @@
-// One block row of the editor (design sections 3, 6, 7, 8 and 10).
+// One block row of the editor (design sections 3, 6, 7, 8 and 10), drawn like the web editor's blocks.
 //
-// Text. A transparent TextInput holds focus, keyboard, IME, caret and selection. A StyledText under it draws the rich
-// text from `row.markdown`. The TextInput reports every key before it acts (`key`, which the controller answers with
-// `handled` or not) and every edit (`text-edited`, after `caret-moved`).
+// Gutter. Left of the block, shown while the pointer is over the row or the block is selected: a + button (add a block
+// below and open the insert menu) and the ⋮⋮ grip. A click on the grip opens the block menu; a press and drag on it
+// moves the block (the distance is reported on release). On phones (`compact`) the gutter stays visible and a long press
+// on the grip opens the menu.
 //
-// Remote carets. `carets` holds every co-editor's caret; this row draws the ones whose row is its own.
+// Box. The block draws its kind: a section is a bold heading, a list item has its marker, a quote has a bar on the left,
+// code sits in a sunken monospace box with its language, a callout and the blocks inside it sit in the callout's tinted
+// box, a divider is a rule, an image is a placeholder frame.
 //
-// Handle (desktop). Shown on hover, on the left. A click selects the block; a right click opens the block menu
-// (`long-pressed`); a press and drag reports the vertical distance on release (`drag-released`).
+// Text. A transparent TextInput takes focus, keyboard, IME, caret and selection over a StyledText that draws the rich
+// text. Both use the same font family, size and weight, so the caret sits on the drawn glyphs, and the row is as tall
+// as the taller of the two (no overlap with the next row).
 //
-// Grip (phone, `compact`). Replaces the handle. Press and hold for 450 ms to arm it (the block is selected); release
-// without moving opens the block menu; move after arming and release drags the block.
-//
-// Web-only blocks. The row hosts a WebBlock, which reports its box so the app can put a native web view over it.
+// Web-only blocks host a WebBlock, which reports its box so the app can put a native web view over it.
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
 import { Icons } from "@rimelight_ui/icons.slint";
 import { EditorRow, RemoteCaret, KeyOutcome } from "types.slint";
 import { WebBlock } from "web-block.slint";
+
+// The six-dot grip of the block handle.
+component Grip inherits Rectangle {
+    in property <color> dot: Tokens.text-muted;
+    width: 14px;
+    height: 20px;
+    for i in 6 : Rectangle {
+        x: (i - Math.floor(i / 2) * 2) * 6px + 2px;
+        y: Math.floor(i / 2) * 6px + 3px;
+        width: 3px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: root.dot;
+    }
+}
 
 export component EditorRowView inherits Rectangle {
     in property <EditorRow> entry;
@@ -30,237 +46,371 @@ export component EditorRowView inherits Rectangle {
     in property <int> focus-serial: 0;
     in property <bool> menus-open: false;
     in property <bool> compact: false;
+    in property <bool> read-only: false;
 
     callback text-edited(int, string);
     callback key(int, KeyEvent) -> KeyOutcome;
     callback caret-moved(int, int, int);
     callback handle-clicked(int);
     callback long-pressed(int);
+    callback add-below(int);
     callback drag-released(int, length);
+    // The row now holds the caret, or its handle was used: the editor anchors its menus at `y` (window coordinates).
+    callback anchor(length);
     callback web-block-geometry(string, length, length, length, length, string);
 
-    out property <bool> hovering: touch.has-hover;
+    out property <bool> hovering: hover.has-hover;
 
-    // Where a press started, for the drag distance on release.
     property <length> press-y;
-    // Grip state (compact): `armed` once the hold timer fired; `moved` once the pointer moved while armed.
-    property <bool> armed: false;
-    property <bool> moved: false;
+    property <bool> dragging: false;
+    // Indent per level inside lists and sections.
+    property <length> indent: root.entry.indent * 24px;
+    property <bool> section: root.entry.block-type == "SectionBlock";
+    property <bool> code: root.entry.block-type == "CodeBlock";
+    property <bool> quote: root.entry.block-type == "QuoteBlock";
+    property <bool> divider: root.entry.block-type == "DividerBlock";
+    property <bool> image: root.entry.block-type == "ImageBlock";
+    property <bool> callout-row: root.entry.block-type == "CalloutBlock";
+    property <bool> in-callout: root.entry.accent != "" && root.entry.accent != "quote";
+    property <bool> show-gutter: !root.read-only && (root.compact || root.hovering || root.entry.selected || root.focus-row == root.row-index);
+    property <int> weight: root.section ? 700 : 400;
+    property <string> family: root.code ? Type.code.family : Type.body.family;
+    // Space above the block: headings breathe, the rest sit close.
+    property <length> gap-above: root.section ? (root.entry.heading-level <= 2 ? 20px : 12px) : 2px;
 
-    // Indent by depth, one step per level.
-    property <length> indent: root.entry.depth * Tokens.space-6;
+    // Callout colours by variant (the CMS's CalloutVariant list), from the design palette.
+    function soft(a: string) -> color {
+        if a == "callout-success" { return Tokens.palette-success-soft; }
+        if a == "callout-warning" { return Tokens.palette-warning-soft; }
+        if a == "callout-error" { return Tokens.palette-error-soft; }
+        if a == "callout-commentary" { return Tokens.palette-commentary-soft; }
+        if a == "callout-ideation" { return Tokens.palette-ideation-soft; }
+        if a == "callout-source" { return Tokens.palette-source-soft; }
+        return Tokens.palette-info-soft;
+    }
+    function edge(a: string) -> color {
+        if a == "callout-success" { return Tokens.palette-success-border; }
+        if a == "callout-warning" { return Tokens.palette-warning-border; }
+        if a == "callout-error" { return Tokens.palette-error-border; }
+        if a == "callout-commentary" { return Tokens.palette-commentary-border; }
+        if a == "callout-ideation" { return Tokens.palette-ideation-border; }
+        if a == "callout-source" { return Tokens.palette-source-border; }
+        return Tokens.palette-info-border;
+    }
+    function label(a: string) -> string {
+        if a == "callout-success" { return "Success"; }
+        if a == "callout-warning" { return "Warning"; }
+        if a == "callout-error" { return "Error"; }
+        if a == "callout-commentary" { return "Commentary"; }
+        if a == "callout-ideation" { return "Ideation"; }
+        if a == "callout-source" { return "Source"; }
+        return "Info";
+    }
 
-    background: root.entry.selected ? Tokens.selection : transparent;
+    background: transparent;
     height: layout.preferred-height;
 
-    // Hover tracking covers the whole row. It sits first, so the controls above it take the pointer.
-    touch := TouchArea { }
+    // Hover covers the whole row and sits under the controls, so they keep the pointer.
+    hover := TouchArea { }
 
-    // Hold timer for the grip. Fires once; the release decides between a menu and a drag.
-    // UNSURE: the `Timer` element (interval, running, triggered) in Slint 1.18.
-    grip-timer := Timer {
-        interval: 450ms;
-        running: false;
-        triggered => {
-            self.running = false;
-            root.armed = true;
-        }
-    }
-
-    // Changes after the focus moves here (a split, a merge, a menu, a move). Focus and caret are set after the text.
-    changed focus-serial => {
-        if (root.focus-row == root.row-index) {
-            input.focus();
-            input.set-selection-offsets(root.focus-anchor, root.focus-head);
-        }
-    }
 
     layout := HorizontalLayout {
-        padding-left: root.indent;
-        padding-right: Tokens.space-2;
-        spacing: Tokens.space-1;
+        padding-top: root.gap-above;
+        padding-bottom: 2px;
+        spacing: 0px;
 
-        // Presence bar: a co-editor is in this block.
+        // Gutter: + and grip, aligned with the first line of the block.
         Rectangle {
-            width: root.entry.presence ? Tokens.space-1 : 0px;
-            background: root.entry.presence-colour;
-        }
+            width: 52px;
+            HorizontalLayout {
+                y: 0px;
+                height: max(26px, root.entry.font-size * 1.5);
+                alignment: end;
+                spacing: 2px;
+                padding-right: 4px;
+                opacity: root.show-gutter ? 1 : 0;
 
-        // Desktop handle. Visible on hover, and while the block is selected.
-        if (!root.compact) : Rectangle {
-            width: Tokens.size-control-sm;
-            min-height: root.entry.font-size * 1.4;
-            opacity: (root.hovering || root.entry.selected) ? 1 : 0;
-
-            Image {
-                width: Icons.small-size;
-                height: Icons.small-size;
-                source: Icons.chevrons-up-down;
-                colorize: Tokens.text-muted;
-            }
-
-            handle := TouchArea {
-                pointer-event(event) => {
-                    if (event.kind == PointerEventKind.down) {
-                        root.press-y = handle.mouse-y;
-                        // UNSURE: PointerEvent.button and PointerEventButton in Slint 1.18.
-                        if (event.button == PointerEventButton.right) {
-                            root.long-pressed(root.row-index);
-                        } else {
-                            root.handle-clicked(root.row-index);
+                add := Rectangle {
+                    width: 22px;
+                    border-radius: Tokens.radius-control;
+                    background: add-touch.has-hover ? Tokens.surface-hover : transparent;
+                    Image {
+                        width: 16px;
+                        height: 16px;
+                        source: Icons.plus;
+                        colorize: Tokens.text-muted;
+                    }
+                    add-touch := TouchArea {
+                        enabled: root.show-gutter;
+                        clicked => {
+                            root.anchor(root.absolute-position.y + root.height);
+                            root.add-below(root.row-index);
                         }
                     }
-                    if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                        root.drag-released(root.row-index, handle.mouse-y - root.press-y);
-                    }
                 }
-            }
-        }
 
-        // Phone grip. Replaces the handle (design section 10).
-        if (root.compact) : Rectangle {
-            width: Tokens.size-control-sm;
-            min-height: root.entry.font-size * 1.4;
-            border-radius: Tokens.radius-control;
-            background: root.armed ? Tokens.selection : transparent;
-
-            Image {
-                width: Icons.small-size;
-                height: Icons.small-size;
-                source: Icons.chevrons-up-down;
-                colorize: Tokens.text-muted;
-            }
-
-            grip := TouchArea {
-                pointer-event(event) => {
-                    if (event.kind == PointerEventKind.down) {
-                        root.press-y = grip.mouse-y;
-                        root.armed = false;
-                        root.moved = false;
-                        grip-timer.running = true;
-                        root.handle-clicked(root.row-index);
+                grip := Rectangle {
+                    width: 20px;
+                    border-radius: Tokens.radius-control;
+                    background: (grip-touch.has-hover || root.dragging) ? Tokens.surface-hover : transparent;
+                    Grip {
+                        dot: grip-touch.has-hover ? Tokens.text-primary : Tokens.text-muted;
                     }
-                    if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
-                        grip-timer.running = false;
-                        if (root.armed && root.moved) {
-                            root.drag-released(root.row-index, grip.mouse-y - root.press-y);
-                        } else if (root.armed) {
-                            root.long-pressed(root.row-index);
+                    grip-touch := TouchArea {
+                        enabled: root.show-gutter;
+                        mouse-cursor: grab;
+                        pointer-event(event) => {
+                            if (event.kind == PointerEventKind.down) {
+                                root.press-y = self.mouse-y;
+                                root.dragging = false;
+                            }
+                            if (event.kind == PointerEventKind.up) {
+                                if (root.dragging) {
+                                    root.drag-released(root.row-index, self.mouse-y - root.press-y);
+                                } else {
+                                    root.anchor(root.absolute-position.y + root.height);
+                                    root.long-pressed(root.row-index);
+                                }
+                                root.dragging = false;
+                            }
                         }
-                        root.armed = false;
-                        root.moved = false;
-                    }
-                }
-                moved => {
-                    if (root.armed) {
-                        root.moved = true;
+                        moved => {
+                            if (self.pressed && abs(self.mouse-y - root.press-y) > 6px) {
+                                root.dragging = true;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Text. The StyledText draws, the TextInput takes input.
-        content := Rectangle {
+        // The block, indented by depth.
+        HorizontalLayout {
             horizontal-stretch: 1;
-            min-height: root.entry.inline ? root.entry.font-size * 1.45 : 0px;
+            padding-left: root.indent;
 
-            rendered := StyledText {
-                x: 0px;
-                y: 0px;
-                width: parent.width;
-                text: root.entry.markdown;
-                default-font-size: root.entry.font-size;
-                default-color: (root.entry.locked || root.entry.fallback) ? Tokens.text-muted : Tokens.text-primary;
-                link-color: Tokens.accent-text;
-            }
+            box := Rectangle {
+                horizontal-stretch: 1;
+                background: root.entry.selected ? Tokens.selection
+                    : root.in-callout ? root.soft(root.entry.accent)
+                    : root.code ? Tokens.surface-sunken
+                    : transparent;
+                border-radius: (root.code || root.callout-row) ? Tokens.radius-control : 0px;
+                border-width: root.code ? 1px : 0px;
+                border-color: Tokens.border-subtle;
 
-            input := TextInput {
-                x: 0px;
-                y: 0px;
-                width: parent.width;
-                height: parent.height;
-                text: root.entry.text;
-                font-size: root.entry.font-size;
-                font-family: root.entry.block-type == "CodeBlock" ? Type.code.family : Type.body.family;
-                wrap: word-wrap;
-                single-line: false;
-                // The StyledText above shows the text; this layer only takes input.
-                color: transparent;
-                selection-background-color: Tokens.selection;
-                selection-foreground-color: transparent;
-                text-cursor-width: 2px;
-                // A fallback row is read-only until the first key creates the locale's text (the controller does that).
-                read-only: root.entry.locked || !root.entry.inline || root.entry.fallback;
-                enabled: root.entry.inline;
-
-                edited => {
-                    root.caret-moved(root.row-index, self.anchor-position-byte-offset, self.cursor-position-byte-offset);
-                    root.text-edited(root.row-index, self.text);
+                // Callout and quote bars on the left edge.
+                if (root.in-callout) : Rectangle {
+                    x: 0px;
+                    width: 3px;
+                    height: parent.height;
+                    background: root.edge(root.entry.accent);
+                }
+                if (root.quote) : Rectangle {
+                    x: 0px;
+                    width: 3px;
+                    height: parent.height;
+                    background: Tokens.border-strong;
                 }
 
-                key-pressed(event) => {
-                    root.caret-moved(root.row-index, self.anchor-position-byte-offset, self.cursor-position-byte-offset);
-                    if (root.key(root.row-index, event) == KeyOutcome.handled) {
-                        return accept;
+                VerticalLayout {
+                    padding-left: (root.in-callout || root.quote) ? 14px : root.code ? 12px : 0px;
+                    padding-right: (root.in-callout || root.code) ? 12px : 0px;
+                    padding-top: (root.code || root.callout-row) ? 8px : root.in-callout ? 2px : 0px;
+                    padding-bottom: root.code ? 8px : root.in-callout ? 4px : 0px;
+                    spacing: 4px;
+
+                    // A callout's own row is its header: the variant with its icon.
+                    if (root.callout-row) : HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        Image {
+                            width: 16px;
+                            height: 16px;
+                            source: root.entry.accent == "callout-warning" ? Icons.triangle-alert
+                                : root.entry.accent == "callout-error" ? Icons.circle-x
+                                : root.entry.accent == "callout-success" ? Icons.circle-check
+                                : Icons.info;
+                            colorize: root.edge(root.entry.accent);
+                        }
+                        Text {
+                            text: root.label(root.entry.accent);
+                            font-family: Type.label.family;
+                            font-size: Type.label.size;
+                            font-weight: 600;
+                            color: Tokens.text-primary;
+                        }
                     }
-                    return reject;
+
+                    if (root.code && root.entry.language != "") : Text {
+                        text: root.entry.language;
+                        font-family: Type.caption.family;
+                        font-size: Type.caption.size;
+                        color: Tokens.text-muted;
+                    }
+
+                    if (root.divider) : Rectangle {
+                        height: 17px;
+                        Rectangle {
+                            y: 8px;
+                            height: 1px;
+                            background: Tokens.border-strong;
+                        }
+                    }
+
+                    if (root.image) : Rectangle {
+                        height: 160px;
+                        border-radius: Tokens.radius-control;
+                        border-width: 1px;
+                        border-color: Tokens.border-subtle;
+                        background: Tokens.surface-sunken;
+                        Image {
+                            width: 28px;
+                            height: 28px;
+                            source: Icons.image;
+                            colorize: Tokens.text-faint;
+                        }
+                    }
+
+                    if (root.entry.web-only) : WebBlock {
+                        block-key: root.entry.id;
+                        url: root.entry.web-url;
+                        show-snapshot: root.menus-open;
+                        geometry-changed(key, x, y, w, h, url) => {
+                            root.web-block-geometry(key, x, y, w, h, url);
+                        }
+                    }
+
+                    if (root.entry.inline) : HorizontalLayout {
+                        spacing: 8px;
+
+                        // List marker.
+                        if (root.entry.marker != "") : Text {
+                            width: 22px;
+                            text: root.entry.marker;
+                            font-family: Type.body.family;
+                            font-size: root.entry.font-size;
+                            color: Tokens.text-muted;
+                            horizontal-alignment: right;
+                        }
+
+                        text-box := Rectangle {
+                            horizontal-stretch: 1;
+                            height: max(rendered.preferred-height, input.preferred-height, root.entry.font-size * 1.5);
+
+                            rendered := StyledText {
+                                x: 0px;
+                                y: 0px;
+                                width: parent.width;
+                                text: root.entry.markdown;
+                                default-font-family: root.family;
+                                default-font-size: root.entry.font-size;
+                                default-color: (root.entry.locked || root.entry.fallback) ? Tokens.text-muted
+                                    : root.quote ? Tokens.text-muted : Tokens.text-primary;
+                                link-color: Tokens.accent-text;
+                            }
+
+                            input := TextInput {
+                                // Focus follows the controller (focus-serial bumps on every move). Only inline rows have a text box.
+                                property <int> serial: root.focus-serial;
+                                changed serial => {
+                                    if (root.focus-row == root.row-index) {
+                                        self.focus();
+                                        self.set-selection-offsets(root.focus-anchor, root.focus-head);
+                                        root.anchor(root.absolute-position.y + root.height);
+                                    }
+                                }
+                                x: 0px;
+                                y: 0px;
+                                width: parent.width;
+                                height: parent.height;
+                                text: root.entry.text;
+                                font-size: root.entry.font-size;
+                                font-family: root.family;
+                                font-weight: root.weight;
+                                wrap: word-wrap;
+                                single-line: false;
+                                // The StyledText under it draws the text; this layer only takes input.
+                                color: transparent;
+                                selection-background-color: Tokens.selection;
+                                selection-foreground-color: transparent;
+                                text-cursor-width: 2px;
+                                read-only: root.read-only || root.entry.locked || root.entry.fallback;
+
+                                edited => {
+                                    root.caret-moved(root.row-index, self.anchor-position-byte-offset, self.cursor-position-byte-offset);
+                                    root.text-edited(root.row-index, self.text);
+                                }
+
+                                key-pressed(event) => {
+                                    root.caret-moved(root.row-index, self.anchor-position-byte-offset, self.cursor-position-byte-offset);
+                                    if (root.key(root.row-index, event) == KeyOutcome.handled) {
+                                        return accept;
+                                    }
+                                    return reject;
+                                }
+                            }
+
+                            if (root.entry.placeholder != "" && root.entry.text == "" && root.focus-row == root.row-index) : Text {
+                                x: 0px;
+                                y: 0px;
+                                text: root.entry.placeholder;
+                                font-family: root.family;
+                                font-size: root.entry.font-size;
+                                color: Tokens.text-faint;
+                            }
+
+                            // Co-editors' carets, positioned by the controller (parley) in this row's coordinates.
+                            for caret in root.carets : Rectangle {
+                                visible: caret.row == root.row-index;
+                                x: caret.x;
+                                y: caret.y;
+                                width: 2px;
+                                height: caret.height;
+                                background: caret.colour;
+                            }
+                        }
+                    }
+                }
+
+                // A co-editor is in this block: their colour on the right edge.
+                if (root.entry.presence) : Rectangle {
+                    x: parent.width - 3px;
+                    width: 3px;
+                    height: parent.height;
+                    background: root.entry.presence-colour;
                 }
             }
 
-            if (root.entry.placeholder != "" && root.entry.text == "") : Text {
-                x: 0px;
-                y: 0px;
-                text: root.entry.placeholder;
-                font-size: root.entry.font-size;
-                color: Tokens.text-faint;
-            }
-
-            // Remote carets. Positions come from parley (layout.rs) in this row's coordinates.
-            for caret in root.carets : Rectangle {
-                visible: caret.row == root.row-index;
-                x: caret.x;
-                y: caret.y;
-                width: 2px;
-                height: caret.height;
-                background: caret.colour;
-            }
-
-            if (root.entry.web-only) : WebBlock {
-                x: 0px;
-                y: 0px;
-                width: parent.width;
-                block-key: root.entry.id;
-                url: root.entry.web-url;
-                show-snapshot: root.menus-open;
-                geometry-changed(key, x, y, w, h, url) => {
-                    root.web-block-geometry(key, x, y, w, h, url);
+            // Open comments on this block.
+            Rectangle {
+                width: 36px;
+                if (root.entry.comment-count > 0) : Rectangle {
+                    x: 8px;
+                    y: 2px;
+                    width: 22px;
+                    height: 20px;
+                    border-radius: Tokens.radius-control;
+                    background: Tokens.palette-warning-soft;
+                    Text {
+                        text: "" + root.entry.comment-count;
+                        font-family: Type.caption.family;
+                        font-size: Type.caption.size;
+                        color: Tokens.text-primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                // Restricted blocks (visibility or roles) carry a lock on the right.
+                if (root.entry.restricted) : Image {
+                    x: 10px;
+                    y: 24px;
+                    width: 14px;
+                    height: 14px;
+                    source: Icons.lock;
+                    colorize: Tokens.text-faint;
                 }
             }
         }
-
-        // Comment badge: the number of open comments on this block.
-        if (root.entry.comment-count > 0) : Rectangle {
-            width: Tokens.space-6;
-            height: Tokens.space-6;
-            border-radius: Tokens.radius-control;
-            background: Tokens.selection;
-
-            Text {
-                text: "" + root.entry.comment-count;
-                font-family: Type.caption.family;
-                font-size: Type.caption.size;
-                color: Tokens.text-primary;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-    }
-
-    // Restricted blocks get a striped edge on the left (design section 9).
-    if (root.entry.restricted) : Rectangle {
-        x: 0px;
-        width: Tokens.space-1;
-        height: parent.height;
-        background: Tokens.border-strong;
     }
 }
