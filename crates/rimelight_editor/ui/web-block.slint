@@ -21,6 +21,8 @@ export component WebBlock inherits Rectangle {
     out property <length> abs-x: root.absolute-position.x;
     out property <length> abs-y: root.absolute-position.y;
 
+    // changed callbacks do not fire for the first value, so the block also reports when it appears.
+    init => { root.report(); }
     changed abs-x => { root.report(); }
     changed abs-y => { root.report(); }
     changed width => { root.report(); }
