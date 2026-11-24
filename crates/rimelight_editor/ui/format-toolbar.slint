@@ -11,8 +11,8 @@ export component FormatToolbar inherits Rectangle {
     border-color: Tokens.border-subtle;
     border-width: 1px;
 
-    ScrollView {
-        viewport-width: row.preferred-width;
+    Flickable {
+        content-width: row.preferred-width;
 
         row := HorizontalLayout {
             padding: Tokens.space-1;

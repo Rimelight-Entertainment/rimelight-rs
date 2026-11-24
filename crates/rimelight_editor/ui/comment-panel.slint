@@ -1,6 +1,7 @@
 // The comment panel (design section 8). The threads of the page or of the selected block, a reply box, resolve and
 // reopen, and "Show" to jump to the block a comment is anchored to. The rows come from the controller; the reply target
 // and the draft are this panel's own state. On phones the block editor shows it as a bottom sheet.
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
 import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
@@ -72,7 +73,7 @@ export component CommentPanel inherits Rectangle {
             }
         }
 
-        ScrollView {
+        ScrollArea {
             vertical-stretch: 1;
 
             VerticalLayout {

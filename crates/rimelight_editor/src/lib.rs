@@ -235,7 +235,9 @@ macro_rules! wire_block_editor {
             row.max(0) as usize
         }
 
-        fn model<T: 'static>(items: ::std::vec::Vec<T>) -> ::slint::ModelRc<T> {
+        fn model<T: ::std::clone::Clone + 'static>(
+            items: ::std::vec::Vec<T>,
+        ) -> ::slint::ModelRc<T> {
             ::slint::ModelRc::new(::slint::VecModel::from(items))
         }
 

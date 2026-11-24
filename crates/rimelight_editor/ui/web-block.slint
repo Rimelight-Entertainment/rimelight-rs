@@ -37,14 +37,14 @@ export component WebBlock inherits Rectangle {
     border-width: 1px;
     clip: true;
 
-    if (root.show-snapshot && root.snapshot.width > 0px) : Image {
+    if (root.show-snapshot && root.snapshot.width > 0) : Image {
         width: parent.width;
         height: parent.height;
         source: root.snapshot;
         image-fit: contain;
     }
 
-    if (!root.show-snapshot || root.snapshot.width == 0px) : Button {
+    if (!root.show-snapshot || root.snapshot.width == 0) : Button {
         x: Tokens.space-4;
         y: Tokens.space-4;
         text: root.open-label;

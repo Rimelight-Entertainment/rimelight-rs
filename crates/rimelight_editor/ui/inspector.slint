@@ -2,6 +2,7 @@
 // On desktop it is a docked panel on the right; on phones the page shows it as a bottom sheet instead. Every field is
 // text on the way in and out (the controller converts by the field's kind). Locked fields and a locked page are
 // read-only.
+import { ScrollArea } from "@rimelight_ui/components/scroll-area.slint";
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
 import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
@@ -19,7 +20,7 @@ export component Inspector inherits Rectangle {
     border-color: Tokens.border-subtle;
     border-width: 1px;
 
-    ScrollView {
+    ScrollArea {
         VerticalLayout {
             padding: Tokens.space-4;
             spacing: Tokens.space-3;

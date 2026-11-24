@@ -18,6 +18,8 @@
 // inspector and the comment panel open as bottom sheets, and the block handle is a long-press grip (editor-row.slint).
 // `keyboard-height` is the keyboard's height, which the app sets from its keyboard events; Slint's own virtual keyboard
 // properties are not used yet (UNSURE: whether Slint 1.18 exposes them on Window).
+// ListView virtualises the rows (shared library markup may use std-widgets, as rimelight_ui's list does).
+import { ListView } from "std-widgets.slint";
 import { Tokens } from "@rimelight_design/tokens.slint";
 import { Type } from "@rimelight_ui/typography.slint";
 import { EditorRowView } from "editor-row.slint";
@@ -178,7 +180,7 @@ export component BlockEditor inherits Rectangle {
                 horizontal-stretch: 1;
 
                 for row[index] in EditorBridge.rows : EditorRowView {
-                    row: row;
+                    entry: row;
                     row-index: index;
                     carets: EditorBridge.carets;
                     compact: EditorBridge.compact;

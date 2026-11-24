@@ -20,7 +20,7 @@ import { EditorRow, RemoteCaret, KeyOutcome } from "types.slint";
 import { WebBlock } from "web-block.slint";
 
 export component EditorRowView inherits Rectangle {
-    in property <EditorRow> row;
+    in property <EditorRow> entry;
     in property <int> row-index;
     in property <[RemoteCaret]> carets;
     in property <int> focus-row: -1;
@@ -48,9 +48,9 @@ export component EditorRowView inherits Rectangle {
     property <bool> moved: false;
 
     // Indent by depth, one step per level.
-    property <length> indent: root.row.depth * Tokens.space-6;
+    property <length> indent: root.entry.depth * Tokens.space-6;
 
-    background: root.row.selected ? Tokens.selection : transparent;
+    background: root.entry.selected ? Tokens.selection : transparent;
     height: layout.preferred-height;
 
     // Hover tracking covers the whole row. It sits first, so the controls above it take the pointer.
@@ -82,15 +82,15 @@ export component EditorRowView inherits Rectangle {
 
         // Presence bar: a co-editor is in this block.
         Rectangle {
-            width: root.row.presence ? Tokens.space-1 : 0px;
-            background: root.row.presence-colour;
+            width: root.entry.presence ? Tokens.space-1 : 0px;
+            background: root.entry.presence-colour;
         }
 
         // Desktop handle. Visible on hover, and while the block is selected.
         if (!root.compact) : Rectangle {
             width: Tokens.size-control-sm;
-            min-height: root.row.font-size * 1.4;
-            opacity: (root.hovering || root.row.selected) ? 1 : 0;
+            min-height: root.entry.font-size * 1.4;
+            opacity: (root.hovering || root.entry.selected) ? 1 : 0;
 
             Image {
                 width: Icons.small-size;
@@ -120,7 +120,7 @@ export component EditorRowView inherits Rectangle {
         // Phone grip. Replaces the handle (design section 10).
         if (root.compact) : Rectangle {
             width: Tokens.size-control-sm;
-            min-height: root.row.font-size * 1.4;
+            min-height: root.entry.font-size * 1.4;
             border-radius: Tokens.radius-control;
             background: root.armed ? Tokens.selection : transparent;
 
@@ -162,17 +162,16 @@ export component EditorRowView inherits Rectangle {
         // Text. The StyledText draws, the TextInput takes input.
         content := Rectangle {
             horizontal-stretch: 1;
-            min-height: root.row.inline ? root.row.font-size * 1.45 : 0px;
+            min-height: root.entry.inline ? root.entry.font-size * 1.45 : 0px;
 
             rendered := StyledText {
                 x: 0px;
                 y: 0px;
                 width: parent.width;
-                text: root.row.markdown;
-                font-size: root.row.font-size;
-                default-color: (root.row.locked || root.row.fallback) ? Tokens.text-muted : Tokens.text-primary;
+                text: root.entry.markdown;
+                default-font-size: root.entry.font-size;
+                default-color: (root.entry.locked || root.entry.fallback) ? Tokens.text-muted : Tokens.text-primary;
                 link-color: Tokens.accent-text;
-                wrap: word-wrap;
             }
 
             input := TextInput {
@@ -180,9 +179,9 @@ export component EditorRowView inherits Rectangle {
                 y: 0px;
                 width: parent.width;
                 height: parent.height;
-                text: root.row.text;
-                font-size: root.row.font-size;
-                font-family: root.row.block-type == "CodeBlock" ? Type.code.family : Type.body.family;
+                text: root.entry.text;
+                font-size: root.entry.font-size;
+                font-family: root.entry.block-type == "CodeBlock" ? Type.code.family : Type.body.family;
                 wrap: word-wrap;
                 single-line: false;
                 // The StyledText above shows the text; this layer only takes input.
@@ -191,8 +190,8 @@ export component EditorRowView inherits Rectangle {
                 selection-foreground-color: transparent;
                 text-cursor-width: 2px;
                 // A fallback row is read-only until the first key creates the locale's text (the controller does that).
-                read-only: root.row.locked || !root.row.inline || root.row.fallback;
-                enabled: root.row.inline;
+                read-only: root.entry.locked || !root.entry.inline || root.entry.fallback;
+                enabled: root.entry.inline;
 
                 edited => {
                     root.caret-moved(root.row-index, self.anchor-position-byte-offset, self.cursor-position-byte-offset);
@@ -208,11 +207,11 @@ export component EditorRowView inherits Rectangle {
                 }
             }
 
-            if (root.row.placeholder != "" && root.row.text == "") : Text {
+            if (root.entry.placeholder != "" && root.entry.text == "") : Text {
                 x: 0px;
                 y: 0px;
-                text: root.row.placeholder;
-                font-size: root.row.font-size;
+                text: root.entry.placeholder;
+                font-size: root.entry.font-size;
                 color: Tokens.text-faint;
             }
 
@@ -226,12 +225,12 @@ export component EditorRowView inherits Rectangle {
                 background: caret.colour;
             }
 
-            if (root.row.web-only) : WebBlock {
+            if (root.entry.web-only) : WebBlock {
                 x: 0px;
                 y: 0px;
                 width: parent.width;
-                block-key: root.row.id;
-                url: root.row.web-url;
+                block-key: root.entry.id;
+                url: root.entry.web-url;
                 show-snapshot: root.menus-open;
                 geometry-changed(key, x, y, w, h, url) => {
                     root.web-block-geometry(key, x, y, w, h, url);
@@ -240,14 +239,14 @@ export component EditorRowView inherits Rectangle {
         }
 
         // Comment badge: the number of open comments on this block.
-        if (root.row.comment-count > 0) : Rectangle {
+        if (root.entry.comment-count > 0) : Rectangle {
             width: Tokens.space-6;
             height: Tokens.space-6;
             border-radius: Tokens.radius-control;
             background: Tokens.selection;
 
             Text {
-                text: "" + root.row.comment-count;
+                text: "" + root.entry.comment-count;
                 font-family: Type.caption.family;
                 font-size: Type.caption.size;
                 color: Tokens.text-primary;
@@ -258,7 +257,7 @@ export component EditorRowView inherits Rectangle {
     }
 
     // Restricted blocks get a striped edge on the left (design section 9).
-    if (root.row.restricted) : Rectangle {
+    if (root.entry.restricted) : Rectangle {
         x: 0px;
         width: Tokens.space-1;
         height: parent.height;
