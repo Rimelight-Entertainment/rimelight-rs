@@ -1,0 +1,97 @@
+// The link prompt (design section 6): a URL for the selected text, an open-in-new-tab switch, Apply, Remove link and
+// Cancel. The block editor opens it (Ctrl+K or the toolbar) and handles the three callbacks.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { Switch } from "@rimelight_ui/components/switch.slint";
+
+export component LinkPrompt inherits Rectangle {
+    in property <string> url;
+    in property <bool> new-tab: false;
+    in property <bool> has-link: false;
+
+    callback submitted(string, bool);
+    callback removed();
+    callback dismissed();
+
+    // The switch keeps its own state until the prompt is applied.
+    property <bool> tab: root.new-tab;
+
+    width: 360px;
+    background: Tokens.surface-overlay;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+    border-radius: Tokens.radius-surface;
+    height: column.preferred-height + Tokens.space-4;
+
+    column := VerticalLayout {
+        x: Tokens.space-2;
+        y: Tokens.space-2;
+        width: parent.width - Tokens.space-4;
+        spacing: Tokens.space-2;
+
+        Text {
+            text: "Link";
+            font-family: Type.body-strong.family;
+            font-size: Type.body-strong.size;
+            font-weight: Type.body-strong.weight;
+            color: Tokens.text-primary;
+        }
+
+        Rectangle {
+            height: Tokens.size-control-md;
+            border-radius: Tokens.radius-control;
+            border-color: Tokens.border-strong;
+            border-width: 1px;
+            background: Tokens.surface-base;
+
+            field := TextInput {
+                x: Tokens.space-2;
+                width: parent.width - Tokens.space-4;
+                height: parent.height;
+                vertical-alignment: center;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                color: Tokens.text-primary;
+                text: root.url;
+                single-line: true;
+            }
+        }
+
+        Switch {
+            text: "Open in a new tab";
+            checked: root.tab;
+            changed(value) => {
+                root.tab = value;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Tokens.space-1;
+
+            Button {
+                text: "Remove link";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.ghost;
+                enabled: root.has-link;
+                clicked => { root.removed(); }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            Button {
+                text: "Cancel";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.secondary;
+                clicked => { root.dismissed(); }
+            }
+
+            Button {
+                text: "Apply";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.primary;
+                clicked => { root.submitted(field.text, root.tab); }
+            }
+        }
+    }
+}

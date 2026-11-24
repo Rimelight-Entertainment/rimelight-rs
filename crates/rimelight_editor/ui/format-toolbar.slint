@@ -1,0 +1,39 @@
+// The format toolbar (design sections 6 and 10). Used above the phone keyboard, and as a bar on desktop. Each button
+// reports its action name to `action`; the block editor forwards it to the controller's `toolbar`.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+
+export component FormatToolbar inherits Rectangle {
+    callback action(string);
+
+    height: Tokens.component-toolbar-height;
+    background: Tokens.surface-raised;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+
+    ScrollView {
+        viewport-width: row.preferred-width;
+
+        row := HorizontalLayout {
+            padding: Tokens.space-1;
+            spacing: Tokens.space-1;
+
+            Button { text: "B"; accessible-name: "Bold"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("bold"); } }
+            Button { text: "I"; accessible-name: "Italic"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("italic"); } }
+            Button { text: "U"; accessible-name: "Underline"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("underline"); } }
+            Button { text: "S"; accessible-name: "Strikethrough"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("strike"); } }
+            Button { text: "Code"; accessible-name: "Code"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("code"); } }
+            Button { text: "Link"; accessible-name: "Link"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("link"); } }
+            Button { text: "@"; accessible-name: "Mention"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("mention"); } }
+            Button { text: ":)"; accessible-name: "Emoji"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("emoji"); } }
+            Button { text: "/"; accessible-name: "Insert block"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("insert"); } }
+            Button { text: "Block"; accessible-name: "Block menu"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("block-menu"); } }
+            Button { text: "Indent"; accessible-name: "Indent"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("indent"); } }
+            Button { text: "Outdent"; accessible-name: "Outdent"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("outdent"); } }
+            Button { text: "Up"; accessible-name: "Move up"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("move-up"); } }
+            Button { text: "Down"; accessible-name: "Move down"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("move-down"); } }
+            Button { text: "Comment"; accessible-name: "Comment"; size: ButtonSize.sm; variant: ButtonVariant.ghost; clicked => { root.action("comment"); } }
+            Button { text: "Done"; accessible-name: "Done"; size: ButtonSize.sm; variant: ButtonVariant.primary; clicked => { root.action("done"); } }
+        }
+    }
+}

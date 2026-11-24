@@ -1,0 +1,59 @@
+// The `:` emoji picker (design section 6). The emoji the controller matched for the text typed after the colon, one row
+// each. Keys reach the block editor (Up, Down, Enter, Escape), as with the insert menu; a pointer chooses by click.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { EmojiItem } from "types.slint";
+
+export component EmojiPicker inherits Rectangle {
+    in property <[EmojiItem]> items;
+    in property <int> selected: 0;
+
+    callback chosen(int);
+
+    width: 260px;
+    background: Tokens.surface-overlay;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+    border-radius: Tokens.radius-surface;
+    height: list.preferred-height + Tokens.space-2;
+
+    list := VerticalLayout {
+        x: Tokens.space-1;
+        y: Tokens.space-1;
+        width: parent.width - Tokens.space-2;
+        spacing: 0px;
+
+        for item[index] in root.items : Rectangle {
+            height: Tokens.size-menu-row-height;
+            border-radius: Tokens.radius-control;
+            background: index == root.selected ? Tokens.selection : transparent;
+
+            HorizontalLayout {
+                padding-left: Tokens.space-2;
+                padding-right: Tokens.space-2;
+                spacing: Tokens.space-2;
+                alignment: start;
+
+                Text {
+                    text: item.emoji;
+                    font-size: Type.body.size;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: ":" + item.shortcode + ":";
+                    font-family: Type.body.family;
+                    font-size: Type.body.size;
+                    color: Tokens.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+
+            TouchArea {
+                clicked => {
+                    root.chosen(index);
+                }
+            }
+        }
+    }
+}

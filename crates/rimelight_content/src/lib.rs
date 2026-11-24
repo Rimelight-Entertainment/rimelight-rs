@@ -4,15 +4,22 @@
 //! form and drafts. Both sides implement exactly that and are tested on the same `fixtures/`.
 //!
 //! The block registry lives in `registry/blocks.json` and is the single source. This crate has no UI dependency.
+//! `EDITOR_API.md` describes the editing surface ([`editor`]) and the sync protocol ([`sync`]).
 
 pub mod doc;
+pub mod editor;
 pub mod error;
 pub mod normalize;
 pub mod registry;
 pub mod richtext;
+pub mod sync;
 pub mod types;
 
 pub use doc::{catch_up, configure, export_page, fork_draft, import_page, merge_draft};
+pub use editor::{
+    BlockAccess, BlockRow, EditorDoc, LockedProps, MarkKind, Mention, Span, TextValue,
+};
 pub use error::Error;
 pub use normalize::{normalize_page, normalize_rich};
 pub use registry::{TextKind, allowed_child, text_kind};
+pub use sync::{Cursor, Frame, Received, RemoteCursor, SyncSession, decode, encode};

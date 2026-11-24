@@ -1,0 +1,206 @@
+// The comment panel (design section 8). The threads of the page or of the selected block, a reply box, resolve and
+// reopen, and "Show" to jump to the block a comment is anchored to. The rows come from the controller; the reply target
+// and the draft are this panel's own state. On phones the block editor shows it as a bottom sheet.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { CommentItem } from "types.slint";
+
+export component CommentPanel inherits Rectangle {
+    in property <[CommentItem]> comments;
+    // The scope: a block id, or "" for the page.
+    in property <string> scope;
+    // The focused block, offered as a scope when it is not the page.
+    in property <string> block;
+
+    callback submit(string, string, string);
+    callback resolve(string);
+    callback reopen(string);
+    callback jump(string);
+    callback scope-changed(string);
+    callback closed();
+
+    // The comment being replied to ("" for a new thread) and the block it is anchored to.
+    property <string> reply-to;
+    property <string> reply-block;
+
+    width: 320px;
+    background: Tokens.surface-raised;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+
+    VerticalLayout {
+        padding: Tokens.space-3;
+        spacing: Tokens.space-2;
+
+        HorizontalLayout {
+            spacing: Tokens.space-1;
+
+            Text {
+                text: root.scope == "" ? "Comments on the page" : "Comments on this block";
+                font-family: Type.body-strong.family;
+                font-size: Type.body-strong.size;
+                font-weight: Type.body-strong.weight;
+                color: Tokens.text-primary;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            Button {
+                text: "Close";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.ghost;
+                clicked => { root.closed(); }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Tokens.space-1;
+
+            if (root.scope != "") : Button {
+                text: "Page";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.ghost;
+                clicked => { root.scope-changed(""); }
+            }
+
+            if (root.scope == "" && root.block != "") : Button {
+                text: "This block";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.ghost;
+                clicked => { root.scope-changed(root.block); }
+            }
+        }
+
+        ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                spacing: Tokens.space-2;
+
+                for item in root.comments : Rectangle {
+                    background: item.resolved ? Tokens.surface-sunken : transparent;
+                    border-radius: Tokens.radius-control;
+                    height: thread.preferred-height + Tokens.space-2;
+
+                    thread := VerticalLayout {
+                        x: Tokens.space-2 + item.depth * Tokens.space-4;
+                        y: Tokens.space-1;
+                        width: parent.width - (Tokens.space-2 + item.depth * Tokens.space-4) - Tokens.space-2;
+                        spacing: Tokens.space-1;
+
+                        Text {
+                            text: item.author + " · " + item.created + (item.resolved ? " · resolved" : "");
+                            font-family: Type.caption.family;
+                            font-size: Type.caption.size;
+                            font-weight: Type.caption.weight;
+                            color: Tokens.text-muted;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: item.body;
+                            font-family: Type.body.family;
+                            font-size: Type.body.size;
+                            color: item.resolved ? Tokens.text-muted : Tokens.text-primary;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: Tokens.space-1;
+                            alignment: start;
+
+                            if (item.depth == 0) : Button {
+                                text: "Reply";
+                                size: ButtonSize.sm;
+                                variant: ButtonVariant.ghost;
+                                clicked => {
+                                    root.reply-to = item.id;
+                                    root.reply-block = item.block-id;
+                                }
+                            }
+
+                            if (item.resolved) : Button {
+                                text: "Reopen";
+                                size: ButtonSize.sm;
+                                variant: ButtonVariant.ghost;
+                                clicked => { root.reopen(item.id); }
+                            }
+
+                            if (!item.resolved) : Button {
+                                text: "Resolve";
+                                size: ButtonSize.sm;
+                                variant: ButtonVariant.ghost;
+                                clicked => { root.resolve(item.id); }
+                            }
+
+                            if (item.block-id != "") : Button {
+                                text: "Show";
+                                size: ButtonSize.sm;
+                                variant: ButtonVariant.ghost;
+                                clicked => { root.jump(item.block-id); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (root.reply-to != "") : HorizontalLayout {
+            spacing: Tokens.space-1;
+
+            Text {
+                text: "Replying to a comment";
+                font-family: Type.caption.family;
+                font-size: Type.caption.size;
+                color: Tokens.text-muted;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            Button {
+                text: "Cancel reply";
+                size: ButtonSize.sm;
+                variant: ButtonVariant.ghost;
+                clicked => { root.reply-to = ""; root.reply-block = ""; }
+            }
+        }
+
+        Rectangle {
+            height: Tokens.size-control-xl * 2;
+            border-radius: Tokens.radius-control;
+            border-color: Tokens.border-strong;
+            border-width: 1px;
+            background: Tokens.surface-base;
+
+            draft := TextInput {
+                x: Tokens.space-2;
+                y: Tokens.space-2;
+                width: parent.width - Tokens.space-4;
+                height: parent.height - Tokens.space-4;
+                wrap: word-wrap;
+                single-line: false;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                color: Tokens.text-primary;
+            }
+        }
+
+        Button {
+            text: root.reply-to != "" ? "Reply" : "Comment";
+            size: ButtonSize.md;
+            variant: ButtonVariant.primary;
+            clicked => {
+                if (draft.text != "") {
+                    // A reply goes to the block its thread is on; a new thread goes to the scope.
+                    root.submit(root.reply-to != "" ? root.reply-block : root.scope,
+                                root.reply-to,
+                                draft.text);
+                    draft.text = "";
+                    root.reply-to = "";
+                    root.reply-block = "";
+                }
+            }
+        }
+    }
+}

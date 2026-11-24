@@ -3,6 +3,7 @@
 //! - `win32` (Windows only): screen capture with GDI, top-level window listing and window styling (alpha, z-order,
 //!   owner), the Win+Shift+S hook, the start lock, Recycle Bin, known folders, print, Share and text recognition.
 //! - `android` (Android only): open a URL, read the activity's intent data and save a download, through JNI.
+//! - `webview` (every target): a native web view over a rectangle of the window, for web-only content blocks.
 //!
 //! Every function at the crate root works on every target. Where the OS has no such call the answer is empty
 //! (`None`, `false`, an empty list) or an `Err` naming the platform, so callers need no `cfg` of their own.
@@ -17,6 +18,9 @@ pub mod win32;
 #[cfg(target_os = "android")]
 #[allow(unsafe_code)]
 pub mod android;
+
+/// Native web views over a rectangle of the window (every target; see the module docs).
+pub mod webview;
 
 #[cfg(windows)]
 mod dialogs;

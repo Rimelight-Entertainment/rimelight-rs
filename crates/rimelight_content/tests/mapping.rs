@@ -1,6 +1,10 @@
 //! Contract tests for MAPPING.md, run on the shared fixtures.
 
-use rimelight_content::{TextKind, doc, normalize_page, registry, text_kind};
+use loro::ExportMode;
+use rimelight_content::{
+    Cursor, EditorDoc, Error, Frame, MarkKind, Received, SyncSession, TextKind, decode, doc,
+    encode, normalize_page, registry, text_kind,
+};
 use serde_json::Value;
 
 const DOCS_GUIDE: &str = include_str!("../fixtures/docs-guide.page.json");
@@ -246,4 +250,292 @@ fn loro_bytes_from_both_languages_export_to_the_fixture() {
         }
     }
     assert!(checked > 0, "no Loro byte fixtures in {}", dir.display());
+}
+
+// ----- editor API (EDITOR_API.md) -----
+
+/// A page for the editor tests. `p1` has a bold run and a mention in English and a Portuguese text; `s1` holds `p2`;
+/// `ul` holds two list items; `tb` is a table; `tpl` is a templated paragraph whose `text` is locked.
+fn editor_page() -> Value {
+    serde_json::json!({
+        "meta": {
+            "slug": "editor-test",
+            "type": "docs",
+            "title": { "en": "Title", "pt": "Título" }
+        },
+        "content": {
+            "properties": {},
+            "blocks": [
+                {
+                    "id": "p1",
+                    "type": "ParagraphBlock",
+                    "props": {
+                        "text": {
+                            "en": [
+                                { "type": "text", "text": "Hello " },
+                                { "type": "text", "text": "world", "marks": ["bold"] },
+                                { "type": "mention", "entryId": "e1", "collection": "docs", "slug": "intro", "title": "Intro" },
+                                { "type": "text", "text": " end" }
+                            ],
+                            "pt": [{ "type": "text", "text": "Olá" }]
+                        }
+                    }
+                },
+                {
+                    "id": "s1",
+                    "type": "SectionBlock",
+                    "props": { "title": [{ "type": "text", "text": "Heading" }] },
+                    "children": [
+                        {
+                            "id": "p2",
+                            "type": "ParagraphBlock",
+                            "props": { "text": [{ "type": "text", "text": "Second" }] }
+                        }
+                    ]
+                },
+                {
+                    "id": "ul",
+                    "type": "UnorderedListBlock",
+                    "props": {},
+                    "children": [
+                        { "id": "li1", "type": "ListItemBlock", "props": { "content": [{ "type": "text", "text": "one" }] } },
+                        { "id": "li2", "type": "ListItemBlock", "props": { "content": [{ "type": "text", "text": "two" }] } }
+                    ]
+                },
+                {
+                    "id": "tb",
+                    "type": "TableBlock",
+                    "props": { "columns": [{ "key": "a", "header": "A" }], "rows": [{ "a": "x" }] }
+                },
+                {
+                    "id": "tpl",
+                    "type": "ParagraphBlock",
+                    "props": { "text": [{ "type": "text", "text": "locked" }] },
+                    "isTemplated": true,
+                    "templatedProps": ["text"]
+                }
+            ]
+        }
+    })
+}
+
+fn editor_from(page: &Value) -> EditorDoc {
+    EditorDoc::from_doc(doc::import_page(page).expect("editor page imports"))
+}
+
+fn top_level_ids(ed: &EditorDoc) -> Vec<String> {
+    ed.rows("en")
+        .into_iter()
+        .filter(|row| row.parent.is_none())
+        .map(|row| row.id)
+        .collect()
+}
+
+/// Sends everything `from` has ready for `to`, through the wire encoding.
+fn deliver(
+    from: &mut SyncSession,
+    src: &EditorDoc,
+    to: &mut SyncSession,
+    dst: &EditorDoc,
+    now: u64,
+) {
+    for frame in from.outgoing_at(src, now) {
+        let decoded = decode(&encode(&frame)).expect("frame decodes");
+        to.receive(dst, decoded);
+    }
+}
+
+#[test]
+fn editor_typing_is_exported() {
+    let mut ed = editor_from(&editor_page());
+    ed.replace_text("p2", "text", "en", "Second and more")
+        .unwrap();
+    assert_eq!(ed.text("p2", "text", "en").plain, "Second and more");
+    let page = ed.page().unwrap();
+    let block = find_block(&page["content"]["blocks"], "p2").unwrap();
+    assert_eq!(block["props"]["text"][0]["text"], "Second and more");
+}
+
+#[test]
+fn editor_bold_toggle() {
+    let mut ed = editor_from(&editor_page());
+    ed.toggle_mark("p1", "text", "en", 0..5, MarkKind::Bold)
+        .unwrap();
+    let bold_on = ed
+        .text("p1", "text", "en")
+        .spans
+        .iter()
+        .any(|span| span.range == (0..5) && span.marks.contains(&MarkKind::Bold));
+    assert!(bold_on);
+    // Toggling the same range again removes it.
+    ed.toggle_mark("p1", "text", "en", 0..5, MarkKind::Bold)
+        .unwrap();
+    let bold_off = ed
+        .text("p1", "text", "en")
+        .spans
+        .iter()
+        .any(|span| span.range == (0..5) && span.marks.contains(&MarkKind::Bold));
+    assert!(!bold_off);
+}
+
+#[test]
+fn editor_mention_is_atomic() {
+    let mut ed = editor_from(&editor_page());
+    // Plain text is "Hello worldIntro end"; the mention covers bytes 11..16. An edit inside it removes it whole.
+    ed.replace_text("p1", "text", "en", "Hello worldIn end")
+        .unwrap();
+    let text = ed.text("p1", "text", "en");
+    assert_eq!(text.plain, "Hello worldIn end");
+    assert!(text.spans.iter().all(|span| span.mention.is_none()));
+}
+
+#[test]
+fn editor_split_and_merge() {
+    let mut ed = editor_from(&editor_page());
+    let new_id = ed.split_block("p2", "text", "en", 3).unwrap();
+    assert_eq!(ed.text("p2", "text", "en").plain, "Sec");
+    assert_eq!(ed.text(&new_id, "text", "en").plain, "ond");
+    let merged = ed.merge_into_previous(&new_id, "text", "en").unwrap();
+    assert_eq!(merged, Some(("p2".to_string(), 3)));
+    assert_eq!(ed.text("p2", "text", "en").plain, "Second");
+    assert!(ed.row(&new_id, "en").is_none());
+}
+
+#[test]
+fn editor_insert_block_creates_initial_children() {
+    let mut ed = editor_from(&editor_page());
+    let list = ed
+        .insert_block(None, Some("p1"), "UnorderedListBlock")
+        .unwrap();
+    assert!(ed.row(&list, "en").unwrap().has_children);
+    let child = ed
+        .rows("en")
+        .into_iter()
+        .find(|row| row.parent.as_deref() == Some(list.as_str()))
+        .unwrap();
+    assert_eq!(child.block_type, "ListItemBlock");
+}
+
+#[test]
+fn editor_indent_and_outdent_list_items() {
+    let mut ed = editor_from(&editor_page());
+    ed.indent("li2").unwrap();
+    let nested = ed.row("li2", "en").unwrap();
+    assert_eq!(nested.depth, 3);
+    let nested_list = nested.parent.clone().unwrap();
+    assert_eq!(
+        ed.row(&nested_list, "en").unwrap().parent.as_deref(),
+        Some("li1")
+    );
+
+    ed.outdent("li2").unwrap();
+    let back = ed.row("li2", "en").unwrap();
+    assert_eq!(back.depth, 1);
+    assert_eq!(back.parent.as_deref(), Some("ul"));
+}
+
+#[test]
+fn editor_move_up_and_down() {
+    let mut ed = editor_from(&editor_page());
+    let before = top_level_ids(&ed);
+    assert_eq!(before[0], "p1");
+    ed.move_down("p1").unwrap();
+    assert_eq!(top_level_ids(&ed)[1], "p1");
+    ed.move_up("p1").unwrap();
+    assert_eq!(top_level_ids(&ed), before);
+}
+
+#[test]
+fn editor_turn_into_keeps_text() {
+    let mut ed = editor_from(&editor_page());
+    ed.turn_into("p1", "QuoteBlock").unwrap();
+    assert_eq!(ed.row("p1", "en").unwrap().block_type, "QuoteBlock");
+    assert_eq!(ed.text("p1", "text", "en").plain, "Hello worldIntro end");
+}
+
+#[test]
+fn editor_templated_block_is_locked() {
+    let mut ed = editor_from(&editor_page());
+    let deleted = ed.delete_blocks(&["tpl".to_string()]);
+    assert!(matches!(deleted, Err(Error::Locked)));
+    let set = ed.set_prop("tpl", "text", serde_json::json!([]));
+    assert!(matches!(set, Err(Error::Locked)));
+    assert!(ed.row("tpl", "en").unwrap().templated);
+}
+
+#[test]
+fn editor_undo_and_redo() {
+    let mut ed = editor_from(&editor_page());
+    ed.replace_text("p2", "text", "en", "X").unwrap();
+    assert_eq!(ed.text("p2", "text", "en").plain, "X");
+    assert!(ed.undo());
+    assert_eq!(ed.text("p2", "text", "en").plain, "Second");
+    assert!(ed.redo());
+    assert_eq!(ed.text("p2", "text", "en").plain, "X");
+}
+
+#[test]
+fn editor_table_cell_edit() {
+    let mut ed = editor_from(&editor_page());
+    ed.table_set_cell("tb", 0, "a", "y").unwrap();
+    let page = ed.page().unwrap();
+    let block = find_block(&page["content"]["blocks"], "tb").unwrap();
+    assert_eq!(block["props"]["rows"][0]["a"], "y");
+}
+
+#[test]
+fn editor_locales_lists_en_first() {
+    let ed = editor_from(&editor_page());
+    assert_eq!(ed.locales(), vec!["en".to_string(), "pt".to_string()]);
+}
+
+#[test]
+fn editor_sync_two_editors_converge() {
+    let page = editor_page();
+    let snapshot = doc::import_page(&page)
+        .unwrap()
+        .export(ExportMode::Snapshot)
+        .unwrap();
+    let mut a = EditorDoc::from_snapshot(&snapshot).unwrap();
+    let mut b = EditorDoc::from_snapshot(&snapshot).unwrap();
+    a.replace_text("p2", "text", "en", "From A").unwrap();
+    b.insert_block(None, None, "DividerBlock").unwrap();
+
+    let mut sa = SyncSession::new("user-a", "A", "#f00");
+    let mut sb = SyncSession::new("user-b", "B", "#0f0");
+    deliver(&mut sa, &a, &mut sb, &b, 1_000);
+    deliver(&mut sb, &b, &mut sa, &a, 1_000);
+    assert_eq!(a.page().unwrap(), b.page().unwrap());
+    assert_eq!(a.text("p2", "text", "en").plain, "From A");
+}
+
+#[test]
+fn editor_sync_presence_round_trip() {
+    let page = editor_page();
+    let a = editor_from(&page);
+    let b = editor_from(&page);
+    let mut sa = SyncSession::new("user-a", "A", "#f00");
+    let mut sb = SyncSession::new("user-b", "B", "#0f0");
+    sa.set_cursor(Some(Cursor {
+        block: "p2".into(),
+        field: "text".into(),
+        locale: "en".into(),
+        anchor: 1,
+        head: 3,
+    }));
+    let presence = sa
+        .outgoing_at(&a, 5_000)
+        .into_iter()
+        .find(|frame| matches!(frame, Frame::Presence(_)))
+        .expect("cursor change is sent as presence");
+    assert_eq!(
+        sb.receive(&b, decode(&encode(&presence)).unwrap()),
+        Received::Presence
+    );
+
+    let remote = sb.remote_cursors_at(6_000);
+    assert_eq!(remote.len(), 1);
+    assert_eq!(remote[0].user_id, "user-a");
+    assert_eq!(remote[0].cursor.as_ref().map(|c| c.anchor), Some(1));
+    assert!(sb.remote_cursors_at(5_000 + 30_001).is_empty());
 }

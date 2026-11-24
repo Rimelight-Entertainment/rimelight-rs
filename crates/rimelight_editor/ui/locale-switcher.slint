@@ -1,0 +1,40 @@
+// The locale switcher (design section 9, CMS.5 item 5). One chip per locale the page has text in, and one "+" chip per
+// offered locale it does not have yet. Choosing a chip shows that locale's rows; a locale with no text shows the English
+// text greyed until the user types.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { LocaleItem } from "types.slint";
+
+export component LocaleSwitcher inherits Rectangle {
+    in property <[LocaleItem]> locales;
+
+    callback chosen(string);
+
+    height: Tokens.component-toolbar-height;
+    background: Tokens.surface-raised;
+
+    HorizontalLayout {
+        padding: Tokens.space-1;
+        spacing: Tokens.space-1;
+        alignment: start;
+
+        Text {
+            text: "Language";
+            font-family: Type.label.family;
+            font-size: Type.label.size;
+            font-weight: Type.label.weight;
+            color: Tokens.text-muted;
+            vertical-alignment: center;
+        }
+
+        for item in root.locales : Button {
+            text: item.present ? item.label : "+ " + item.label;
+            size: ButtonSize.sm;
+            variant: item.active ? ButtonVariant.primary : ButtonVariant.ghost;
+            clicked => {
+                root.chosen(item.code);
+            }
+        }
+    }
+}

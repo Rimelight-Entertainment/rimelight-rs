@@ -5,6 +5,7 @@
 //! - `with_activity`: `JavaVM::from_raw` on the VM pointer android-activity owns, on the thread it attached.
 //! - `with_activity`: `JObject::from_raw` on the NativeActivity pointer, wrapped in `ManuallyDrop` so the global
 //!   reference is never deleted here.
+//! - `webview::with_context` (see `webview`): the same two pointers, read from ndk-context instead of `AndroidApp`.
 //!
 //! Everything else is safe jni API calls.
 
@@ -14,6 +15,9 @@ use std::mem::ManuallyDrop;
 use jni::objects::{JObject, JString, JValue};
 use jni::{JNIEnv, JavaVM};
 use slint::android::AndroidApp;
+
+/// Native web views (`android.webkit.WebView`) over the activity's content view, for `crate::webview`.
+pub(crate) mod webview;
 
 /// Opens `url` with ACTION_VIEW from the activity, so the system browser (or the app that handles the scheme) takes it.
 pub fn open_url(app: &AndroidApp, url: &str) -> Result<(), String> {

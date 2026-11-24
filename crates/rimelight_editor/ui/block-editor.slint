@@ -1,0 +1,386 @@
+// The block editor (design sections 2, 3, 6, 7, 8 and 10): the locale switcher and the presence strip, the format
+// toolbar, a virtualised list of block rows, the `/`, `@`, `:` and block menus, the link prompt, the comment panel and
+// the inspector.
+//
+// All state and callbacks live in the exported global `EditorBridge`, not on `BlockEditor`. The app places
+// `BlockEditor {}` anywhere in its own window with no bindings, and Rust reaches the state through the window's global
+// (`wire_block_editor!` in src/lib.rs, which takes the window type and `EditorBridge` as arguments). One editor is live
+// per window at a time, because the global is one per window.
+//
+// The app's build.rs registers this folder as the library path `rimelight_editor`, and imports from
+// `@rimelight_editor/block-editor.slint`. The app's root markup must re-export `EditorBridge` so Rust can name it:
+//
+//   import { BlockEditor, EditorBridge } from "@rimelight_editor/block-editor.slint";
+//   export { EditorBridge }
+//   export component AppShell inherits Window { ... BlockEditor { } ... }
+//
+// Phone. `compact` is set by the app (through the bridge). The format toolbar then sits above the virtual keyboard, the
+// inspector and the comment panel open as bottom sheets, and the block handle is a long-press grip (editor-row.slint).
+// `keyboard-height` is the keyboard's height, which the app sets from its keyboard events; Slint's own virtual keyboard
+// properties are not used yet (UNSURE: whether Slint 1.18 exposes them on Window).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { EditorRowView } from "editor-row.slint";
+import { InsertMenu } from "insert-menu.slint";
+import { MentionPicker } from "mention-picker.slint";
+import { EmojiPicker } from "emoji-picker.slint";
+import { BlockMenu } from "block-menu.slint";
+import { LinkPrompt } from "link-prompt.slint";
+import { LocaleSwitcher } from "locale-switcher.slint";
+import { CommentPanel } from "comment-panel.slint";
+import { Inspector } from "inspector.slint";
+import { FormatToolbar } from "format-toolbar.slint";
+import {
+    EditorRow, RemoteCaret, InsertItem, MentionItem, InspectorField, KeyOutcome, EmojiItem, BlockMenuItem, LocaleItem,
+    CommentItem, PresenceItem
+} from "types.slint";
+
+// Every property and callback the editor shares with Rust. The Rust side sets the properties and calls `on_*` on this
+// global of the window. Within the markup, the editor reads and calls them here.
+export global EditorBridge {
+    // ----- Set by Rust (wire_block_editor!) -----
+    in-out property <[EditorRow]> rows;
+    in-out property <[RemoteCaret]> carets;
+    in-out property <[LocaleItem]> locales;
+    in-out property <[PresenceItem]> presence;
+    in-out property <bool> insert-open: false;
+    in-out property <[InsertItem]> insert-items;
+    in-out property <int> insert-selected: 0;
+    in-out property <bool> mention-open: false;
+    in-out property <[MentionItem]> mention-items;
+    in-out property <int> mention-selected: 0;
+    in-out property <bool> emoji-open: false;
+    in-out property <[EmojiItem]> emoji-items;
+    in-out property <int> emoji-selected: 0;
+    in-out property <bool> block-menu-open: false;
+    in-out property <[BlockMenuItem]> block-menu-items;
+    in-out property <int> block-menu-selected: 0;
+    in-out property <bool> link-open: false;
+    in-out property <string> link-url;
+    in-out property <bool> link-new-tab: false;
+    in-out property <bool> link-has-link: false;
+    in-out property <bool> comments-open: false;
+    in-out property <[CommentItem]> comments;
+    // The comment panel's scope: a block id, or "" for the page. `comment-block` is the focused block.
+    in-out property <string> comment-scope;
+    in-out property <string> comment-block;
+    in-out property <[InspectorField]> inspector-fields;
+    // Focus: the display row, and the caret as byte offsets in its text. `focus-serial` changes on every focus request.
+    in-out property <int> focus-row: -1;
+    in-out property <int> focus-anchor: 0;
+    in-out property <int> focus-head: 0;
+    in-out property <int> focus-serial: 0;
+
+    // ----- Set by the app -----
+    in-out property <bool> compact: false;
+    in-out property <bool> inspector-open: false;
+    in-out property <bool> inspector-locked: false;
+    // The on-screen keyboard's height in logical pixels while it is shown (0 when hidden). Compact layout only.
+    in-out property <length> keyboard-height: 0px;
+    // Distance, in logical pixels, that one row of drag moves a block by. Rows have no shared height, so the drop target
+    // is estimated from this pitch (a follow-up can read each row's real geometry).
+    in-out property <length> drag-pitch: 44px;
+
+    // ----- Callbacks to Rust -----
+    callback text-edited(int, string);
+    callback key(int, KeyEvent) -> KeyOutcome;
+    callback caret-moved(int, int, int);
+    callback handle-clicked(int);
+    callback long-pressed(int);
+    callback drag-dropped(int, int, int);
+    callback insert-menu-chosen(string);
+    callback insert-menu-dismissed();
+    callback mention-query(string);
+    callback mention-chosen(int);
+    callback mention-dismissed();
+    callback emoji-chosen(int);
+    callback emoji-dismissed();
+    callback block-menu-chosen(string);
+    callback block-menu-dismissed();
+    callback toolbar(string);
+    callback link-submitted(string, bool);
+    callback link-removed();
+    callback link-dismissed();
+    callback locale-chosen(string);
+    callback comment-submit(string, string, string);
+    callback comment-resolve(string);
+    callback comment-reopen(string);
+    callback comment-jump(string);
+    callback comment-scope-changed(string);
+    callback comment-closed();
+    callback inspector-changed(string, string);
+    callback web-block-geometry(string, length, length, length, length, string);
+}
+
+export component BlockEditor inherits Rectangle {
+    background: Tokens.surface-base;
+
+    // A block was released after a drag from its handle. The drop goes `steps` rows away (estimated from the pitch):
+    // dropping below a row puts the block after it, dropping above puts it before.
+    function drop(from: int, distance: length) {
+        // UNSURE: Math.round's result type (int or float) in Slint 1.18; `int` arithmetic below assumes int.
+        let steps = Math.round(distance / EditorBridge.drag-pitch);
+        if (steps == 0) {
+            return;
+        }
+        let last = EditorBridge.rows.length - 1;
+        let target = max(0, min(last, from + steps));
+        let to = steps > 0 ? target + 1 : target;
+        EditorBridge.drag-dropped(from, to, EditorBridge.rows[from].depth);
+    }
+
+    // The column: header, toolbar, rows. On phones the toolbar is drawn over the keyboard instead (below).
+    VerticalLayout {
+        HorizontalLayout {
+            vertical-stretch: 0;
+            padding-left: Tokens.space-2;
+            padding-right: Tokens.space-2;
+            spacing: Tokens.space-2;
+
+            LocaleSwitcher {
+                horizontal-stretch: 1;
+                locales: EditorBridge.locales;
+                chosen(code) => {
+                    EditorBridge.locale-chosen(code);
+                }
+            }
+
+            // Presence strip: one dot per co-editor, with the first letter of their name.
+            for person in EditorBridge.presence : Rectangle {
+                width: Tokens.size-control-sm;
+                height: Tokens.size-control-sm;
+                border-radius: Tokens.size-control-sm / 2;
+                background: person.colour;
+
+                Text {
+                    text: person.initial;
+                    font-family: Type.caption.family;
+                    font-size: Type.caption.size;
+                    color: Tokens.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        if (!EditorBridge.compact) : FormatToolbar {
+            action(name) => {
+                EditorBridge.toolbar(name);
+            }
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+
+            // Virtualised: Slint's ListView builds only the rows near the viewport.
+            // UNSURE: ListView with rows of different heights in Slint 1.18 (the layout is by each row's preferred height).
+            ListView {
+                horizontal-stretch: 1;
+
+                for row[index] in EditorBridge.rows : EditorRowView {
+                    row: row;
+                    row-index: index;
+                    carets: EditorBridge.carets;
+                    compact: EditorBridge.compact;
+                    focus-row: EditorBridge.focus-row;
+                    focus-anchor: EditorBridge.focus-anchor;
+                    focus-head: EditorBridge.focus-head;
+                    focus-serial: EditorBridge.focus-serial;
+                    menus-open: EditorBridge.insert-open || EditorBridge.mention-open || EditorBridge.emoji-open
+                        || EditorBridge.block-menu-open;
+
+                    text-edited(i, text) => {
+                        EditorBridge.text-edited(i, text);
+                    }
+                    key(i, event) => {
+                        return EditorBridge.key(i, event);
+                    }
+                    caret-moved(i, anchor, head) => {
+                        EditorBridge.caret-moved(i, anchor, head);
+                    }
+                    handle-clicked(i) => {
+                        EditorBridge.handle-clicked(i);
+                    }
+                    long-pressed(i) => {
+                        EditorBridge.long-pressed(i);
+                    }
+                    drag-released(i, distance) => {
+                        root.drop(i, distance);
+                    }
+                    web-block-geometry(key, x, y, w, h, url) => {
+                        EditorBridge.web-block-geometry(key, x, y, w, h, url);
+                    }
+                }
+            }
+
+            // Desktop side panels. One at a time: the comment panel replaces the inspector.
+            // UNSURE: setting `width` at the instance overrides the root's `width: 320px` in inspector.slint and
+            // comment-panel.slint (Slint 1.18 allows root property overrides from the user).
+            if (EditorBridge.comments-open && !EditorBridge.compact) : CommentPanel {
+                comments: EditorBridge.comments;
+                scope: EditorBridge.comment-scope;
+                block: EditorBridge.comment-block;
+                submit(block-id, parent-id, body) => {
+                    EditorBridge.comment-submit(block-id, parent-id, body);
+                }
+                resolve(id) => {
+                    EditorBridge.comment-resolve(id);
+                }
+                reopen(id) => {
+                    EditorBridge.comment-reopen(id);
+                }
+                jump(block-id) => {
+                    EditorBridge.comment-jump(block-id);
+                }
+                scope-changed(scope) => {
+                    EditorBridge.comment-scope-changed(scope);
+                }
+                closed => {
+                    EditorBridge.comment-closed();
+                }
+            }
+
+            if (EditorBridge.inspector-open && !EditorBridge.comments-open && !EditorBridge.compact) : Inspector {
+                width: 320px;
+                fields: EditorBridge.inspector-fields;
+                locked: EditorBridge.inspector-locked;
+                field-changed(key, value) => {
+                    EditorBridge.inspector-changed(key, value);
+                }
+            }
+        }
+
+        // Keeps the last rows clear of the toolbar that sits over the keyboard.
+        if (EditorBridge.compact) : Rectangle {
+            height: Tokens.component-toolbar-height + EditorBridge.keyboard-height;
+        }
+    }
+
+    // Phone: the toolbar sits on top of the keyboard.
+    if (EditorBridge.compact) : FormatToolbar {
+        x: 0px;
+        y: root.height - EditorBridge.keyboard-height - self.height;
+        width: root.width;
+        action(name) => {
+            EditorBridge.toolbar(name);
+        }
+    }
+
+    // Phone: the inspector and the comment panel open as bottom sheets.
+    if (EditorBridge.compact && EditorBridge.comments-open) : CommentPanel {
+        x: 0px;
+        y: root.height * 0.4;
+        width: root.width;
+        height: root.height * 0.6;
+        comments: EditorBridge.comments;
+        scope: EditorBridge.comment-scope;
+        block: EditorBridge.comment-block;
+        submit(block-id, parent-id, body) => {
+            EditorBridge.comment-submit(block-id, parent-id, body);
+        }
+        resolve(id) => {
+            EditorBridge.comment-resolve(id);
+        }
+        reopen(id) => {
+            EditorBridge.comment-reopen(id);
+        }
+        jump(block-id) => {
+            EditorBridge.comment-jump(block-id);
+        }
+        scope-changed(scope) => {
+            EditorBridge.comment-scope-changed(scope);
+        }
+        closed => {
+            EditorBridge.comment-closed();
+        }
+    }
+
+    if (EditorBridge.compact && EditorBridge.inspector-open && !EditorBridge.comments-open) : Inspector {
+        x: 0px;
+        y: root.height * 0.4;
+        width: root.width;
+        height: root.height * 0.6;
+        fields: EditorBridge.inspector-fields;
+        locked: EditorBridge.inspector-locked;
+        field-changed(key, value) => {
+            EditorBridge.inspector-changed(key, value);
+        }
+    }
+
+    // A pointer press outside an open menu closes it. Placed above the rows, below the menus.
+    if (EditorBridge.insert-open || EditorBridge.mention-open || EditorBridge.emoji-open
+        || EditorBridge.block-menu-open) : TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            EditorBridge.insert-menu-dismissed();
+            EditorBridge.mention-dismissed();
+            EditorBridge.emoji-dismissed();
+            EditorBridge.block-menu-dismissed();
+        }
+    }
+
+    // The menus float over the editor. Their place (under the header, at the left) is fixed for now; the layout of the
+    // caret's row is a follow-up.
+    if (EditorBridge.insert-open) : InsertMenu {
+        x: 24px;
+        y: 96px;
+        items: EditorBridge.insert-items;
+        selected: EditorBridge.insert-selected;
+        chosen(block-type) => {
+            EditorBridge.insert-menu-chosen(block-type);
+        }
+    }
+
+    if (EditorBridge.mention-open) : MentionPicker {
+        x: 24px;
+        y: 96px;
+        items: EditorBridge.mention-items;
+        selected: EditorBridge.mention-selected;
+        query-changed(text) => {
+            EditorBridge.mention-query(text);
+        }
+        chosen(index) => {
+            EditorBridge.mention-chosen(index);
+        }
+    }
+
+    if (EditorBridge.emoji-open) : EmojiPicker {
+        x: 24px;
+        y: 96px;
+        items: EditorBridge.emoji-items;
+        selected: EditorBridge.emoji-selected;
+        chosen(index) => {
+            EditorBridge.emoji-chosen(index);
+        }
+    }
+
+    if (EditorBridge.block-menu-open) : BlockMenu {
+        x: 24px;
+        y: 96px;
+        items: EditorBridge.block-menu-items;
+        selected: EditorBridge.block-menu-selected;
+        chosen(action) => {
+            EditorBridge.block-menu-chosen(action);
+        }
+    }
+
+    if (EditorBridge.link-open) : LinkPrompt {
+        x: (root.width - self.width) / 2;
+        y: 120px;
+        url: EditorBridge.link-url;
+        new-tab: EditorBridge.link-new-tab;
+        has-link: EditorBridge.link-has-link;
+        submitted(url, new-tab) => {
+            EditorBridge.link-submitted(url, new-tab);
+        }
+        removed => {
+            EditorBridge.link-removed();
+        }
+        dismissed => {
+            EditorBridge.link-dismissed();
+        }
+    }
+}

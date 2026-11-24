@@ -1,0 +1,24 @@
+[package]
+name = "rimelight_editor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Rimelight Slint block editor: markup for the editor, plus plain-Rust controller, view and layout rules and the macro an app expands to wire them."
+
+[lints]
+workspace = true
+
+# No Slint dependency: the app expands `wire_block_editor!` in its own crate, so the app's Slint is the one used.
+[dependencies]
+rimelight_content = { path = "../rimelight_content" }
+serde_json = "1"
+# Same parley version Slint 1.18 uses, for remote caret positions (layout.rs).
+parley = "0.11"
+# Block JSON for the web-only blocks' embed route (webview.rs).
+base64 = "0.22"
+
+# Tests build their pages through the editor API, starting from an empty Loro document.
+[dev-dependencies]
+loro = "1.18"

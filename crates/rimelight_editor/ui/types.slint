@@ -1,0 +1,110 @@
+// Structs and enums the block editor passes between its markup and Rust (see `wire_block_editor!` in src/lib.rs). The
+// field names here are what the macro fills in; keep both in step.
+
+// One block row. `markdown` is what the StyledText draws; `text` is what the transparent TextInput edits.
+export struct EditorRow {
+    id: string,
+    block-type: string,
+    depth: int,
+    index: int,
+    text: string,
+    markdown: styled-text,
+    inline: bool,
+    font-size: length,
+    // 0 when the block is not a heading.
+    heading-level: int,
+    locked: bool,
+    restricted: bool,
+    web-only: bool,
+    web-url: string,
+    placeholder: string,
+    selected: bool,
+    // True when a co-editor's caret is in this block. The colour and name are theirs.
+    presence: bool,
+    presence-colour: color,
+    presence-name: string,
+    // True when the text is the `en` text shown for a locale that has none yet: greyed and read-only until typed in.
+    fallback: bool,
+    // Open comments on this block (the badge). 0 hides it.
+    comment-count: int
+}
+
+// A co-editor's caret, in the coordinates of its row's text box.
+export struct RemoteCaret {
+    row: int,
+    x: length,
+    y: length,
+    height: length,
+    colour: color,
+    name: string
+}
+
+// One entry of the `/` insert menu. `icon-key` names an icon (see insert-menu.slint); `category` is the group.
+export struct InsertItem {
+    block-type: string,
+    label: string,
+    icon-key: string,
+    category: string
+}
+
+// One mention target from the app's search.
+export struct MentionItem {
+    entry-id: string,
+    collection: string,
+    slug: string,
+    title: string
+}
+
+// One emoji of the `:` picker.
+export struct EmojiItem {
+    emoji: string,
+    shortcode: string
+}
+
+// One action of the block menu.
+export struct BlockMenuItem {
+    action: string,
+    label: string
+}
+
+// One locale of the switcher. `present` is false for an offered locale the document has no text in yet.
+export struct LocaleItem {
+    code: string,
+    label: string,
+    present: bool,
+    active: bool
+}
+
+// One comment row of the comment panel. `depth` 1 is a reply.
+export struct CommentItem {
+    id: string,
+    block-id: string,
+    depth: int,
+    author: string,
+    body: string,
+    created: string,
+    resolved: bool
+}
+
+// One co-editor of the presence strip.
+export struct PresenceItem {
+    name: string,
+    initial: string,
+    colour: color
+}
+
+// One inspector field. Every value is text (see InspectorFieldView in src/controller.rs). `options` is for select.
+export struct InspectorField {
+    key: string,
+    label: string,
+    kind: string,
+    value: string,
+    options: [string],
+    read-only: bool
+}
+
+// Whether the editor took a key. `handled` stops the TextInput from acting on it.
+export enum KeyOutcome {
+    ignored,
+    handled
+}

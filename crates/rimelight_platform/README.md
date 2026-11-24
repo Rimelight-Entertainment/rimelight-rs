@@ -36,6 +36,22 @@ comment, and the audit list is at the top of each module.
 
 Android: `rimelight_platform::android::{open_url, intent_data, save_download}`, each taking the `AndroidApp`.
 
+## Native web views (`webview`)
+
+`webview::WebViews` shows a native web view over a rectangle of a Slint window, for web-only content blocks (decision
+0049). One view per key.
+
+- `show(window, key, x, y, w, h, scale, url)`: logical pixels from the window's top-left. Call it every frame or timer
+  tick with the block's current geometry. The view is created on the first call, and it moves, resizes or reloads only
+  when the rectangle, the scale or the URL changed.
+- `hide_all()`: call while Slint menus or dialogs are open. A native child view always draws on top of Slint.
+- `hide(key)`: hides one view, keeping its page.
+- `close(key)`: call when the block leaves. The native view is destroyed.
+
+Per target: Windows is a wry child web view (`build_as_child` on the window handle). Android is an
+`android.webkit.WebView` in the activity's content view (JNI, in `android/webview.rs`). wasm32 is an absolutely
+positioned iframe over the canvas. macOS, iOS and Linux return `WebViewError::Unsupported`.
+
 ## Using it
 
 ```toml

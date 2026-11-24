@@ -173,8 +173,13 @@ fn put_text(text: &LoroText, s: &str, marks: &[&str]) -> Result<(), Error> {
 
 /// Reads `text` back as normal-form rich text nodes (MAPPING section 3 export, then section 4).
 pub fn export_rich(text: &LoroText) -> Value {
+    runs_to_nodes(text.to_delta())
+}
+
+/// Normal-form rich text nodes from Loro delta runs (the body of [`export_rich`], also used by the editor on a slice).
+pub(crate) fn runs_to_nodes(runs: Vec<TextDelta>) -> Value {
     let mut raw: Vec<Value> = Vec::new();
-    for item in text.to_delta() {
+    for item in runs {
         let TextDelta::Insert { insert, attributes } = item else {
             continue;
         };

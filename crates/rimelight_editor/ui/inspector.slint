@@ -1,0 +1,114 @@
+// The inspector (design sections 6 and 9): the selected block's fields from the registry, then its visibility and roles.
+// On desktop it is a docked panel on the right; on phones the page shows it as a bottom sheet instead. Every field is
+// text on the way in and out (the controller converts by the field's kind). Locked fields and a locked page are
+// read-only.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+import { Switch } from "@rimelight_ui/components/switch.slint";
+import { InspectorField } from "types.slint";
+
+export component Inspector inherits Rectangle {
+    in property <[InspectorField]> fields;
+    in property <bool> locked: false;
+
+    callback field-changed(string, string);
+
+    width: 320px;
+    background: Tokens.surface-raised;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+
+    ScrollView {
+        VerticalLayout {
+            padding: Tokens.space-4;
+            spacing: Tokens.space-3;
+
+            for field in root.fields : VerticalLayout {
+                spacing: Tokens.space-1;
+
+                Text {
+                    text: field.label;
+                    font-family: Type.label.family;
+                    font-size: Type.label.size;
+                    font-weight: Type.label.weight;
+                    color: Tokens.text-muted;
+                }
+
+                // Single-line text, URLs, media ids, tags (comma-separated) and numbers. Read-only when locked.
+                if (field.kind == "text" || field.kind == "url" || field.kind == "media" || field.kind == "tags" || field.kind == "number") : Rectangle {
+                    height: Tokens.size-control-md;
+                    border-radius: Tokens.radius-control;
+                    border-color: Tokens.border-strong;
+                    border-width: 1px;
+                    background: (field.read-only || root.locked) ? Tokens.disabled-surface : Tokens.surface-base;
+
+                    TextInput {
+                        x: Tokens.space-2;
+                        width: parent.width - Tokens.space-4;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        font-family: Type.body.family;
+                        font-size: Type.body.size;
+                        color: Tokens.text-primary;
+                        text: field.value;
+                        read-only: field.read-only || root.locked;
+                        edited => {
+                            root.field-changed(field.key, self.text);
+                        }
+                    }
+                }
+
+                // Multi-line text and JSON (JSON is pretty-printed; the controller rejects invalid JSON).
+                if (field.kind == "textarea" || field.kind == "json") : Rectangle {
+                    min-height: Tokens.size-control-xl * 2;
+                    border-radius: Tokens.radius-control;
+                    border-color: Tokens.border-strong;
+                    border-width: 1px;
+                    background: (field.read-only || root.locked) ? Tokens.disabled-surface : Tokens.surface-base;
+
+                    TextInput {
+                        x: Tokens.space-2;
+                        y: Tokens.space-2;
+                        width: parent.width - Tokens.space-4;
+                        height: parent.height - Tokens.space-4;
+                        wrap: word-wrap;
+                        single-line: false;
+                        font-family: field.kind == "json" ? Type.code.family : Type.body.family;
+                        font-size: Type.body.size;
+                        color: Tokens.text-primary;
+                        text: field.value;
+                        read-only: field.read-only || root.locked;
+                        edited => {
+                            root.field-changed(field.key, self.text);
+                        }
+                    }
+                }
+
+                // A fixed set of choices: one button each, the current one primary.
+                if (field.kind == "select") : HorizontalLayout {
+                    spacing: Tokens.space-1;
+
+                    for option in field.options : Button {
+                        text: option;
+                        size: ButtonSize.sm;
+                        variant: option == field.value ? ButtonVariant.primary : ButtonVariant.secondary;
+                        enabled: !(field.read-only || root.locked);
+                        clicked => {
+                            root.field-changed(field.key, option);
+                        }
+                    }
+                }
+
+                if (field.kind == "boolean") : Switch {
+                    text: field.label;
+                    checked: field.value == "true";
+                    enabled: !(field.read-only || root.locked);
+                    changed(value) => {
+                        root.field-changed(field.key, value ? "true" : "false");
+                    }
+                }
+            }
+        }
+    }
+}

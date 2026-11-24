@@ -1,0 +1,55 @@
+// A web-only block's place in the editor (design section 2). The block's live preview is a native web view that the app
+// puts over this rectangle. This element reports its absolute box (and the embed URL) whenever it changes, so the app
+// can position the web view. While a menu is open, the editor sets `show-snapshot`: the app hides the web view and this
+// shows the snapshot image in its place.
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "@rimelight_ui/components/button.slint";
+
+export component WebBlock inherits Rectangle {
+    in property <string> block-key;
+    in property <string> url;
+    in property <image> snapshot;
+    in property <bool> show-snapshot: false;
+    in property <string> open-label: "Open preview";
+
+    callback geometry-changed(string, length, length, length, length, string);
+    callback open-preview();
+
+    // UNSURE: `absolute-position` on a built-in element in Slint 1.18 (window coordinates, logical pixels). Confirm in
+    // the first build; the fallback is to pass the page's own origin down from the block editor.
+    out property <length> abs-x: root.absolute-position.x;
+    out property <length> abs-y: root.absolute-position.y;
+
+    changed abs-x => { root.report(); }
+    changed abs-y => { root.report(); }
+    changed width => { root.report(); }
+    changed height => { root.report(); }
+
+    function report() {
+        root.geometry-changed(root.block-key, root.abs-x, root.abs-y, root.width, root.height, root.url);
+    }
+
+    min-height: 240px;
+    background: Tokens.surface-sunken;
+    border-radius: Tokens.radius-surface;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+    clip: true;
+
+    if (root.show-snapshot && root.snapshot.width > 0px) : Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.snapshot;
+        image-fit: contain;
+    }
+
+    if (!root.show-snapshot || root.snapshot.width == 0px) : Button {
+        x: Tokens.space-4;
+        y: Tokens.space-4;
+        text: root.open-label;
+        size: ButtonSize.md;
+        variant: ButtonVariant.secondary;
+        clicked => { root.open-preview(); }
+    }
+}

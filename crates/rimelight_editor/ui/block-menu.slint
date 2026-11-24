@@ -1,0 +1,50 @@
+// The block menu (design section 6): opened by a long press on a block's grip (phone), or a right click on its handle
+// (desktop). Its entries are the block actions the controller lists (duplicate, comment, indent, outdent, move, delete).
+import { Tokens } from "@rimelight_design/tokens.slint";
+import { Type } from "@rimelight_ui/typography.slint";
+import { BlockMenuItem } from "types.slint";
+
+export component BlockMenu inherits Rectangle {
+    in property <[BlockMenuItem]> items;
+    in property <int> selected: 0;
+
+    callback chosen(string);
+
+    width: 220px;
+    background: Tokens.surface-overlay;
+    border-color: Tokens.border-subtle;
+    border-width: 1px;
+    border-radius: Tokens.radius-surface;
+    height: list.preferred-height + Tokens.space-2;
+
+    list := VerticalLayout {
+        x: Tokens.space-1;
+        y: Tokens.space-1;
+        width: parent.width - Tokens.space-2;
+        spacing: 0px;
+
+        for item[index] in root.items : Rectangle {
+            height: Tokens.size-menu-row-height;
+            border-radius: Tokens.radius-control;
+            background: index == root.selected ? Tokens.selection : transparent;
+
+            Text {
+                x: Tokens.space-2;
+                width: parent.width - Tokens.space-4;
+                height: parent.height;
+                text: item.label;
+                font-family: Type.body.family;
+                font-size: Type.body.size;
+                font-weight: Type.body.weight;
+                color: Tokens.text-primary;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.chosen(item.action);
+                }
+            }
+        }
+    }
+}

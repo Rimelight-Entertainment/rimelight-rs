@@ -203,7 +203,7 @@ pub fn block_text(doc: &LoroDoc, block_id: &str, key: &str) -> Option<LoroText> 
     }
 }
 
-fn find_node(tree: &LoroTree, parent: &TreeParentId, block_id: &str) -> Option<TreeID> {
+pub(crate) fn find_node(tree: &LoroTree, parent: &TreeParentId, block_id: &str) -> Option<TreeID> {
     for node in tree.children(*parent).unwrap_or_default() {
         let Ok(meta) = tree.get_meta(node) else {
             continue;
@@ -219,6 +219,12 @@ fn find_node(tree: &LoroTree, parent: &TreeParentId, block_id: &str) -> Option<T
 }
 
 fn import_block(tree: &LoroTree, parent: TreeParentId, block: &Value) -> Result<(), Error> {
+    let node = map_loro(tree.create(parent))?;
+    fill_block(tree, node, block)
+}
+
+/// Writes the id, type, lock keys, props and children of `block` into the tree node `node` (created by the caller).
+pub(crate) fn fill_block(tree: &LoroTree, node: TreeID, block: &Value) -> Result<(), Error> {
     let obj = block
         .as_object()
         .ok_or_else(|| shape("block must be an object"))?;
@@ -229,7 +235,6 @@ fn import_block(tree: &LoroTree, parent: TreeParentId, block: &Value) -> Result<
         .and_then(Value::as_object)
         .ok_or_else(|| shape("block props must be an object"))?;
 
-    let node = map_loro(tree.create(parent))?;
     let meta = map_loro(tree.get_meta(node))?;
     set_plain(&meta, "id", &json!(id))?;
     set_plain(&meta, "type", &json!(block_type))?;
@@ -250,7 +255,12 @@ fn import_block(tree: &LoroTree, parent: TreeParentId, block: &Value) -> Result<
 }
 
 /// Stores one prop by the rules of MAPPING section 2. A value that does not fit its text kind is stored as `p:`.
-fn import_prop(meta: &LoroMap, block_type: &str, key: &str, value: &Value) -> Result<(), Error> {
+pub(crate) fn import_prop(
+    meta: &LoroMap,
+    block_type: &str,
+    key: &str,
+    value: &Value,
+) -> Result<(), Error> {
     if block_type == "TableBlock" && key == "rows" && rows_ok(value) {
         return import_rows(meta, value);
     }
@@ -308,7 +318,7 @@ fn rows_ok(value: &Value) -> bool {
     })
 }
 
-fn export_block(tree: &LoroTree, node: TreeID) -> Result<Value, Error> {
+pub(crate) fn export_block(tree: &LoroTree, node: TreeID) -> Result<Value, Error> {
     let meta = map_loro(tree.get_meta(node))?;
     let mut block = Map::new();
     let mut props = Map::new();

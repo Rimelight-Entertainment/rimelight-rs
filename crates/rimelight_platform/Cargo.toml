@@ -16,6 +16,10 @@ unsafe_code = "deny"
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 
+[dependencies]
+# The window handle a native web view is attached to (Windows). Same major version as wry and Slint use.
+raw-window-handle = "0.6"
+
 # Win32 and WinRT, used only on Windows. Feature lists are the union of Rimelight Media's and Rimelight Space's.
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
@@ -55,7 +59,25 @@ windows = { version = "0.62", features = [
 # backend needs none, and the Linux portal and GTK backends are not built.
 rfd = { version = "0.15", default-features = false }
 
-# Android OS calls through JNI: the browser, the activity's intent and the Downloads folder.
+# Native child web view over a Slint window (Windows). Builds with `build_as_child` on Slint's window handle.
+wry = "0.57"
+
+# Android OS calls through JNI: the browser, the activity's intent, the Downloads folder and the web view.
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+# The Android context (the activity and the JavaVM) that android-activity publishes for the process.
+ndk-context = "0.1"
 slint = { version = "=1.18.1", features = ["backend-android-activity-06"] }
+
+# Web view as an iframe over the Slint canvas (wasm32).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "HtmlIFrameElement",
+    "CssStyleDeclaration",
+    "Node",
+] }
